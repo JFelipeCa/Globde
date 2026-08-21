@@ -7,6 +7,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
+# python:3.13-slim no trae la base de zonas horarias: sin tzdata la
+# variable TZ se ignora y el contenedor se queda en UTC (5 horas por
+# delante de Colombia), rechazando como "pasado" las citas de hoy.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
+ENV TZ=America/Bogota
+
 WORKDIR /app
 
 COPY pyproject.toml uv.lock .

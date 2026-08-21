@@ -1,9 +1,18 @@
 import os
+import time
 from functools import lru_cache
 
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# La barberia opera en Colombia. Si el proceso corre en UTC (el caso por
+# defecto en Docker y en la mayoria de servidores), datetime.now() va 5
+# horas adelantada y el backend rechaza como "pasado" citas de esta misma
+# tarde. Se fija la zona antes de que nadie lea la hora.
+os.environ.setdefault("TZ", "America/Bogota")
+if hasattr(time, "tzset"):  # no existe en Windows
+    time.tzset()
 
 
 def _bool(nombre: str, por_defecto: bool = False) -> bool:
