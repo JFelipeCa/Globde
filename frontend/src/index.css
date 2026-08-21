@@ -118,19 +118,32 @@
 
 /* Poste de barbería animado */
 @keyframes poste {
-  from { background-position: 0 0; }
-  to   { background-position: 0 -56px; }
+  from { background-position: left 0 top 0; }
+  to   { background-position: left 0 top -56px; }
 }
+
+/* El poste de barberia se pinta como FONDO del propio recuadro del logo y no
+   como un <span> hijo posicionado. Un hijo absoluto con animacion no siempre
+   lo recorta el 'overflow-hidden' del padre (el navegador lo sube a su propia
+   capa), y por eso asomaba un trozo negro fuera de la esquina redondeada en
+   la barra superior y en el pie de pagina. El fondo de un elemento SIEMPRE
+   queda recortado por su propio border-radius. */
 .poste-barberia {
-  background: repeating-linear-gradient(
+  background-image: repeating-linear-gradient(
     -50deg,
     #0A0A0A 0 10px,
     #F7F5F0 10px 20px,
     #D4AF37 20px 30px,
     #F7F5F0 30px 40px
   );
-  background-size: 100% 56px;
+  background-size: 6px 56px;
+  background-repeat: repeat-y;
+  background-position: left 0 top 0;
   animation: poste 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poste-barberia { animation: none; }
 }
 
 /* ---------- Animaciones de entrada ---------- */

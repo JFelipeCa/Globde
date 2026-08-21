@@ -67,8 +67,7 @@ export const Navbar: React.FC = () => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           {/* Marca */}
           <button onClick={() => ir('inicio')} className="group flex items-center gap-3">
-            <span className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-amber-400/40">
-              <span className="absolute left-0 top-0 h-full w-1.5 poste-barberia" />
+            <span className="poste-barberia relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-amber-400/40">
               <span className="font-heading text-xl font-black text-amber-400">G</span>
             </span>
             <span className="text-left leading-none">

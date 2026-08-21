@@ -243,8 +243,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <span className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#0F151C] ring-1 ring-amber-400/40">
-                <span className="absolute left-0 top-0 h-full w-1.5 poste-barberia" />
+              <span className="poste-barberia relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0F151C] ring-1 ring-amber-400/40">
                 <span className="font-heading text-xl font-black text-amber-400">G</span>
               </span>
               <span>
