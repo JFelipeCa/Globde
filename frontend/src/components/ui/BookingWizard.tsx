@@ -98,6 +98,32 @@ export const BookingWizard: React.FC = () => {
     setExtras((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   };
 
+  // Requisito que debe cumplirse para poder ABANDONAR cada paso. Se consulta
+  // desde el boton "Continuar" y desde el stepper de cabecera, para que no
+  // exista ninguna via de llegar al paso 4 sin haber elegido franja: esa fuga
+  // era la que producia el error "Faltan datos de la cita: hora_inicio".
+  const faltanteDelPaso = (n: number): string => {
+    if (n === 2 && !barberosDisponibles.some((b) => b.id_barbero === idBarbero))
+      return 'Elige un barbero que preste el servicio seleccionado.';
+    if (n === 3 && !horaInicio) return 'Selecciona una franja horaria disponible para continuar.';
+    return '';
+  };
+
+  // Solo se permite saltar a un paso si todos los anteriores estan completos.
+  const puedeIrA = (destino: number) =>
+    Array.from({ length: destino - 1 }, (_, i) => i + 1).every((n) => !faltanteDelPaso(n));
+
+  const irAPaso = (destino: number) => {
+    if (destino === paso) return;
+    if (destino < paso) { setError(''); return setPaso(destino); }
+    const primerFallo = Array.from({ length: destino - 1 }, (_, i) => i + 1)
+      .map((n) => ({ n, falta: faltanteDelPaso(n) }))
+      .find((x) => x.falta);
+    if (primerFallo) { setPaso(primerFallo.n); return setError(primerFallo.falta); }
+    setError('');
+    setPaso(destino);
+  };
+
   const siguiente = () => {
     setError('');
     // Si al cambiar de servicio el barbero elegido ya no lo presta, se reasigna.
@@ -106,12 +132,18 @@ export const BookingWizard: React.FC = () => {
       setIdBarbero(barberosDisponibles[0].id_barbero);
       setHoraInicio('');
     }
-    if (paso === 3 && !horaInicio) return setError('Selecciona una franja horaria disponible para continuar.');
+    const falta = faltanteDelPaso(paso);
+    if (falta) return setError(falta);
     setPaso((p) => Math.min(4, p + 1));
   };
 
   const confirmar = async () => {
     setError('');
+    // Ultima red de seguridad: nunca enviar al backend una cita incompleta.
+    for (const n of [1, 2, 3]) {
+      const falta = faltanteDelPaso(n);
+      if (falta) { setPaso(n); return setError(falta); }
+    }
     if (!nombre.trim() || !telefono.trim()) return setError('Completa tu nombre y teléfono de contacto.');
     const r = await crearCita({
       servicio_id: idServicio, barbero_id: idBarbero, fecha, hora_inicio: horaInicio,
@@ -159,10 +191,11 @@ export const BookingWizard: React.FC = () => {
           <div className="mt-4 grid grid-cols-4 gap-1.5">
             {PASOS.map((p, i) => (
               <button
-                key={p} onClick={() => i + 1 < paso && setPaso(i + 1)}
+                key={p} onClick={() => irAPaso(i + 1)}
+                disabled={i + 1 > paso && !puedeIrA(i + 1)}
                 className={`rounded-xl px-1 py-1.5 text-[11px] font-bold transition ${
                   paso === i + 1 ? 'bg-amber-400 text-[#1A1400] shadow' : paso > i + 1 ? 'bg-white/20 text-white' : 'bg-white/8 text-white/60'
-                }`}
+                } ${i + 1 > paso && !puedeIrA(i + 1) ? 'cursor-not-allowed opacity-60' : ''}`}
               >
                 <span className="flex items-center justify-center gap-1">
                   {paso > i + 1 ? <Check className="h-3 w-3" /> : <span>{i + 1}</span>}
@@ -215,6 +248,14 @@ export const BookingWizard: React.FC = () => {
           {paso === 2 && (
             <div className="anim-aparecer space-y-3">
               <h4 className="font-heading text-lg font-black text-[#EAF0F6]">Elige a tu barbero</h4>
+              {/* Si el catalogo tiene mas barberos que los mostrados, se avisa por que:
+                  sin este texto parecia que la lista se habia roto. */}
+              {barberosDisponibles.length > 0 && barberosDisponibles.length < barberos.length && (
+                <p className="text-xs font-semibold text-[#93A1B1]">
+                  Mostrando {barberosDisponibles.length} de {barberos.length} barberos: solo aparecen
+                  quienes realizan «{servicio.nombre}».
+                </p>
+              )}
               {!barberosDisponibles.length && (
                 <p className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-700">
                   Ningún barbero presta este servicio por ahora. Vuelve al paso anterior y elige otro.
@@ -409,7 +450,12 @@ export const BookingWizard: React.FC = () => {
           ) : <span />}
 
           {paso < 4 ? (
-            <button onClick={siguiente} className="btn-primario flex items-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-bold">
+            <button
+              onClick={siguiente}
+              disabled={Boolean(faltanteDelPaso(paso))}
+              title={faltanteDelPaso(paso) || undefined}
+              className="btn-primario flex items-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
+            >
               Continuar <ArrowRight className="h-4 w-4" />
             </button>
           ) : (

@@ -364,11 +364,25 @@ def crear_cita_v1(
     datos["hora_inicio"] = cuerpo.get("hora_inicio") or cuerpo.get("hora")
     datos.pop("hora", None)
 
+    # Nombres en lenguaje natural: este mensaje se le muestra tal cual a la
+    # persona que reserva, y "hora_inicio" no le dice nada a un cliente.
+    ETIQUETAS = {
+        "id_barbero": "el barbero",
+        "id_servicio": "el servicio",
+        "fecha": "la fecha",
+        "hora_inicio": "la hora de inicio",
+    }
     faltantes = [
-        c for c in ("id_barbero", "id_servicio", "fecha", "hora_inicio") if not datos.get(c)
+        ETIQUETAS[c]
+        for c in ("id_barbero", "id_servicio", "fecha", "hora_inicio")
+        if not datos.get(c)
     ]
     if faltantes:
-        raise DatosInvalidos("Faltan datos de la cita: " + ", ".join(faltantes))
+        if len(faltantes) == 1:
+            detalle = faltantes[0]
+        else:
+            detalle = ", ".join(faltantes[:-1]) + " y " + faltantes[-1]
+        raise DatosInvalidos(f"Para agendar la cita falta seleccionar {detalle}.")
 
     cita = citas_service.crear(datos, actor=actor, contexto=contexto)
 
