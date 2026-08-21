@@ -102,6 +102,32 @@ export const franjasVigentes = (franjas: string[], fecha: string): string[] => {
 };
 
 /** ¿Se cruzan dos rangos horarios? */
+// La base de datos guarda el icono de cada servicio como un nombre corto
+// ('scissors', 'razor'...), mientras que la interfaz pinta un emoji. Sin esta
+// traduccion el paso 1 del asistente mostraba la palabra en crudo.
+const EMOJI_POR_ICONO: Record<string, string> = {
+  scissors: '\u2702\uFE0F',
+  razor: '\uD83E\uDE92',
+  beard: '\uD83E\uDDD4',
+  combo: '\uD83D\uDC51',
+  sparkles: '\u2728',
+  child: '\uD83E\uDDD2',
+  barber: '\uD83D\uDC88',
+  hair: '\uD83D\uDC87',
+  color: '\uD83C\uDFA8',
+  spa: '\uD83D\uDC86',
+  wash: '\uD83E\uDDF4',
+  star: '\u2B50',
+};
+
+export const emojiDeIcono = (valor: unknown): string => {
+  const bruto = String(valor ?? '').trim();
+  if (!bruto) return '\u2702\uFE0F';
+  // Si ya viene un emoji desde los datos de ejemplo, se respeta tal cual.
+  if (!/^[a-z0-9_-]+$/i.test(bruto)) return bruto;
+  return EMOJI_POR_ICONO[bruto.toLowerCase()] ?? '\u2702\uFE0F';
+};
+
 export const haySolape = (
   aIni: string,
   aFin: string,

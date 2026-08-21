@@ -14,7 +14,7 @@ import {
 } from '../data/mockData';
 import {
   sumarMinutos, haySolape, generarCodigoOTP,
-  evaluarPassword, nivelPorPuntos, hoyISO,
+  evaluarPassword, nivelPorPuntos, hoyISO, emojiDeIcono,
 } from '../utils/helpers';
 import { apiRequest } from '../utils/apiClient';
 
@@ -180,7 +180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             precio: Number(s.precio ?? 20000),
             duracion_minutos: Number(s.duracion_minutos ?? 30),
             popular: Boolean(s.popular),
-            icono: String(s.icono ?? '✂️'),
+            icono: emojiDeIcono(s.icono),
             imagen_url: String(s.imagen_url ?? 'https://images.pexels.com/photos/34702982/pexels-photo-34702982.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp'),
             puntos_otorga: Number(s.puntos_otorga ?? 20),
             activo: s.activo !== false,
