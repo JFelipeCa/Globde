@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   X, Mail, Lock, User, Phone, ArrowRight, ShieldCheck, Sparkles,
-  Eye, EyeOff, Check, KeyRound, CircleAlert, MailCheck, RotateCcw,
+  Eye, EyeOff, Check, KeyRound, CircleAlert, MailCheck, RotateCcw, ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { evaluarPassword, validarCorreo, validarNombre, validarTelefono } from '../../utils/helpers';
@@ -222,28 +222,36 @@ export const AuthModal: React.FC = () => {
                 Entrar a mi cuenta <ArrowRight className="h-4 w-4" />
               </button>
 
-              <div className="rounded-2xl border border-white/8 bg-[#0F151C] p-3">
-                <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-[#93A1B1]">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Acceso rápido de demostración
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { t: 'Cliente', correo: 'cliente1@example.com', c: 'border-amber-400/30 bg-amber-400/10 text-amber-700' },
-                    { t: 'Barbero', correo: 'barbero1@globde.test', c: 'border-neutral-400/40 bg-neutral-500/10 text-neutral-800' },
-                    { t: 'Admin', correo: 'admin@globde.test', c: 'border-neutral-900/40 bg-neutral-900/10 text-neutral-900' },
-                  ].map((o) => (
-                    <button key={o.t} type="button"
-                      onClick={() => { setCorreo(o.correo); setContrasena(CLAVE_DEMO); setError(''); }}
-                      className={`rounded-xl border py-1.5 text-[11px] font-bold transition hover:brightness-125 ${o.c}`}>
-                      {o.t}
-                    </button>
-                  ))}
+              {/* Las cuentas de prueba son utiles para sustentar, pero ocupaban
+                  medio modal y le restaban seriedad al login. Ahora van
+                  plegadas: quien las necesite las abre en un clic. */}
+              <details className="group rounded-2xl border border-white/8 bg-[#0F151C]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-[11px] font-bold text-[#93A1B1] transition hover:text-[#C6D0DC]">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Cuentas de prueba
+                  </span>
+                  <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+                </summary>
+                <div className="px-3 pb-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { t: 'Cliente', correo: 'cliente1@example.com', c: 'border-amber-400/30 bg-amber-400/10 text-amber-700' },
+                      { t: 'Barbero', correo: 'barbero1@globde.test', c: 'border-neutral-400/40 bg-neutral-500/10 text-neutral-800' },
+                      { t: 'Admin', correo: 'admin@globde.test', c: 'border-neutral-900/40 bg-neutral-900/10 text-neutral-900' },
+                    ].map((o) => (
+                      <button key={o.t} type="button"
+                        onClick={() => { setCorreo(o.correo); setContrasena(CLAVE_DEMO); setError(''); }}
+                        className={`rounded-xl border py-1.5 text-[11px] font-bold transition hover:brightness-125 ${o.c}`}>
+                        {o.t}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10px] leading-snug text-[#5A6878]">
+                    Rellena el formulario con una cuenta real de la base de datos. Pulsa
+                    «Entrar a mi cuenta» para iniciar sesión de verdad.
+                  </p>
                 </div>
-                <p className="mt-2 text-[10px] leading-snug text-[#5A6878]">
-                  Rellena el formulario con una cuenta real de la base de datos. Pulsa
-                  «Entrar a mi cuenta» para iniciar sesión de verdad.
-                </p>
-              </div>
+              </details>
             </form>
           )}
 
