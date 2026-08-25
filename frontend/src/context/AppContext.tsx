@@ -17,6 +17,11 @@ import {
   evaluarPassword, nivelPorPuntos, hoyISO, emojiDeIcono,
 } from '../utils/helpers';
 import { apiRequest } from '../utils/apiClient';
+import {
+  guardarSesion,
+  limpiarSesion,
+  obtenerAccessToken,
+} from '../utils/session';
 
 interface ConfigReserva {
   servicioId?: number;
@@ -90,7 +95,6 @@ interface ContextoApp {
 }
 
 const Ctx = createContext<ContextoApp | undefined>(undefined);
-const STORAGE_KEY = 'globde_usuario';
 
 const celebrar = (colores = ['#0A0A0A', '#D4AF37', '#F0D68A', '#ffffff']) => {
   try {
@@ -100,18 +104,19 @@ const celebrar = (colores = ['#0A0A0A', '#D4AF37', '#F0D68A', '#ffffff']) => {
   }
 };
 
-function leerUsuarioGuardado(): Usuario | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Usuario) : null;
-  } catch {
-    return null;
-  }
-}
-
 function mapUsuarioBackend(payload: Record<string, unknown>): Usuario {
-  const puntos = typeof payload.puntos === 'number' ? payload.puntos : 150;
-  const rol = typeof payload.id_rol === 'number' ? payload.id_rol : ROL_CLIENTE;
+  const puntos =
+    typeof payload.puntos_saldo === 'number'
+      ? payload.puntos_saldo
+      : typeof payload.puntos === 'number'
+        ? payload.puntos
+        : 0;
+
+  const rol =
+    typeof payload.id_rol === 'number'
+      ? payload.id_rol
+      : ROL_CLIENTE;
+
   return {
     id_usuario: Number(payload.id_usuario ?? Date.now()),
     nombre: String(payload.nombre ?? 'Usuario Globde'),
@@ -121,15 +126,23 @@ function mapUsuarioBackend(payload: Record<string, unknown>): Usuario {
     fecha_creacion: String(payload.fecha_creacion ?? hoyISO()),
     puntos,
     nivel_fidelizacion: nivelPorPuntos(puntos),
-    avatar_url: String(payload.avatar_url ?? 'https://images.pexels.com/photos/804009/pexels-photo-804009.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=200&w=200&fm=webp'),
-    // PKs reales de `clientes` / `barberos`: el backend las exige al reservar.
-    id_cliente: payload.id_cliente != null ? Number(payload.id_cliente) : undefined,
-    id_barbero: payload.id_barbero != null ? Number(payload.id_barbero) : undefined,
+    avatar_url: String(
+      payload.avatar_url ??
+        'https://images.pexels.com/photos/804009/pexels-photo-804009.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=200&w=200&fm=webp',
+    ),
+    id_cliente:
+      payload.id_cliente != null
+        ? Number(payload.id_cliente)
+        : undefined,
+    id_barbero:
+      payload.id_barbero != null
+        ? Number(payload.id_barbero)
+        : undefined,
   };
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [usuario, setUsuario] = useState<Usuario | null>(() => leerUsuarioGuardado());
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [citas, setCitas] = useState<Cita[]>(CITAS);
   const [servicios, setServicios] = useState<Servicio[]>(SERVICIOS);
   const [barberos, setBarberos] = useState<Barbero[]>(BARBEROS);
@@ -149,14 +162,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [codigoRecuperacion, setCodigoRecuperacion] = useState<string | null>(null);
   const [correoRecuperacion, setCorreoRecuperacion] = useState<string | null>(null);
-
+  
   useEffect(() => {
-    if (usuario) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(usuario));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
+  const restaurarSesion = async () => {
+    // Si no hay token, el visitante no tiene sesión iniciada.
+    if (!obtenerAccessToken()) return;
+
+    try {
+      // El backend valida el JWT y devuelve el perfil real.
+      const perfil = await apiRequest<Record<string, unknown>>('/auth/me');
+
+      setUsuario(mapUsuarioBackend(perfil));
+    } catch {
+      // Si el token venció, es inválido o el backend lo rechaza,
+      // limpiamos la sesión del navegador.
+      limpiarSesion();
+      setUsuario(null);
     }
-  }, [usuario]);
+  };
+
+  void restaurarSesion();
+}, []);
 
   useEffect(() => {
     const cargarDatosBackend = async () => {
@@ -269,12 +295,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }));
         }
 
-        if (usuariosBackend.length && !usuario) {
-          const primerUsuario = mapUsuarioBackend(usuariosBackend[0] as Record<string, unknown>);
-          setUsuario(primerUsuario);
-        }
-      } catch {
-        notificar('Conexión de backend no disponible', 'Se mantendrá el modo demo con datos locales.', 'sistema');
+      } catch (error) {
+        // La app conserva los datos locales mientras se completa la migración
+        // // desde /api/datos hacia los endpoints v2.
+        console.warn('No se pudieron cargar los datos iniciales.', error);
       }
     };
 
@@ -330,24 +354,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else irA('panel-cliente');
   };
 
-  const login = async (correo: string, pwd: string): Promise<Resultado> => {
-    if (!correo.trim() || !pwd) return { ok: false, mensaje: 'Ingresa tu correo y contraseña.' };
-    try {
-      const perfil = await apiRequest<Record<string, unknown>>('/login', {
+  const login = async (
+  correo: string,
+  pwd: string,
+): Promise<Resultado> => {
+  if (!correo.trim() || !pwd) {
+    return {
+      ok: false,
+      mensaje: 'Ingresa tu correo y contraseña.',
+    };
+  }
+
+  try {
+    // Usa la API v2, que retorna tokens y el perfil.
+    const respuesta = await apiRequest<Record<string, unknown>>(
+      '/auth/login',
+      {
         method: 'POST',
-        body: JSON.stringify({ correo: correo.trim(), contrasena: pwd }),
-      });
-      const usuarioLogueado = mapUsuarioBackend(perfil);
-      setUsuario(usuarioLogueado);
-      setModalAuth(false);
-      irAPanel(usuarioLogueado.id_rol);
-      notificar(`¡Hola de nuevo, ${usuarioLogueado.nombre.split(' ')[0]}!`, 'Tu sesión se inició correctamente.', 'sistema');
-      return { ok: true, mensaje: 'Sesión iniciada' };
-    } catch (error) {
-      const mensaje = error instanceof Error ? error.message : 'No se pudo iniciar sesión';
-      return { ok: false, mensaje };
+        body: JSON.stringify({
+          correo: correo.trim(),
+          contrasena: pwd,
+        }),
+      },
+    );
+
+    const accessToken = String(respuesta.access_token ?? '');
+    const refreshToken = String(respuesta.refresh_token ?? '');
+
+    if (!accessToken || !refreshToken || !respuesta.usuario) {
+      throw new Error('El servidor no devolvió una sesión válida.');
     }
-  };
+
+    guardarSesion(accessToken, refreshToken);
+
+    const usuarioLogueado = mapUsuarioBackend(
+      respuesta.usuario as Record<string, unknown>,
+    );
+
+    setUsuario(usuarioLogueado);
+    setModalAuth(false);
+    irAPanel(usuarioLogueado.id_rol);
+
+    notificar(
+      `¡Hola de nuevo, ${usuarioLogueado.nombre.split(' ')[0]}!`,
+      'Tu sesión se inició correctamente.',
+      'sistema',
+    );
+
+    return { ok: true, mensaje: 'Sesión iniciada' };
+  } catch (error) {
+    const mensaje =
+      error instanceof Error
+        ? error.message
+        : 'No se pudo iniciar sesión';
+
+    return { ok: false, mensaje };
+  }
+};
 
   const registrar = async (nombre: string, correo: string, telefono: string, pwd: string): Promise<Resultado> => {
     const fuerza = evaluarPassword(pwd);
@@ -355,21 +418,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ok: false, mensaje: 'La contraseña no cumple los requisitos de seguridad.' };
     }
     try {
-      const response = await apiRequest<Record<string, unknown>>('/clientes', {
+      const response = await apiRequest<Record<string, unknown>>('/auth/registro', {
         method: 'POST',
         body: JSON.stringify({ nombre: nombre.trim(), correo: correo.trim().toLowerCase(), telefono: telefono.trim(), contrasena: pwd }),
       });
-      const nuevo: Usuario = {
-        id_usuario: Number(response.id_usuario ?? Date.now()),
-        nombre: String(response.nombre ?? nombre.trim()),
-        correo: String(response.correo ?? correo.trim().toLowerCase()),
-        telefono: String(response.telefono ?? telefono.trim()),
-        id_rol: ROL_CLIENTE,
-        fecha_creacion: hoyISO(),
-        puntos: 150,
-        nivel_fidelizacion: 'Plata',
-        avatar_url: 'https://images.pexels.com/photos/14564834/pexels-photo-14564834.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=200&w=200&fm=webp',
-      };
+      const accessToken = String(response.access_token ?? '');
+      const refreshToken = String(response.refresh_token ?? '');
+      
+      if (!accessToken || !refreshToken || !response.usuario) {
+        throw new Error('El servidor no devolvió una sesión válida.');
+      }
+      
+      guardarSesion(accessToken, refreshToken);
+      const nuevo = mapUsuarioBackend(
+        response.usuario as Record<string, unknown>,
+      );
+      
       setUsuario(nuevo);
       setModalAuth(false);
       irA('panel-cliente');
@@ -383,10 +447,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => {
-    setUsuario(null);
-    irA('inicio');
-    notificar('Sesión cerrada', 'Esperamos verte pronto de nuevo.', 'sistema');
-  };
+  limpiarSesion();
+  setUsuario(null);
+  irA('inicio');
+  notificar(
+    'Sesión cerrada',
+    'Esperamos verte pronto de nuevo.',
+    'sistema',
+  );
+};
 
   const solicitarCodigo = (correo: string): Resultado => {
     const codigo = generarCodigoOTP();
@@ -719,6 +788,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useApp = () => {
   const c = useContext(Ctx);
   if (!c) throw new Error('useApp debe usarse dentro de AppProvider');

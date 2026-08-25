@@ -70,7 +70,11 @@ export const BookingWizard: React.FC = () => {
     return new Date(a, m - 1, d).getDay() || 7;
   }, [fecha]);
 
-  const jornadaDelDia = barbero.horarios?.filter((h) => h.dia_semana === diaSemana) ?? [];
+  const jornadaDelDia = useMemo(
+    () =>
+      barbero.horarios?.filter((h) => h.dia_semana === diaSemana) ?? [],
+    [barbero.horarios, diaSemana],
+  );
   const barberoDescansa = Boolean(barbero.horarios?.length) && jornadaDelDia.length === 0;
 
   const franjas = useMemo(() => {
