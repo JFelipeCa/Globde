@@ -43,9 +43,9 @@ export const PanelCliente: React.FC = () => {
 
   const mostrarAviso = (t: string) => { setAviso(t); setTimeout(() => setAviso(''), 4500); };
 
-  const confirmarCancelacion = () => {
+  const confirmarCancelacion = async () => {
     if (!aCancelar) return;
-    const r = cancelarCita(aCancelar.id_cita, motivo);
+    const r = await cancelarCita(aCancelar.id_cita, motivo);
     setACancelar(null);
     mostrarAviso(r.ok ? `Cita ${aCancelar.codigo_reserva} cancelada. ${r.mensaje}` : r.mensaje);
   };
@@ -63,9 +63,9 @@ export const PanelCliente: React.FC = () => {
       })
     : [];
 
-  const guardarReprogramacion = () => {
+  const guardarReprogramacion = async () => {
     if (!aReprogramar || !nHora) { setError('Selecciona una nueva franja horaria.'); return; }
-    const r = editarCita(aReprogramar.id_cita, { fecha: nFecha, hora_inicio: nHora });
+    const r = await editarCita(aReprogramar.id_cita, { fecha: nFecha, hora_inicio: nHora });
     if (!r.ok) { setError(r.mensaje); return; }
     setAReprogramar(null); setError(''); setNHora('');
     mostrarAviso('Tu cita fue reprogramada correctamente.');

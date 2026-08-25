@@ -83,9 +83,9 @@ export const PanelAdmin: React.FC = () => {
       })
     : [];
 
-  const guardarEdicion = () => {
+  const guardarEdicion = async () => {
     if (!edit) return;
-    const r = editarCita(edit.id_cita, {
+    const r = await editarCita(edit.id_cita, {
       fecha: eFecha, hora_inicio: eHora, id_barbero: eBarbero,
       id_servicio: eServicio, observaciones: eObs, estado: eEstado,
     });

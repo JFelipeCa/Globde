@@ -78,10 +78,10 @@ interface ContextoApp {
   franjasOcupadas: (fecha: string, barberoId: number) => { inicio: string; fin: string }[];
   franjaDisponible: (fecha: string, barberoId: number, inicio: string, dur: number, ignorarId?: number) => boolean;
   crearCita: (d: DatosReserva) => Promise<Resultado>;
-  editarCita: (id: number, cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>) => Resultado;
+  editarCita: (id: number, cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>) => Promise<Resultado>;
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void;
   confirmarCita: (id: number) => void;
-  cancelarCita: (id: number, motivo: string) => Resultado;
+  cancelarCita: (id: number, motivo: string) => Promise<Resultado>;
   calificarCita: (id: number, rating: number, comentario: string, etiquetas: string[]) => void;
 
   canjearPremio: (p: PremioFidelidad) => Resultado;
@@ -138,6 +138,38 @@ function mapUsuarioBackend(payload: Record<string, unknown>): Usuario {
       payload.id_barbero != null
         ? Number(payload.id_barbero)
         : undefined,
+  };
+}
+
+// Convierte la respuesta CitaOut de la API v2 al tipo `Cita` que usa la UI.
+// La API devuelve ya los nombres (cliente_nombre, barbero_nombre, servicio_nombre),
+// asi que el mapeo no depende de tablas auxiliares del frontend.
+function mapCitaApi(c: Record<string, unknown>): Cita {
+  const inicio = String(c.hora_inicio ?? '12:00');
+  const fin = String(c.hora_fin ?? sumarMinutos(inicio, Number(c.servicio_duracion_minutos ?? 30)));
+  return {
+    id_cita: Number(c.id_cita ?? 0),
+    codigo_reserva: String(c.codigo_reserva ?? `GLB-${String(c.id_cita ?? 0).padStart(4, '0')}`),
+    id_cliente: Number(c.id_cliente ?? 0),
+    cliente_nombre: String(c.cliente_nombre ?? 'Cliente Globde'),
+    cliente_telefono: String(c.cliente_telefono ?? ''),
+    cliente_correo: String(c.cliente_correo ?? ''),
+    id_barbero: Number(c.id_barbero ?? 0),
+    barbero_nombre: String(c.barbero_nombre ?? 'Barbero Globde'),
+    id_servicio: Number(c.id_servicio ?? 1),
+    servicio_nombre: String(c.servicio_nombre ?? 'Servicio'),
+    precio_total: Number(c.precio_total ?? 0),
+    descuento_aplicado: Number(c.descuento_aplicado ?? 0),
+    puntos_canjeados: Number(c.puntos_canjeados ?? 0),
+    fecha: String(c.fecha ?? hoyISO()),
+    hora_inicio: inicio,
+    hora_fin: fin,
+    duracion_minutos: Number(c.servicio_duracion_minutos ?? 30),
+    estado: (c.estado as EstadoCita) ?? 'pendiente',
+    observaciones: String(c.observaciones ?? ''),
+    extras: [],
+    creado_en: String(c.creado_en ?? new Date().toLocaleString('es-CO')),
+    metodo_pago: c.estado_pago ? 'Pagado en el local' : 'Por definir en el local',
   };
 }
 
@@ -579,10 +611,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const editarCita = (
+  const editarCita = async (
     id: number,
     cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>
-  ): Resultado => {
+  ): Promise<Resultado> => {
     const actual = citas.find((c) => c.id_cita === id);
     if (!actual) return { ok: false, mensaje: 'No se encontró la cita.' };
     if (actual.estado === 'completada') return { ok: false, mensaje: 'Una cita completada no se puede editar; solo consultar su detalle.' };
@@ -598,63 +630,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ok: false, mensaje: 'El barbero ya tiene otra cita en ese rango horario.' };
     }
 
-    setCitas((prev) =>
-      prev.map((c) =>
-        c.id_cita === id
-          ? {
-              ...c,
-              fecha,
-              hora_inicio: inicio,
-              hora_fin: fin,
-              duracion_minutos: duracion,
-              id_barbero: barbero.id_barbero,
-              barbero_nombre: barbero.nombre,
-              id_servicio: servicio.id_servicio,
-              servicio_nombre: servicio.nombre,
-              precio_total: servicio.precio,
-              observaciones: cambios.observaciones ?? c.observaciones,
-              estado: cambios.estado ?? c.estado,
-            }
-          : c
-      )
-    );
-    notificar('Cita actualizada ✏️', `${actual.codigo_reserva} quedó para el ${fecha} de ${inicio} a ${fin}.`, 'cita');
-    return { ok: true, mensaje: 'Cita actualizada correctamente' };
+    try {
+      // Contrato v2: PUT /api/citas/{id} (CitaUpdate). Estado se gestiona por separado.
+      const respuesta = await apiRequest<Record<string, unknown>>(`/citas/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          id_barbero: barbero.id_barbero,
+          id_servicio: servicio.id_servicio,
+          fecha,
+          hora_inicio: inicio,
+          observaciones: cambios.observaciones ?? actual.observaciones,
+        }),
+      });
+      setCitas((prev) => prev.map((c) => (c.id_cita === id ? mapCitaApi(respuesta) : c)));
+      notificar('Cita actualizada ✏️', `${actual.codigo_reserva} quedó para el ${fecha} de ${inicio} a ${fin}.`, 'cita');
+      return { ok: true, mensaje: 'Cita actualizada correctamente' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo actualizar la cita';
+      return { ok: false, mensaje };
+    }
   };
 
+  // PATCH /api/citas/{id}/estado { estado, motivo }. La UI se sincroniza con la
+  // respuesta del servidor; si el backend lo rechaza, se notifica y no se miente.
   const cambiarEstadoCita = (id: number, estado: EstadoCita) => {
-    setCitas((prev) => prev.map((c) => (c.id_cita === id ? { ...c, estado } : c)));
     const cita = citas.find((c) => c.id_cita === id);
-    if (!cita) return;
-    const textos: Record<string, string> = {
+    const texto = ({
       confirmada: 'Cita confirmada correctamente.',
-      en_atencion: `${cita.cliente_nombre} está en el sillón.`,
+      en_atencion: `${cita?.cliente_nombre ?? 'El cliente'} está en el sillón.`,
       completada: 'Servicio finalizado con éxito.',
       cancelada: 'La cita fue cancelada.',
       no_asistio: 'Se registró la inasistencia del cliente.',
-    };
-    notificar('Estado actualizado', textos[estado] ?? 'Estado modificado.', 'cita');
+    } as Record<string, string>)[estado] ?? 'Estado modificado.';
+
+    apiRequest<Record<string, unknown>>(`/citas/${id}/estado`, {
+      method: 'PATCH',
+      body: JSON.stringify({ estado, motivo: null }),
+    })
+      .then((respuesta) => {
+        setCitas((prev) => prev.map((c) => (c.id_cita === id ? mapCitaApi(respuesta) : c)));
+        notificar('Estado actualizado', texto, 'cita');
+      })
+      .catch((error) => {
+        notificar('No se pudo actualizar', error instanceof Error ? error.message : 'El servidor rechazó el cambio de estado.', 'error');
+      });
   };
 
   const confirmarCita = (id: number) => {
-    setCitas((prev) => prev.map((c) => (c.id_cita === id ? { ...c, estado: 'confirmada' } : c)));
-    notificar('Cita confirmada ✅', 'Se notificó al cliente por correo y WhatsApp.', 'cita');
+    apiRequest<Record<string, unknown>>(`/citas/${id}/confirmar`, { method: 'POST' })
+      .then((respuesta) => {
+        setCitas((prev) => prev.map((c) => (c.id_cita === id ? mapCitaApi(respuesta) : c)));
+        notificar('Cita confirmada ✅', 'Se notificó al cliente por correo y WhatsApp.', 'cita');
+      })
+      .catch((error) => {
+        notificar('No se pudo confirmar', error instanceof Error ? error.message : 'El servidor rechazó la confirmación.', 'error');
+      });
   };
 
-  const cancelarCita = (id: number, motivo: string): Resultado => {
+  const cancelarCita = async (id: number, motivo: string): Promise<Resultado> => {
     const cita = citas.find((c) => c.id_cita === id);
     if (!cita) return { ok: false, mensaje: 'Cita no encontrada.' };
     if (cita.estado === 'completada') return { ok: false, mensaje: 'No se puede cancelar una cita ya completada.' };
 
-    setCitas((prev) =>
-      prev.map((c) =>
-        c.id_cita === id
-          ? { ...c, estado: 'cancelada', observaciones: `${c.observaciones ? c.observaciones + ' · ' : ''}Cancelada: ${motivo}` }
-          : c
-      )
-    );
-    notificar('Cita cancelada', `${cita.codigo_reserva} liberó su turno. Sin penalidad.`, 'cita');
-    return { ok: true, mensaje: 'Tu cita fue cancelada correctamente.' };
+    try {
+      // Contrato v2: POST /api/citas/{id}/cancelar { motivo }.
+      const respuesta = await apiRequest<Record<string, unknown>>(`/citas/${id}/cancelar`, {
+        method: 'POST',
+        body: JSON.stringify({ motivo }),
+      });
+      setCitas((prev) => prev.map((c) => (c.id_cita === id ? mapCitaApi(respuesta) : c)));
+      notificar('Cita cancelada', `${cita.codigo_reserva} liberó su turno. Sin penalidad.`, 'cita');
+      return { ok: true, mensaje: 'Tu cita fue cancelada correctamente.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo cancelar la cita';
+      return { ok: false, mensaje };
+    }
   };
 
   const calificarCita = (id: number, rating: number, comentario: string, etiquetas: string[]) => {
