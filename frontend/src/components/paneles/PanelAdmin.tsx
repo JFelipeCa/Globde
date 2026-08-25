@@ -93,13 +93,14 @@ export const PanelAdmin: React.FC = () => {
     setEdit(null); mostrar('Cita actualizada correctamente.');
   };
 
-  const crearServicio = (e: React.FormEvent) => {
+  const crearServicio = async (e: React.FormEvent) => {
     e.preventDefault();
-    agregarServicio({
+    const r = await agregarServicio({
       nombre: sNombre, categoria: sCat, descripcion: sDesc || 'Servicio profesional de barbería.',
       precio: Number(sPrecio), duracion_minutos: Number(sDur), icono: '✂️',
       puntos_otorga: Math.round(Number(sPrecio) / 1000), activo: true,
     });
+    if (!r.ok) { alert(r.mensaje); return; }
     setModalServ(false); setSNombre(''); setSDesc('');
   };
 

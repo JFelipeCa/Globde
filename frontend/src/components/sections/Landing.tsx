@@ -446,8 +446,8 @@ export const Fidelizacion: React.FC = () => {
     { n: 'Diamante', p: '500 pts', b: ['Corte anual gratis', '20% permanente'] },
   ];
 
-  const canjear = (p: PremioFidelidad) => {
-    const r = canjearPremio(p);
+  const canjear = async (p: PremioFidelidad) => {
+    const r = await canjearPremio(p);
     setMsg(r.mensaje);
     setTimeout(() => setMsg(''), 4500);
   };

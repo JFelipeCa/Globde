@@ -82,12 +82,12 @@ interface ContextoApp {
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void;
   confirmarCita: (id: number) => void;
   cancelarCita: (id: number, motivo: string) => Promise<Resultado>;
-  calificarCita: (id: number, rating: number, comentario: string, etiquetas: string[]) => void;
+  calificarCita: (id: number, rating: number, comentario: string, etiquetas: string[]) => Promise<Resultado>;
 
-  canjearPremio: (p: PremioFidelidad) => Resultado;
+  canjearPremio: (p: PremioFidelidad) => Promise<Resultado>;
   unirseListaEspera: (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => void;
-  agregarServicio: (s: Omit<Servicio, 'id_servicio'>) => void;
-  eliminarServicio: (id: number) => void;
+  agregarServicio: (s: Omit<Servicio, 'id_servicio'>) => Promise<Resultado>;
+  eliminarServicio: (id: number) => Promise<Resultado>;
   actualizarNivelBarbero: (id: number, nivel: Barbero['nivel'], pct: number) => void;
   alternarDisponibilidad: (id: number) => void;
   notificar: (titulo: string, mensaje: string, tipo?: Notificacion['tipo']) => void;
@@ -708,34 +708,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const calificarCita = (id: number, rating: number, comentario: string, etiquetas: string[]) => {
+  // POST /api/resenas { id_cita, calificacion, comentario }. La calificación
+  // queda persistida en el backend; la UI actualiza la reseña local optimista.
+  const calificarCita = async (id: number, rating: number, comentario: string, etiquetas: string[]): Promise<Resultado> => {
     const cita = citas.find((c) => c.id_cita === id);
-    setCitas((prev) => prev.map((c) => (c.id_cita === id ? { ...c, resena: { rating, comentario, etiquetas, fecha: hoyISO() } } : c)));
-    if (cita) {
-      setTestimonios((prev) => [
-        {
-          id: Date.now(),
-          nombre: cita.cliente_nombre,
-          rol: 'Cliente verificado',
-          texto: comentario,
-          rating,
-          barbero_favorito: cita.barbero_nombre,
-          avatar_url: usuario?.avatar_url ?? 'https://images.pexels.com/photos/804009/pexels-photo-804009.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=140&w=140&fm=webp',
-          corte: cita.servicio_nombre,
-          fecha: 'Reciente',
-        },
-        ...prev,
-      ]);
+    if (!cita) return { ok: false, mensaje: 'No se encontró la cita.' };
+    try {
+      await apiRequest<Record<string, unknown>>('/resenas', {
+        method: 'POST',
+        body: JSON.stringify({ id_cita: id, calificacion: rating, comentario }),
+      });
+      setCitas((prev) => prev.map((c) => (c.id_cita === id ? { ...c, resena: { rating, comentario, etiquetas, fecha: hoyISO() } } : c)));
+      if (cita) {
+        setTestimonios((prev) => [
+          {
+            id: Date.now(),
+            nombre: cita.cliente_nombre,
+            rol: 'Cliente verificado',
+            texto: comentario,
+            rating,
+            barbero_favorito: cita.barbero_nombre,
+            avatar_url: usuario?.avatar_url ?? 'https://images.pexels.com/photos/804009/pexels-photo-804009.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=140&w=140&fm=webp',
+            corte: cita.servicio_nombre,
+            fecha: 'Reciente',
+          },
+          ...prev,
+        ]);
+      }
+      celebrar(['#D4AF37', '#0A0A0A']);
+      notificar('¡Gracias por tu reseña! ⭐', 'Tu valoración se guardó correctamente.', 'puntos');
+      return { ok: true, mensaje: 'Reseña guardada' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo guardar la reseña';
+      notificar('No se pudo guardar la reseña', mensaje, 'error');
+      return { ok: false, mensaje };
     }
-    if (usuario) {
-      const puntos = usuario.puntos + 15;
-      setUsuario({ ...usuario, puntos, nivel_fidelizacion: nivelPorPuntos(puntos) });
-    }
-    celebrar(['#D4AF37', '#0A0A0A']);
-    notificar('¡Gracias por tu reseña! ⭐', 'Sumaste 15 puntos Globde a tu cuenta.', 'puntos');
   };
 
-  const canjearPremio = (p: PremioFidelidad): Resultado => {
+  const canjearPremio = async (p: PremioFidelidad): Promise<Resultado> => {
     if (!usuario) {
       setModalAuth('login');
       return { ok: false, mensaje: 'Inicia sesión para canjear tus puntos.' };
@@ -743,11 +753,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (usuario.puntos < p.costo_puntos) {
       return { ok: false, mensaje: `Te faltan ${p.costo_puntos - usuario.puntos} puntos para este beneficio.` };
     }
-    const puntos = usuario.puntos - p.costo_puntos;
-    setUsuario({ ...usuario, puntos, nivel_fidelizacion: nivelPorPuntos(puntos) });
-    celebrar(['#F0C75E', '#C79A2E', '#ffffff']);
-    notificar(`Premio canjeado ${p.icono}`, `Presenta el código GLB-${Math.floor(100 + Math.random() * 900)} en caja.`, 'puntos');
-    return { ok: true, mensaje: `¡Canjeaste "${p.titulo}"! Te quedan ${puntos} puntos.` };
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>('/puntos/canjear', {
+        method: 'POST',
+        body: JSON.stringify({ puntos: p.costo_puntos, descripcion: p.titulo }),
+      });
+      const saldo = Number(respuesta.puntos_saldo ?? usuario.puntos - p.costo_puntos);
+      setUsuario({
+        ...usuario,
+        puntos: saldo,
+        nivel_fidelizacion: String(respuesta.nivel_fidelizacion ?? nivelPorPuntos(saldo)) as Usuario['nivel_fidelizacion'],
+      });
+      celebrar(['#F0C75E', '#C79A2E', '#ffffff']);
+      notificar(`Premio canjeado ${p.icono}`, `Presenta el código GLB-${Math.floor(100 + Math.random() * 900)} en caja.`, 'puntos');
+      return { ok: true, mensaje: `¡Canjeaste "${p.titulo}"! Te quedan ${saldo} puntos.` };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo canjear el premio';
+      return { ok: false, mensaje };
+    }
   };
 
   const unirseListaEspera = (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => {
@@ -756,14 +779,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     notificar('Estás en la lista de espera ⏳', 'Te avisaremos apenas se libere un turno en tu franja.', 'sistema');
   };
 
-  const agregarServicio = (s: Omit<Servicio, 'id_servicio'>) => {
-    setServicios((prev) => [...prev, { ...s, id_servicio: Date.now() }]);
-    notificar('Servicio creado ✂️', `"${s.nombre}" ya aparece en el catálogo.`, 'sistema');
+  const agregarServicio = async (s: Omit<Servicio, 'id_servicio'>): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>('/servicios', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: s.nombre,
+          categoria: s.categoria,
+          descripcion: s.descripcion,
+          precio: s.precio,
+          duracion_minutos: s.duracion_minutos,
+          icono: s.icono,
+          imagen_url: s.imagen_url,
+          puntos_otorga: s.puntos_otorga,
+          popular: Boolean(s.popular),
+        }),
+      });
+      setServicios((prev) => [...prev, mapServicioApi(respuesta, prev.length)]);
+      notificar('Servicio creado ✂️', `"${s.nombre}" ya aparece en el catálogo.`, 'sistema');
+      return { ok: true, mensaje: 'Servicio creado' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo crear el servicio';
+      return { ok: false, mensaje };
+    }
   };
 
-  const eliminarServicio = (id: number) => {
-    setServicios((prev) => prev.filter((s) => s.id_servicio !== id));
-    notificar('Servicio eliminado', 'El servicio salió del catálogo público.', 'sistema');
+  const eliminarServicio = async (id: number): Promise<Resultado> => {
+    try {
+      await apiRequest<Record<string, unknown>>(`/servicios/${id}`, { method: 'DELETE' });
+      setServicios((prev) => prev.filter((s) => s.id_servicio !== id));
+      notificar('Servicio eliminado', 'El servicio salió del catálogo público.', 'sistema');
+      return { ok: true, mensaje: 'Servicio eliminado' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo eliminar el servicio';
+      return { ok: false, mensaje };
+    }
   };
 
   const actualizarNivelBarbero = (id: number, nivel: Barbero['nivel'], pct: number) => {

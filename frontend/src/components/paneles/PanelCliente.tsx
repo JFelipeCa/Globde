@@ -71,9 +71,10 @@ export const PanelCliente: React.FC = () => {
     mostrarAviso('Tu cita fue reprogramada correctamente.');
   };
 
-  const enviarResena = () => {
+  const enviarResena = async () => {
     if (!aCalificar) return;
-    calificarCita(aCalificar.id_cita, rating, comentario, ['Servicio Globde']);
+    const r = await calificarCita(aCalificar.id_cita, rating, comentario, ['Servicio Globde']);
+    if (!r.ok) return;
     setACalificar(null); setComentario('');
   };
 
