@@ -304,10 +304,12 @@ Se registran **solo si `ENABLE_LEGACY_ROUTES` está activo** en la configuració
 (`app/core/config.py`).
 
 > [!IMPORTANT]
-> Hoy el frontend consume **únicamente esas 4 rutas legacy** y no envía la
-> cabecera `Authorization`; el resto de pantallas se alimenta de
-> `frontend/src/data/mockData.ts`. Conectar el frontend a los endpoints v2 con
-> JWT es el principal trabajo pendiente de integración.
+> **Apagadas por defecto.** El frontend consume la **API v2** con JWT
+> (`Authorization: Bearer`), carga el catálogo desde `/servicios`, `/barberos`
+> y `/citas`, y ya no depende de `mockData.ts` ni de las rutas legacy. Estas 4
+> rutas quedan **desactivadas** por defecto (`ENABLE_LEGACY_ROUTES=false`):
+> `/api/datos` respondía sin autenticación exponiendo correos, teléfonos y
+> citas, lo que incumplía RNF-001 y el ítem OWASP A01.
 
 ---
 

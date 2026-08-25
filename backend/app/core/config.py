@@ -92,7 +92,11 @@ class Settings:
     NIVEL_DIAMANTE_DESDE: int = _int("NIVEL_DIAMANTE_DESDE", 1500)
 
     
-    ENABLE_LEGACY_ROUTES: bool = _bool("ENABLE_LEGACY_ROUTES", True)
+    # Rutas de compatibilidad v1 (/api/datos, /api/login, POST /api/clientes,
+    # POST /api/citas). La API v2 las reemplaza por completo; se dejan APAGADAS
+    # por defecto porque /api/datos respondia sin autenticacion exponiendo
+    # correos, telefonos y citas (incumplia RNF-001 y OWASP A01).
+    ENABLE_LEGACY_ROUTES: bool = _bool("ENABLE_LEGACY_ROUTES", False)
 
    
     ROL_ADMINISTRADOR: int = 1

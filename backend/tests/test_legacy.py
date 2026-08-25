@@ -15,6 +15,17 @@ PASSWORD = "Prueba2025*"
 
 pytestmark = pytest.mark.integracion
 
+# Las rutas de compatibilidad v1 quedan APAGADAS por defecto (B4 / RNF-001).
+# Si ENABLE_LEGACY_ROUTES no esta activo, se omiten los tests que solo prueban
+# esos endpoints legacy; los que comparten contrato con la v2 (POST /clientes,
+# POST /citas) continuan.
+from app.core.config import settings as _settings
+
+REQUIERE_LEGACY = pytest.mark.skipif(
+    not _settings.ENABLE_LEGACY_ROUTES,
+    reason="Rutas legacy desactivadas (ENABLE_LEGACY_ROUTES=false)",
+)
+
 
 def _correo() -> str:
     return f"qa-legacy-{uuid.uuid4().hex[:8]}@example.com"
@@ -63,6 +74,7 @@ def slot_libre(cliente_api, cliente_temporal):
 # GET /api/datos
 # ----------------------------------------------------------------------
 
+@REQUIERE_LEGACY
 class TestDatos:
     def test_responde_sin_autenticacion(self, cliente_api):
         assert cliente_api.get("/api/datos").status_code == 200
@@ -108,6 +120,7 @@ class TestDatos:
 # POST /api/login
 # ----------------------------------------------------------------------
 
+@REQUIERE_LEGACY
 class TestLoginV1:
     def test_devuelve_el_perfil_plano(self, cliente_api):
         r = cliente_api.post(
