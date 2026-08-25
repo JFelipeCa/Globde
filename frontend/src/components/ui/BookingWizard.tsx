@@ -40,13 +40,17 @@ export const BookingWizard: React.FC = () => {
     setHoraInicio(''); setError('');
   }, [reservaAbierta, configReserva, usuario]);
 
+  // El catálogo se carga de la API de forma asíncrona. Mientras no haya datos
+  // (o si el backend no responde) estas variables quedan llenas con un valor
+  // neutro para no romper el render del asistente.
   const servicio = servicios.find((s) => s.id_servicio === idServicio) ?? servicios[0];
   const barbero = barberos.find((b) => b.id_barbero === idBarbero) ?? barberos[0];
+  const catalogoListo = Boolean(servicios.length && barberos.length);
 
   const minutosExtras = extras.reduce((a, e) => a + (EXTRAS_SERVICIO.find((x) => x.id === e)?.minutos ?? 0), 0);
   const costoExtras = extras.reduce((a, e) => a + (EXTRAS_SERVICIO.find((x) => x.id === e)?.precio ?? 0), 0);
-  const duracionTotal = servicio.duracion_minutos + minutosExtras;
-  const subtotal = servicio.precio + costoExtras;
+  const duracionTotal = (servicio?.duracion_minutos ?? 30) + minutosExtras;
+  const subtotal = (servicio?.precio ?? 0) + costoExtras;
   const puntosUsables = usarPuntos && usuario && usuario.puntos >= 50 ? 50 : 0;
   const descuento = (puntosUsables / 100) * 10000;
   const total = Math.max(0, subtotal - descuento);
@@ -96,6 +100,23 @@ export const BookingWizard: React.FC = () => {
   const franjasTarde = franjas.filter((f) => Number(f.ini.split(':')[0]) >= 13);
 
   if (!reservaAbierta) return null;
+
+  // Si el catálogo aún no llegó del backend (o no hay servicios/barberos),
+  // mostramos un estado de carga en lugar de un asistente vacío que rompe.
+  if (!catalogoListo) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm">
+        <div className="anim-zoom card flex w-full max-w-md flex-col items-center gap-3 px-6 py-10 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 text-2xl">💈</div>
+          <h3 className="font-heading text-xl font-black text-[#EAF0F6]">Cargando el catálogo…</h3>
+          <p className="text-sm text-[#9AA8B5]">Estamos consultando los servicios y barberos disponibles.</p>
+          <button onClick={cerrarReserva} className="btn-primario mt-2 inline-flex rounded-2xl px-5 py-2.5 text-sm font-bold">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const alternarExtra = (id: string) => {
     setHoraInicio('');
