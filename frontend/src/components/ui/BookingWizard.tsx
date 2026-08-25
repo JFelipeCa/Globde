@@ -76,16 +76,16 @@ export const BookingWizard: React.FC = () => {
 
   const jornadaDelDia = useMemo(
     () =>
-      barbero.horarios?.filter((h) => h.dia_semana === diaSemana) ?? [],
-    [barbero.horarios, diaSemana],
+      barbero?.horarios?.filter((h) => h.dia_semana === diaSemana) ?? [],
+    [barbero?.horarios, diaSemana],
   );
-  const barberoDescansa = Boolean(barbero.horarios?.length) && jornadaDelDia.length === 0;
+  const barberoDescansa = Boolean(barbero?.horarios?.length) && jornadaDelDia.length === 0;
 
   const franjas = useMemo(() => {
     // Se generan solo las horas de la jornada real de ese barbero ese dia.
-    const base = barbero.horarios?.length
+    const base = barbero?.horarios?.length
       ? jornadaDelDia.flatMap((j) => generarFranjas(j.hora_inicio, j.hora_fin, 15, duracionTotal))
-      : generarFranjas(barbero.hora_apertura, barbero.hora_cierre, 15, duracionTotal);
+      : generarFranjas(barbero?.hora_apertura ?? '08:00', barbero?.hora_cierre ?? '20:00', 15, duracionTotal);
 
     // Si la fecha es hoy, no tiene sentido ofrecer horas que ya pasaron.
     return franjasVigentes(base, fecha)
