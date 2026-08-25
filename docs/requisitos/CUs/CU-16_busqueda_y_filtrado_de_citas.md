@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-16 |
-| **Historia de Usuario asociada** | [HU-16](../HUs/) |
+| **Historia de Usuario asociada** | [HU-016](../HUs/HU-016_b%C3%BAsqueda_y_filtrado_de_citas.md) |
 | **Módulo** | Disponibilidad y Agendamiento de Citas |
 | **Actores** | Administrador |
 

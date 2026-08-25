@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-06 |
-| **Historia de Usuario asociada** | [HU-06](../HUs/) |
+| **Historia de Usuario asociada** | [HU-006](../HUs/HU-006_desactivaci%C3%B3n_de_clientes.md) |
 | **Módulo** | Gestion de Clientes, Servicios y Barberos |
 | **Actores** | Administrador |
 

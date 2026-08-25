@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-15 |
-| **Historia de Usuario asociada** | [HU-15](../HUs/) |
+| **Historia de Usuario asociada** | [HU-015](../HUs/HU-015_cambio_de_estado_de_cita.md) |
 | **Módulo** | Disponibilidad y Agendamiento de Citas |
 | **Actores** | Barbero |
 

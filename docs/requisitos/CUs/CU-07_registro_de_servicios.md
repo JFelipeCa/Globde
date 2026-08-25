@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-07 |
-| **Historia de Usuario asociada** | [HU-07](../HUs/) |
+| **Historia de Usuario asociada** | [HU-007](../HUs/HU-007_registro_de_servicios_en_cat%C3%A1logo.md) |
 | **Módulo** | Gestion de Clientes, Servicios y Barberos |
 | **Actores** | Administrador |
 

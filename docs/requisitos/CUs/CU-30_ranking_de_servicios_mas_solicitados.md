@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-30 |
-| **Historia de Usuario asociada** | [HU-30](../HUs/) |
+| **Historia de Usuario asociada** | [HU-030](../HUs/HU-030_ranking_de_servicios_m%C3%A1s_solicitados.md) |
 | **Módulo** | Reportes Administrativos |
 | **Actores** | Administrador |
 

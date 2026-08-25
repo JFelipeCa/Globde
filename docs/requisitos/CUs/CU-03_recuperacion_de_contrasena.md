@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-03 |
-| **Historia de Usuario asociada** | [HU-03](../HUs/) |
+| **Historia de Usuario asociada** | [HU-003](../HUs/HU-003_recuperaci%C3%B3n_de_contrase%C3%B1a.md) |
 | **Módulo** | Autenticacion y Acceso |
 | **Actores** | Administrador, Barbero, Cliente |
 

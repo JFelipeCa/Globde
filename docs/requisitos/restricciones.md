@@ -13,8 +13,8 @@
 | ID | Restricción | Justificación / Impacto |
 | :--- | :--- | :--- |
 | **RT-001** | **Motor de Base de Datos MySQL 8.0+ / MariaDB** | El sistema utiliza dialecto MySQL con claves foráneas `InnoDB`, vistas SQL y tipos de datos `DECIMAL`, `DATE`, `TIME`. No es compatible con bases NoSQL sin un refactor completo. |
-| **RT-002** | **Backend en Python 3.12+ con FastAPI** | Se requiere Python 3.12 o superior para el soporte óptimo de type hints modernos, `pydantic` v2 y el servidor asíncrono `uvicorn`. |
-| **RT-003** | **Frontend en React 18+ con TypeScript en modo estricto** | Todo el código de interfaz debe compilar bajo TypeScript sin flags `noImplicitAny` desactivados para garantizar la integridad de tipos en los contratos de datos. |
+| **RT-002** | **Backend en Python 3.13+ con FastAPI** | `backend/pyproject.toml` declara `requires-python = ">=3.13"` y la imagen base es `python:3.13-slim`. Se requiere 3.13 o superior para el soporte óptimo de type hints modernos, `pydantic` v2 y el servidor asíncrono `uvicorn`. |
+| **RT-003** | **Frontend en React 19 con TypeScript en modo estricto** | Todo el código de interfaz debe compilar bajo TypeScript sin flags `noImplicitAny` desactivados para garantizar la integridad de tipos en los contratos de datos. |
 | **RT-004** | **Arquitectura REST desacoplada (CORS)** | El frontend y el backend operan como servicios independientes comunicados exclusivamente mediante peticiones HTTP/JSON sobre CORS configurado. |
 | **RT-005** | **Almacenamiento de secretos exclusivo en `.env`** | Queda estrictamente prohibido hardcodear contraseñas de bases de datos, claves maestras o tokens SMTP en el código fuente versionado en Git. |
 

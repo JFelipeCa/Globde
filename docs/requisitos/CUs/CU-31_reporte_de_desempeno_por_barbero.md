@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-31 |
-| **Historia de Usuario asociada** | [HU-31](../HUs/) |
+| **Historia de Usuario asociada** | [HU-031](../HUs/HU-031_reporte_de_desempe%C3%B1o_por_barbero.md) |
 | **Módulo** | Reportes Administrativos |
 | **Actores** | Administrador |
 

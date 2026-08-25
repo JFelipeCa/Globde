@@ -1,59 +1,268 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&display=swap');
+@import "tailwindcss";
 
-:root {
-  --negro:         #111111;
-  --negro-card:    #1a1a1a;
-  --negro-panel:   #222222;
-  --negro-borde:   #2a2a2a;
-  --blanco:        #ffffff;
-  --gris-claro:    #f7f7f7;
-  --gris:          #777777;
-  --gris-medio:    #aaaaaa;
+/* ============================================
+   GLOBDE · Sistema de Diseño Elegante
+   Paleta: Negro · Blanco · Dorado
+   ============================================ */
 
-  --cyan:          #00d4c8;
-  --cyan-dim:      rgba(0, 212, 200, 0.12);
-  --cyan-borde:    rgba(0, 212, 200, 0.3);
-  --dorado:        #c9a84c;
-  --dorado-dim:    rgba(201, 168, 76, 0.15);
-
-  --error:         #e05252;
-  --exito:         #52b788;
-  --info:          #6da8ff;
-  --advertencia:   #f0a500;
-  
-  --radio:         8px;
-  --radio-lg:      14px;
-  --sombra:        0 4px 24px rgba(0, 0, 0, 0.08);
-  --sombra-cyan:   0 0 24px rgba(0, 212, 200, 0.12);
-
-  font-family: 'Inter', Arial, sans-serif;
-  color: var(--negro);
-  background: var(--blanco);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@theme {
+  --color-carbon: #0A0A0A;
+  --color-superficie: #141414;
+  --color-elevado: #1C1C1C;
+  --color-hueso: #F7F5F0;
+  --color-turquesa: #D4AF37;
+  --color-turquesa-hondo: #B8941F;
+  --color-dorado: #E8C766;
+  --color-dorado-hondo: #C9A227;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    background-color: #0A0A0A;
+    color: #F7F5F0;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+    letter-spacing: -0.02em;
+  }
 }
 
-body {
-  min-height: 100vh;
-  margin: 0;
-  background-color: var(--blanco);
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0A0A0A; }
+::-webkit-scrollbar-thumb {
+  background: #3A3A3A;
+  border-radius: 99px;
+  border: 3px solid #0A0A0A;
+}
+::-webkit-scrollbar-thumb:hover { background: #D4AF37; }
+
+/* ---------- Superficies ---------- */
+.card {
+  background: #ffffff;
+  border: 1px solid rgba(10, 10, 10, .08);
+  border-radius: 1.5rem;
+  box-shadow: 0 18px 40px -28px rgba(10, 10, 10, .45);
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+.card-hover {
+  transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s, border-color .35s, background-color .35s;
+}
+.card-hover:hover {
+  transform: translateY(-6px);
+  background: #ffffff;
+  border-color: rgba(212, 175, 55, .45);
+  box-shadow: 0 28px 60px -30px rgba(212, 175, 55, .45);
 }
 
-#root {
-  min-height: 100vh;
+.glass {
+  background: rgba(255,255,255,.78);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255,255,255,.85);
 }
+
+/* ---------- Textos con degradado ---------- */
+.text-aqua {
+  background: linear-gradient(115deg, #2B2B2B 0%, #0A0A0A 50%, #2B2B2B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-oro {
+  background: linear-gradient(115deg, #F0D68A 0%, #D4AF37 55%, #B8941F 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---------- Botones ---------- */
+.btn-primario {
+  background: linear-gradient(120deg, #1A1A1A 0%, #0A0A0A 50%, #1A1A1A 100%);
+  color: #F7F5F0;
+  box-shadow: 0 14px 34px -14px rgba(10, 10, 10, .55);
+  border: 1px solid rgba(212, 175, 55, .35);
+  transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, filter .25s;
+}
+.btn-primario:hover { transform: translateY(-2px) scale(1.015); filter: brightness(1.15); box-shadow: 0 20px 44px -16px rgba(212,175,55,.45); }
+.btn-primario:active { transform: translateY(0) scale(.985); }
+
+.btn-oro {
+  background: linear-gradient(120deg, #F0D68A 0%, #D4AF37 50%, #B8941F 100%);
+  color: #1A1400;
+  box-shadow: 0 14px 34px -14px rgba(212, 175, 55, .7);
+  transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, filter .25s;
+}
+.btn-oro:hover { transform: translateY(-2px) scale(1.015); filter: brightness(1.06); }
+.btn-oro:active { transform: translateY(0) scale(.985); }
+
+/* ---------- Fondos decorativos ---------- */
+.malla-suave {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(212,175,55,.14), transparent 45%),
+    radial-gradient(circle at 88% 12%, rgba(10,10,10,.08), transparent 42%),
+    radial-gradient(circle at 70% 90%, rgba(212,175,55,.10), transparent 48%);
+}
+
+.patron-puntos {
+  background-image: radial-gradient(rgba(10,10,10,.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Poste de barbería animado */
+@keyframes poste {
+  from { background-position: left 0 top 0; }
+  to   { background-position: left 0 top -56px; }
+}
+
+/* El poste de barberia se pinta como FONDO del propio recuadro del logo y no
+   como un <span> hijo posicionado. Un hijo absoluto con animacion no siempre
+   lo recorta el 'overflow-hidden' del padre (el navegador lo sube a su propia
+   capa), y por eso asomaba un trozo negro fuera de la esquina redondeada en
+   la barra superior y en el pie de pagina. El fondo de un elemento SIEMPRE
+   queda recortado por su propio border-radius. */
+.poste-barberia {
+  background-image: repeating-linear-gradient(
+    -50deg,
+    #0A0A0A 0 10px,
+    #F7F5F0 10px 20px,
+    #D4AF37 20px 30px,
+    #F7F5F0 30px 40px
+  );
+  background-size: 6px 56px;
+  background-repeat: repeat-y;
+  background-position: left 0 top 0;
+  animation: poste 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poste-barberia { animation: none; }
+}
+
+/* ---------- Animaciones de entrada ---------- */
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.anim-aparecer { animation: aparecer .65s cubic-bezier(.22,1,.36,1) both; }
+
+@keyframes zoomEntrada {
+  from { opacity: 0; transform: scale(.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.anim-zoom { animation: zoomEntrada .35s cubic-bezier(.22,1,.36,1) both; }
+
+@keyframes deslizarDerecha {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.anim-derecha { animation: deslizarDerecha .45s cubic-bezier(.22,1,.36,1) both; }
+
+@keyframes flotar {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+.anim-flotar { animation: flotar 5s ease-in-out infinite; }
+
+@keyframes latido {
+  0%, 100% { opacity: .5; transform: scale(1); }
+  50%      { opacity: .85; transform: scale(1.06); }
+}
+.anim-latido { animation: latido 6s ease-in-out infinite; }
+
+@keyframes brilloBarra {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(220%); }
+}
+.brillo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(212,175,55,.45) 50%, transparent 80%);
+  animation: brilloBarra 2.6s ease-in-out infinite;
+}
+
+@keyframes sello {
+  0%   { transform: scale(.4) rotate(-12deg); opacity: 0; }
+  60%  { transform: scale(1.12) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.anim-sello { animation: sello .7s cubic-bezier(.22,1,.36,1) both; }
+
+.retraso-1 { animation-delay: .08s; }
+.retraso-2 { animation-delay: .16s; }
+.retraso-3 { animation-delay: .24s; }
+.retraso-4 { animation-delay: .32s; }
+.retraso-5 { animation-delay: .40s; }
+.retraso-6 { animation-delay: .48s; }
+
+/* Campos de formulario */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=date] { color-scheme: light; }
+select option { background: #ffffff; color: #0A0A0A; }
+
+/* ---------------------------------------------------------------------
+   Fondo principal claro con acentos negros y dorados. Estas reglas
+   remapean los colores originales sin modificar el comportamiento
+   ni la estructura de los componentes.
+   --------------------------------------------------------------------- */
+body { background: #FDFCFA; color: #0A0A0A; }
+
+.card {
+  background: #ffffff;
+  border-color: rgba(10, 10, 10, .08);
+  box-shadow: 0 18px 40px -28px rgba(10, 10, 10, .35);
+}
+.card-hover:hover {
+  background: #ffffff;
+  border-color: rgba(212, 175, 55, .45);
+  box-shadow: 0 28px 60px -30px rgba(212, 175, 55, .45);
+}
+.glass {
+  background: rgba(255,255,255,.82);
+  border-color: rgba(212,175,55,.25);
+}
+
+/* Superficies oscuras codificadas en componentes → blanco */
+[class*="bg-[#0B0F14]"],
+[class*="bg-[#0F151C]"],
+[class*="bg-[#141A21]"] { background-color: #ffffff !important; }
+
+/* Jerarquía de texto → negro / grises */
+[class*="text-[#EAF0F6]"] { color: #0A0A0A !important; }
+[class*="text-[#C6D0DC]"] { color: #3F3F3F !important; }
+[class*="text-[#93A1B1]"] { color: #6B6B6B !important; }
+[class*="text-[#6B7A8C]"] { color: #9A9A9A !important; }
+
+/* Bordes → gris claro con matiz dorado */
+[class*="border-white/5"],
+[class*="border-white/6"],
+[class*="border-white/8"],
+[class*="border-white/10"],
+[class*="border-white/12"] { border-color: #E7E2D3 !important; }
+
+/* Campos de formularios */
+input[class*="bg-[#0F151C]"],
+select[class*="bg-[#0F151C]"],
+textarea[class*="bg-[#0F151C]"] {
+  background-color: #ffffff !important;
+  color: #0A0A0A !important;
+  border-color: #E7E2D3 !important;
+}
+input[class*="bg-[#0F151C]"]::placeholder,
+textarea[class*="bg-[#0F151C]"]::placeholder { color: #9A9A9A !important; }
+select option { background: #ffffff; color: #0A0A0A; }
+input[type=date] { color-scheme: light; }
+
+/* Acentos turquesa → dorado (por si algún componente usa la clase directa) */
+[class*="text-teal"], [class*="text-turquesa"] { color: #B8941F !important; }
+[class*="bg-teal-50"] { background-color: #FBF6E7 !important; }
+[class*="border-teal-200"], [class*="border-teal-300"] { border-color: #E8C766 !important; }

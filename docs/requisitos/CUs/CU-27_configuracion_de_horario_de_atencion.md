@@ -1,5 +1,14 @@
 # CU-27 — Configuración de Horario de Atención
 
+> [!WARNING]
+> **Estado real (ver HU-027): parcial.**
+> El esquema define `horarios_barbero` (horario por barbero, endpoints
+> `POST/PUT/DELETE /barberos/{id}/horarios`), pero **no existe una tabla de
+> configuración global del negocio** ni endpoints para el horario comercial
+> único. Hoy el horario de atención es la unión de los horarios individuales.
+> Falta: tabla `configuracion_negocio` (o equivalente) + endpoints de lectura
+> y escritura + validación de que los horarios de barbero caigan dentro de él.
+
 [⬅ Volver al README principal](../../../README.md)
 
 ---
@@ -9,7 +18,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-27 |
-| **Historia de Usuario asociada** | [HU-27](../HUs/) |
+| **Historia de Usuario asociada** | [HU-027](../HUs/HU-027_configuraci%C3%B3n_de_horario_comercial.md) |
 | **Módulo** | Configuracion del Negocio |
 | **Actores** | Administrador |
 

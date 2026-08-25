@@ -16,9 +16,15 @@
 | **Nombre** | Reportes Financieros, Estadísticas y Exportación |
 | **Módulo** | Reportes y Analítica |
 | **Prioridad** | Alta |
-| **Estado** | Implementado |
+| **Estado** | Parcial |
 | **HUs Asociadas** | HU-29, HU-30, HU-31, HU-32, HU-33 |
 | **Fecha** | Febrero 2026 |
+
+> [!WARNING]
+> **Estado real (verificado contra el código, agosto 2026): parcial.**
+> Implementados los reportes de ingresos, ocupación, servicios populares,
+> desempeño por barbero y fidelización. Pendiente la **exportación a CSV/Excel**
+> (HU-032): no hay endpoint de descarga ni librería de generación de archivos.
 
 ---
 

@@ -1,5 +1,15 @@
 # CU-28 — Registro de Días No Laborales
 
+> [!WARNING]
+> **Estado real (ver HU-028): parcial.**
+> Existe la tabla `bloqueos_agenda` y los endpoints
+> `POST/DELETE /barberos/{id}/bloqueos`, pero la columna `id_barbero` es
+> `NOT NULL` y el bloqueo exige `hora_inicio`/`hora_fin`. Es decir: se puede
+> bloquear a **un** barbero en un rango horario, no cerrar el negocio completo
+> un día festivo. Falta: bloqueos de día completo a nivel de negocio
+> (`id_barbero` nullable o tabla `dias_no_laborales`) y su propagación a la
+> validación de disponibilidad.
+
 [⬅ Volver al README principal](../../../README.md)
 
 ---
@@ -9,7 +19,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-28 |
-| **Historia de Usuario asociada** | [HU-28](../HUs/) |
+| **Historia de Usuario asociada** | [HU-028](../HUs/HU-028_registro_de_d%C3%ADas_festivos_o_cierres.md) |
 | **Módulo** | Configuracion del Negocio |
 | **Actores** | Administrador |
 

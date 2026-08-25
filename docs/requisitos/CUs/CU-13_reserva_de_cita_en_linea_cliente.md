@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-13 |
-| **Historia de Usuario asociada** | [HU-13](../HUs/) |
+| **Historia de Usuario asociada** | [HU-013](../HUs/HU-013_reserva_de_cita_en_l%C3%ADnea_por_cliente.md) |
 | **Módulo** | Disponibilidad y Agendamiento de Citas |
 | **Actores** | Cliente |
 

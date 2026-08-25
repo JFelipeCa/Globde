@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-19 |
-| **Historia de Usuario asociada** | [HU-19](../HUs/) |
+| **Historia de Usuario asociada** | [HU-019](../HUs/HU-019_historial_de_citas_del_cliente.md) |
 | **Módulo** | Calificaciones, Historial y Notificaciones |
 | **Actores** | Cliente |
 

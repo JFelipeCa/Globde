@@ -1,0 +1,15 @@
+# Critico: sin esto, el "COPY . ." mete los node_modules de tu maquina
+# dentro de la imagen y pisa los que instalo el contenedor. Si tu equipo
+# es Windows o Mac, los binarios nativos (esbuild, rollup) no sirven en
+# Linux y Vite arranca roto.
+node_modules/
+dist/
+.vite/
+
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+.DS_Store

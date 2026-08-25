@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-10 |
-| **Historia de Usuario asociada** | [HU-10](../HUs/) |
+| **Historia de Usuario asociada** | [HU-010](../HUs/HU-010_asignaci%C3%B3n_de_horarios_de_trabajo.md) |
 | **Módulo** | Disponibilidad y Agendamiento de Citas |
 | **Actores** | Administrador, Barbero |
 

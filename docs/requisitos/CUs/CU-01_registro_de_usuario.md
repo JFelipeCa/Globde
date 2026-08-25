@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-01 |
-| **Historia de Usuario asociada** | [HU-01](../HUs/) |
+| **Historia de Usuario asociada** | [HU-001](../HUs/HU-001_registro_de_cuenta_cliente.md) |
 | **Módulo** | Autenticacion y Acceso |
 | **Actores** | Administrador |
 

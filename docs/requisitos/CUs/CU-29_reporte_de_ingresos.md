@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-29 |
-| **Historia de Usuario asociada** | [HU-29](../HUs/) |
+| **Historia de Usuario asociada** | [HU-029](../HUs/HU-029_reporte_anal%C3%ADtico_de_ingresos.md) |
 | **Módulo** | Reportes Administrativos |
 | **Actores** | Administrador |
 

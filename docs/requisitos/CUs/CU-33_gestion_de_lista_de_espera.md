@@ -1,5 +1,15 @@
 # CU-33 — Gestión de Lista de Espera
 
+> [!CAUTION]
+> **Estado real (ver HU-033): no implementada.**
+> No existe tabla de lista de espera en la migración
+> `dd2ee59368e5_esquema_inicial.py` (las 20 tablas del esquema no incluyen
+> ninguna), ni router, ni servicio. En el frontend solo hay menciones en datos
+> de maqueta.
+> Falta: migración con la tabla `lista_espera`, router y servicio con alta,
+> baja y consulta, y el disparador que avise al cliente cuando se libere un
+> cupo (se apoyaría en el módulo de notificaciones ya existente).
+
 [⬅ Volver al README principal](../../../README.md)
 
 ---
@@ -9,7 +19,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-33 |
-| **Historia de Usuario asociada** | [HU-33](../HUs/) |
+| **Historia de Usuario asociada** | [HU-033](../HUs/HU-033_gesti%C3%B3n_de_lista_de_espera.md) |
 | **Módulo** | Lista de Espera |
 | **Actores** | Cliente, Sistema |
 

@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-26 |
-| **Historia de Usuario asociada** | [HU-26](../HUs/) |
+| **Historia de Usuario asociada** | [HU-026](../HUs/HU-026_canje_de_puntos_por_descuentos.md) |
 | **Módulo** | Programa de Fidelizacion (Puntos) |
 | **Actores** | Administrador, Cliente |
 

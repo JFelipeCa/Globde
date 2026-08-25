@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-05 |
-| **Historia de Usuario asociada** | [HU-05](../HUs/) |
+| **Historia de Usuario asociada** | [HU-005](../HUs/HU-005_b%C3%BAsqueda_y_consulta_de_clientes.md) |
 | **Módulo** | Gestion de Clientes, Servicios y Barberos |
 | **Actores** | Administrador |
 

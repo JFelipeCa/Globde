@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-24 |
-| **Historia de Usuario asociada** | [HU-24](../HUs/) |
+| **Historia de Usuario asociada** | [HU-024](../HUs/HU-024_consulta_de_saldo_de_puntos.md) |
 | **Módulo** | Programa de Fidelizacion (Puntos) |
 | **Actores** | Cliente |
 

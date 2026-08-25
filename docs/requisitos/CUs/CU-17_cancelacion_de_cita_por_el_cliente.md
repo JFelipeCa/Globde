@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-17 |
-| **Historia de Usuario asociada** | [HU-17](../HUs/) |
+| **Historia de Usuario asociada** | [HU-017](../HUs/HU-017_cancelaci%C3%B3n_de_cita_por_cliente.md) |
 | **Módulo** | Disponibilidad y Agendamiento de Citas |
 | **Actores** | Cliente |
 

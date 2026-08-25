@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-21 |
-| **Historia de Usuario asociada** | [HU-21](../HUs/) |
+| **Historia de Usuario asociada** | [HU-021](../HUs/HU-021_alerta_de_cancelaci%C3%B3n_al_administrador.md) |
 | **Módulo** | Calificaciones, Historial y Notificaciones |
 | **Actores** | Sistema, Administrador |
 

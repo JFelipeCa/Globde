@@ -16,8 +16,18 @@
 | **Título** | Registro de días festivos o cierres |
 | **Módulo** | Configuración |
 | **Prioridad** | Media |
-| **Estado** | Implementada |
+| **Estado** | Parcial |
 | **RF Asociados** | RF-015 |
+
+> [!WARNING]
+> **Estado real (verificado contra el código, agosto 2026): parcial.**
+> Existe la tabla `bloqueos_agenda` y los endpoints
+> `POST/DELETE /barberos/{id}/bloqueos`, pero la columna `id_barbero` es
+> `NOT NULL` y el bloqueo exige `hora_inicio`/`hora_fin`. Es decir: se puede
+> bloquear a **un** barbero en un rango horario, no cerrar el negocio completo
+> un día festivo. Falta: bloqueos de día completo a nivel de negocio
+> (`id_barbero` nullable o tabla `dias_no_laborales`) y su propagación a la
+> validación de disponibilidad.
 
 ---
 
@@ -44,4 +54,4 @@
 ### CA-HU-028.3 — Control de accesos y persistencia
 - **Dado que** la acción se completa satisfactoriamente,
 - **cuando** se consulta el módulo correspondiente,
-- **entonces** la información debe reflejarse de forma consistente en el estado global de Redux y en la interfaz.
+- **entonces** la información debe reflejarse de forma consistente en el estado global de la aplicación (React Context API, `AppContext`) y en la interfaz.

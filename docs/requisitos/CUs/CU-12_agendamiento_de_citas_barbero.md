@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-12 |
-| **Historia de Usuario asociada** | [HU-12](../HUs/) |
+| **Historia de Usuario asociada** | [HU-012](../HUs/HU-012_agendamiento_manual_por_administrador.md) |
 | **Módulo** | Disponibilidad y Agendamiento de Citas |
 | **Actores** | Barbero |
 

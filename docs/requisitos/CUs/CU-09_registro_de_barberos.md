@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-09 |
-| **Historia de Usuario asociada** | [HU-09](../HUs/) |
+| **Historia de Usuario asociada** | [HU-009](../HUs/HU-009_registro_de_nuevos_barberos.md) |
 | **Módulo** | Gestion de Clientes, Servicios y Barberos |
 | **Actores** | Administrador |
 

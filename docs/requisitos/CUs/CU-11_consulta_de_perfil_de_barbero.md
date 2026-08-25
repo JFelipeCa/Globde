@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-11 |
-| **Historia de Usuario asociada** | [HU-11](../HUs/) |
+| **Historia de Usuario asociada** | [HU-011](../HUs/HU-011_visualizaci%C3%B3n_de_perfil_de_barbero.md) |
 | **Módulo** | Disponibilidad y Agendamiento de Citas |
 | **Actores** | Cliente |
 

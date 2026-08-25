@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-02 |
-| **Historia de Usuario asociada** | [HU-02](../HUs/) |
+| **Historia de Usuario asociada** | [HU-002](../HUs/HU-002_inicio_de_sesi%C3%B3n.md) |
 | **Módulo** | Autenticacion y Acceso |
 | **Actores** | Administrador, Barbero, Cliente |
 

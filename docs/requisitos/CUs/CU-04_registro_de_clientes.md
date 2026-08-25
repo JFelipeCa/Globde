@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-04 |
-| **Historia de Usuario asociada** | [HU-04](../HUs/) |
+| **Historia de Usuario asociada** | [HU-004](../HUs/HU-004_registro_de_clientes_por_personal.md) |
 | **Módulo** | Gestion de Clientes, Servicios y Barberos |
 | **Actores** | Administrador |
 

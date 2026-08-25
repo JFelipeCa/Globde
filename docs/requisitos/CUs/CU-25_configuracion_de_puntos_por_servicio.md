@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-25 |
-| **Historia de Usuario asociada** | [HU-25](../HUs/) |
+| **Historia de Usuario asociada** | [HU-025](../HUs/HU-025_configuraci%C3%B3n_de_puntos_por_servicio.md) |
 | **Módulo** | Programa de Fidelizacion (Puntos) |
 | **Actores** | Administrador |
 

@@ -1,9 +1,9 @@
 # Restricciones del Proyecto — Globde
 
 ## RT — Restricciones Técnicas
-- **RT-01:** Backend en Python 3.10+ (FastAPI).
-- **RT-02:** Frontend en React 18+ (TypeScript, Vite).
-- **RT-03:** Base de datos MySQL 8.0+ (mysql-connector).
+- **RT-01:** Backend en Python 3.13+ (FastAPI), dependencias gestionadas con `uv`.
+- **RT-02:** Frontend en React 19 + TypeScript estricto sobre Vite 7, dependencias con `pnpm`.
+- **RT-03:** Base de datos MySQL 8.0+ (`mysql-connector-python`), esquema versionado con Alembic.
 - **RT-04:** Containerización con Docker Compose.
 
 ## RH — Restricciones de Hardware
@@ -19,5 +19,11 @@
 - **RS-02:** No credenciales hardcodeadas (uso de .env).
 
 ## RD — Restricciones de Diseño
-- **RD-01:** Paleta corporativa estricta (Negro/Blanco/Cian/Dorado).
+- **RD-01:** Paleta corporativa estricta (Negro / Blanco / Dorado) y Tailwind CSS v4.
 - **RD-02:** Responsive obligatorio.
+
+---
+
+> [!NOTE]
+> Este archivo es un resumen. La versión detallada, con justificación de cada
+> restricción, está en [`docs/requisitos/restricciones.md`](requisitos/restricciones.md).

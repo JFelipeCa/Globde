@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-22 |
-| **Historia de Usuario asociada** | [HU-22](../HUs/) |
+| **Historia de Usuario asociada** | [HU-022](../HUs/HU-022_env%C3%ADo_de_notificaciones_masivas.md) |
 | **Módulo** | Calificaciones, Historial y Notificaciones |
 | **Actores** | Administrador |
 

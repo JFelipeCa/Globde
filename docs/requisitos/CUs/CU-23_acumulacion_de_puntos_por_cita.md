@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-23 |
-| **Historia de Usuario asociada** | [HU-23](../HUs/) |
+| **Historia de Usuario asociada** | [HU-023](../HUs/HU-023_acumulaci%C3%B3n_autom%C3%A1tica_de_puntos.md) |
 | **Módulo** | Programa de Fidelizacion (Puntos) |
 | **Actores** | Sistema, Barbero, Cliente |
 

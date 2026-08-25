@@ -20,7 +20,7 @@
 | **A03: Injection (SQLi / XSS)** | Crítico | ✅ Mitigado | Consultas 100% parametrizadas en MySQL; React escapa variables en el DOM |
 | **A04: Insecure Design** | Medio | ✅ Mitigado | Validación de no-traslape de citas y tiempos de expiración de 30 min |
 | **A05: Security Misconfiguration** | Medio | ✅ Mitigado | Variables de entorno en `.env`, CORS explícito y control de headers |
-| **A06: Vulnerable Components** | Medio | ✅ Mitigado | Dependencias con versiones fijas en `requirements.txt` y `package.json` |
+| **A06: Vulnerable Components** | Medio | ✅ Mitigado | Dependencias con versiones fijas en `pyproject.toml`/`uv.lock` y `package.json` |
 | **A07: Identification & Auth Failures** | Alto | ✅ Mitigado | Mensajes genéricos de error en login para evitar enumeración de usuarios |
 | **A08: Software & Data Integrity** | Medio | ✅ Mitigado | Esquemas de validación Pydantic y tipado estricto en TypeScript |
 | **A09: Security Logging & Monitoring**| Bajo | ✅ Mitigado | Captura y logging de excepciones con `HTTPException` en el backend |

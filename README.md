@@ -2,13 +2,13 @@
 
 # 💈 GLOBDE — Sistema Integral de Gestión de Citas y Barbería
 
-Sistema web fullstack para la gestión integral de citas, barberos, clientes, fidelización por puntos y reportes analíticos para barberías modernas. Desarrollado con **FastAPI (Python 3.12)** en el backend, **React 18 + TypeScript + Vite + Redux** en el frontend y **MySQL** como motor relacional.
+Sistema web fullstack para la gestión integral de citas, barberos, clientes, fidelización por puntos y reportes analíticos para barberías modernas. Desarrollado con **FastAPI (Python 3.13)** en el backend, **React 19 + TypeScript + Vite (Context API)** en el frontend y **MySQL** como motor relacional.
 
 ---
 
 ## 📝 Antes de empezar
 
-Este repositorio contiene la arquitectura completa, el backend API REST, el frontend SPA responsive y la base de datos relacional con vistas SQL del proyecto **GLOBDE**. Si es tu primer acercamiento al código, te recomendamos leer primero la [**Bitácora de seguimiento**](BITACORA.md), donde el equipo documentó fase por fase cómo se construyó el sistema, y la [**Arquitectura**](docs/referencia-tecnica/architecture.md), que explica cómo se comunican las tres capas.
+Este repositorio contiene la arquitectura completa, el backend API REST, el frontend SPA responsive y la base de datos relacional con vistas SQL del proyecto **GLOBDE**. Si es tu primer acercamiento al código, te recomendamos leer primero la [**Arquitectura**](docs/referencia-tecnica/architecture.md), que explica cómo se comunican las tres capas, y las [**historias de usuario y casos de uso**](docs/requisitos.md), que documentan qué se construyó y por qué.
 
 ---
 
@@ -39,12 +39,12 @@ Este repositorio contiene la arquitectura completa, el backend API REST, el fron
 
 | Capa | Tecnologías | Propósito |
 | :--- | :--- | :--- |
-| **Backend** | Python 3.12+, FastAPI, Uvicorn, Pydantic v2, bcrypt | API REST de alto rendimiento, validación de esquemas y hashing seguro |
-| **Frontend** | React 18+, TypeScript, Vite, Redux Toolkit, Axios | SPA reactiva, tipado estático estricto, gestión de estado y persistencia |
-| **Base de Datos** | MySQL 8.0+ / MariaDB 10.5+ | Persistencia relacional (12 tablas, 3 vistas SQL, integridad referencial) |
+| **Backend** | Python 3.13+, FastAPI, Uvicorn, Pydantic v2, bcrypt | API REST de alto rendimiento, validación de esquemas y hashing seguro |
+| **Frontend** | React 19, TypeScript, Vite, Context API, Tailwind CSS 4 | SPA reactiva, tipado estático estricto, gestión de estado y persistencia |
+| **Base de Datos** | MySQL 8.0+ / MariaDB 10.5+, Alembic | Persistencia relacional (20 tablas, 4 vistas SQL, integridad referencial) y esquema versionado en migraciones |
 | **Email (Dev/Prod)** | Python `smtplib` + MIME (Mailpit en local / SMTP TLS) | Envío de tokens seguros de recuperación de contraseña y alertas |
-| **Contenedores** | Docker 24+, Docker Compose v2 | Entorno aislado y reproducible para base de datos y backend |
-| **Estilos & UI** | CSS3 Moderno, Tokens semánticos, Flexbox/Grid | Diseño responsive mobile-first con temática barbería premium |
+| **Contenedores** | Docker 24+, Docker Compose v2 | Entorno aislado y reproducible para base de datos, backend y frontend |
+| **Estilos & UI** | Tailwind CSS v4 (`@tailwindcss/vite`), tokens `@theme`, `clsx` + `tailwind-merge` | Diseño responsive mobile-first con temática barbería premium |
 
 ---
 
@@ -54,13 +54,28 @@ Antes de comenzar, asegúrate de contar con el siguiente software instalado:
 
 | Herramienta | Versión mínima recomendada | Comando de verificación |
 | :--- | :--- | :--- |
-| **Python** | 3.12+ | `python3 --version` o `python --version` |
-| **Node.js** | 20 LTS+ | `node --version` |
-| **npm** o **pnpm** | npm 10+ / pnpm 9+ | `npm --version` o `pnpm --version` |
+| **Python** | 3.13+ | `python3 --version` o `python --version` |
+| **uv** | 0.5+ | `uv --version` |
+| **Node.js** | 22 LTS+ | `node --version` |
+| **pnpm** | 11+ | `pnpm --version` |
 | **Docker** | 24.0+ | `docker --version` |
 | **Docker Compose** | 2.20+ | `docker compose version` |
 | **MySQL Server** *(si no usas Docker)* | 8.0+ | `mysql --version` |
 | **Git** | 2.40+ | `git --version` |
+
+### Instalar `uv`
+
+El backend usa [uv](https://docs.astral.sh/uv/) para gestionar el entorno y las
+dependencias. No viene preinstalado en Codespaces ni en la mayoría de sistemas:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env      # o abre una terminal nueva
+uv --version
+```
+
+Si al correr `uv sync` obtienes `bash: uv: command not found`, es esto: falta
+instalarlo, o falta el `source` para que la terminal actual lo encuentre.
 
 > 🖥️ **Usuarios de Windows**: Se recomienda utilizar **Git Bash** o **WSL2** para ejecutar comandos con sintaxis bash uniforme.
 
@@ -70,58 +85,60 @@ Antes de comenzar, asegúrate de contar con el siguiente software instalado:
 
 ### Opción 1: Con Docker y Docker Compose (Recomendada)
 
-Levanta la base de datos MySQL inicializada y el backend FastAPI en contenedores coordinados:
+Levanta los tres servicios (MySQL, backend FastAPI y frontend Vite) en contenedores coordinados.
+El esquema de base de datos lo aplica **Alembic automáticamente** al arrancar el backend:
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/JFelipeCa/GLOBDE-.git
-cd GLOBDE-
+git clone https://github.com/JFelipeCa/Globde.git
+cd Globde
 
 # 2. Configurar variables de entorno del backend
 cd backend
 cp .env.example .env
-# Ajustar credenciales si es necesario (valores por defecto ya configurados para Docker)
+# OBLIGATORIO: definir DB_PASSWORD y JWT_SECRET (vienen vacías a propósito).
+#   python -c "import secrets; print(secrets.token_urlsafe(48))"   → JWT_SECRET
 cd ..
 
-# 3. Levantar contenedores en segundo plano
-docker compose up -d
+# 3. Levantar contenedores
+docker compose up -d --build
+# El entrypoint del backend espera a MySQL y ejecuta 'alembic upgrade head',
+# creando las 20 tablas, 4 vistas y los datos semilla. No hay que correr ningún .sql.
 
-# 4. Iniciar el Frontend (en terminal separada)
-cd frontend
-npm install
-npm run dev
-# → Frontend disponible en: http://localhost:5173
+# 4. Listo
+# → Frontend:  http://localhost:5173
+# → API/Docs:  http://localhost:8000/docs
 ```
+
+> [!IMPORTANT]
+> `DB_PASSWORD` y `JWT_SECRET` no tienen valor por defecto: el repositorio no incluye contraseñas.
+> Si `docker compose up` falla con *"define DB_PASSWORD en tu archivo .env"*, es que falta esa variable.
+> Guía detallada y troubleshooting: [`docs/setup/con-docker.md`](docs/setup/con-docker.md).
 
 ### Opción 2: Instalación Manual (Sin Docker)
 
 ```bash
 # 1. Base de datos MySQL local
-# Conéctate a tu servidor MySQL e importa el script con las 12 tablas y vistas:
-mysql -u root -p < database/database.sql
+# Crea la base vacía; el esquema lo generan las migraciones de Alembic:
+mysql -u root -p -e "CREATE DATABASE globde CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
 # 2. Backend (FastAPI)
 cd backend
-python -m venv venv
-# Activar entorno virtual:
-source venv/bin/activate        # En Linux/macOS y Windows Git Bash
-# venv\Scripts\activate         # En Windows CMD/PowerShell
-
-pip install -r requirements.txt
+uv sync                         # crea el entorno virtual e instala dependencias
 cp .env.example .env            # Configurar DB_HOST=127.0.0.1 y DB_PASSWORD
 
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run alembic upgrade head     # crea las 20 tablas, 4 vistas y los datos semilla
+
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 # → API disponible en: http://localhost:8000
 # → Documentación Swagger interactiva: http://localhost:8000/docs
 
 # 3. Frontend (React + Vite)
 cd ../frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 # → Aplicación disponible en: http://localhost:5173
 ```
-
-> 💡 **En Windows**: Puedes hacer doble clic en el script `Arrancar-Globde.bat` en la raíz para iniciar los servicios automáticamente.
 
 ---
 
@@ -133,59 +150,88 @@ npm run dev
 | **Backend REST API** | `http://localhost:8000` | Punto de entrada FastAPI con endpoints versionados `/api/` |
 | **Documentación Swagger** | `http://localhost:8000/docs` | Interfaz interactiva OpenAPI para pruebas de endpoints |
 | **Documentación ReDoc** | `http://localhost:8000/redoc` | Especificación técnica OpenAPI en formato ReDoc |
-| **Base de Datos MySQL** | `localhost:3306` | Base de datos `globde` con 12 tablas relacionales |
+| **Base de Datos MySQL** | `localhost:3307` | Base de datos `globde` (20 tablas + 4 vistas). El contenedor mapea `3307:3306` |
 
 ---
 
 ## 🧪 Testing y Calidad
 
-### Backend (Python)
+### Backend (Python + pytest)
+
 ```bash
 cd backend
-source venv/bin/activate
-# Verificación de sintaxis e importaciones
-python -m py_compile app/main.py
+uv sync                        # instala dependencias (incluye el grupo dev)
+uv run pytest                  # 132 pruebas
+uv run pytest --cov=app --cov-report=term-missing   # con cobertura (~70%)
 ```
 
+Con Docker, sin instalar nada en el host:
+
+```bash
+docker compose exec backend uv run pytest
+```
+
+> [!NOTE]
+> Las pruebas necesitan una base MySQL accesible. Sin ella, la mayoría se marcan como
+> `skipped` en lugar de fallar.
+
 ### Frontend (React + TypeScript)
+
 ```bash
 cd frontend
-# Verificación de tipos TypeScript estricto
-npx tsc --noEmit
-# Verificación de linting
-npm run lint
+pnpm install --frozen-lockfile
+pnpm exec tsc -b --force       # verificación de tipos estricta
+pnpm run lint                  # ESLint
+pnpm run build                 # build de producción
+pnpm audit --audit-level high  # auditoría de vulnerabilidades
 ```
+
+### Integración Continua
+
+Cada push a `feature/act-seg` y cada PR hacia `main` ejecutan
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml): levantan MySQL como servicio,
+aplican las migraciones, corren las 132 pruebas con cobertura y construyen el frontend.
+El workflow **falla si alguna prueba queda en `skipped`**, para que no pasen inadvertidas.
+El reporte HTML de cobertura queda como artifact `htmlcov` durante 14 días.
 
 ---
 
 ## 📁 Estructura del Proyecto
 
 ```
-GLOBDE-/
+Globde/
 ├── .github/
 │   └── copilot-instructions.md       # Reglas de arquitectura, código, seguridad y commits
+├── .github/workflows/ci.yml          # CI: pruebas con MySQL, cobertura y build del frontend
 ├── .gitignore                        # Archivos y secretos ignorados por Git
-├── Arrancar-Globde.bat               # Script automatizado para inicio en Windows
-├── AUDITORIA.md                      # Revisión de calidad, hallazgos y deuda técnica
-├── BITACORA.md                       # Bitácora de seguimiento del proceso de desarrollo
-├── docker-compose.yml                # Orquestación de MySQL + FastAPI Backend
+├── docker-compose.yml                # Orquestación de MySQL (3307) + Backend (8000) + Frontend (5173)
 ├── README.md                         # Documento maestro del proyecto (este archivo)
 ├── database/
-│   └── database.sql                  # Script DDL/DML: 12 tablas, 3 vistas SQL, roles iniciales
-├── backend/                          # Backend — FastAPI + Python 3.12
+│   └── database.sql                  # Referencia histórica del modelo (el esquema lo crea Alembic)
+├── backend/                          # Backend — FastAPI + Python 3.13
 │   ├── app/
-│   │   └── main.py                   # Endpoints REST, esquemas Pydantic, conexión MySQL, SMTP
+│   │   ├── main.py                   # Arranque de FastAPI, montaje de routers, CORS
+│   │   ├── routers/                  # 14 routers, uno por dominio (auth, citas, clientes...)
+│   │   ├── services/                 # Reglas de negocio + acceso a datos (SQL puro)
+│   │   ├── schemas/                  # Modelos Pydantic de entrada/salida
+│   │   └── core/                     # Config, seguridad (JWT/bcrypt), excepciones
+│   ├── alembic/                      # Migraciones: fuente de verdad del esquema de BD
+│   │   └── versions/                 # dd2ee59368e5 (20 tablas + 4 vistas) → b2c3d4e5f6a7 (semillas)
+│   ├── alembic.ini                   # Configuración de Alembic
+│   ├── docker-entrypoint.sh          # Espera a MySQL y ejecuta 'alembic upgrade head'
+│   ├── tests/                        # pytest (132 tests: unitarias, reglas de negocio, API)
 │   ├── .env.example                  # Plantilla de variables de entorno seguras
 │   ├── Dockerfile                    # Imagen Docker de producción backend
-│   └── requirements.txt              # Dependencias de Python fijadas
-├── frontend/                         # Frontend — React 18 + Vite + TypeScript
+│   ├── pyproject.toml                # Dependencias de Python (gestionadas con uv)
+│   └── uv.lock                       # Lockfile reproducible
+├── frontend/                         # Frontend — React 19 + Vite + TypeScript
 │   ├── src/
-│   │   ├── api/                      # Clientes HTTP Axios (`axiosClient.ts`, `globdeApi.ts`)
-│   │   ├── components/               # Componentes UI (Navbar, Header, Footer, Sidebar, Cards...)
-│   │   ├── pages/                    # Vistas (LandingPage, LoginPage, DashboardAdmin/Barbero/Cliente...)
-│   │   ├── store/                    # Redux Toolkit (authSlice, dataSlice, hooks, store)
-│   │   ├── types.ts                  # Contratos y tipos TypeScript globales
-│   │   └── utils/                    # Formateadores de fecha, moneda y estados
+│   │   ├── context/                  # AppContext: estado global vía React Context API
+│   │   ├── components/ui/            # Navbar, modales (Auth, Ticket), wizard de reservas
+│   │   ├── components/sections/      # Secciones de la landing (Hero, Servicios, Barberos...)
+│   │   ├── components/paneles/       # Dashboards por rol (Cliente, Barbero, Admin)
+│   │   ├── types/index.ts            # Contratos y tipos TypeScript globales
+│   │   └── utils/                    # apiClient (fetch), formateadores de fecha y moneda
 │   ├── package.json                  # Dependencias de Node.js
 │   └── vite.config.ts                # Configuración del bundler Vite
 └── docs/                             # Documentación Técnica Completa
@@ -197,7 +243,7 @@ GLOBDE-/
     │   └── restricciones.md          # Restricciones técnicas, de negocio, legales y operativas
     ├── referencia-tecnica/
     │   ├── architecture.md           # Arquitectura en 3 capas, flujo de datos y diagramas
-    │   ├── database-schema.md        # Esquema ER, diccionario de 12 tablas y 3 vistas SQL
+    │   ├── database-schema.md        # Esquema ER, diccionario de 20 tablas y 4 vistas SQL
     │   ├── api-endpoints.md          # Catálogo exhaustivo de endpoints, payloads y respuestas
     │   └── design-system.md          # Tokens de diseño, paleta, componentes y estados
     ├── conceptos/
@@ -216,8 +262,8 @@ GLOBDE-/
 
 | Aspecto | Convención adoptada |
 | :--- | :--- |
-| **Nomenclatura backend** | Endpoints REST en minúsculas en español/inglés estandarizado (`/api/citas`, `/api/login`), variables snake_case |
-| **Nomenclatura frontend** | Componentes en PascalCase (`DashboardAdminPage.tsx`), hooks en camelCase (`useAppDispatch`), tipos en PascalCase |
+| **Nomenclatura backend** | Endpoints REST en minúsculas en español/inglés estandarizado (`/api/citas`, `/api/auth/login`), variables snake_case |
+| **Nomenclatura frontend** | Componentes en PascalCase (`PanelAdmin.tsx`), hooks en camelCase (`useApp`), tipos en PascalCase |
 | **Encabezados pedagógicos** | Todos los archivos de documentación inician con `<!-- ¿Qué? ¿Para qué? ¿Impacto? -->` |
 | **Commits** | Conventional Commits con formato semántico y justificación: `feat(citas): agregar validacion de traslape` |
 | **Seguridad de contraseñas**| Hashing obligatorio con **bcrypt** (salt rounds integrados). Nunca en texto plano |
@@ -231,18 +277,18 @@ Accede a la documentación completa según la necesidad:
 
 | Documento | Ubicación | Descripción |
 | :--- | :--- | :--- |
-| **Bitácora de Seguimiento** | [`BITACORA.md`](BITACORA.md) | Registro fase por fase del proceso de construcción del sistema |
-| **Revisión de Calidad** | [`AUDITORIA.md`](AUDITORIA.md) | Estado real del proyecto, hallazgos, deuda técnica y prioridades |
-| **Matriz de Requisitos** | [`docs/requisitos.md`](docs/requisitos.md) | Matriz cruzada de trazabilidad RF ↔ HU ↔ CU ↔ Endpoints |
-| **Requisitos Funcionales (RFs)**| [`docs/requisitos/RFs/`](docs/requisitos/RFs/) | 16 Requisitos Funcionales con entradas, proceso, salidas y reglas |
+| **📚 Índice de documentación** | [`docs/README.md`](docs/README.md) | **Punto de entrada:** mapa de todos los documentos y su estado |
+| **Índice de Requisitos** | [`docs/requisitos.md`](docs/requisitos.md) | Las 33 HUs enlazadas con sus 33 CUs, agrupadas por módulo |
+| **Requisitos Funcionales (RFs)**| [`docs/requisitos/RFs/`](docs/requisitos/RFs/) | Requisitos funcionales con entradas, proceso, salidas y reglas ⚠️ dos series solapadas |
 | **Historias de Usuario (HUs)** | [`docs/requisitos/HUs/`](docs/requisitos/HUs/) | 33 HUs con criterios de aceptación `Dado que / Cuando / Entonces` |
 | **Casos de Uso (CUs)** | [`docs/requisitos/CUs/`](docs/requisitos/CUs/) | 33 CUs con secuencias normales, excepciones y diagramas Mermaid |
 | **Restricciones del Sistema** | [`docs/requisitos/restricciones.md`](docs/requisitos/restricciones.md) | Restricciones normativas (Ley 1581 Habeas Data), técnicas y de negocio |
+| **Migraciones de BD** | [`backend/alembic/README.md`](backend/alembic/README.md) | Uso diario de Alembic, crear migraciones y particularidades de MySQL |
 | **Arquitectura de Software** | [`docs/referencia-tecnica/architecture.md`](docs/referencia-tecnica/architecture.md) | Arquitectura en 3 capas, flujo cliente-servidor y decisiones técnicas |
-| **Esquema de Base de Datos** | [`docs/referencia-tecnica/database-schema.md`](docs/referencia-tecnica/database-schema.md) | Diccionario de 12 tablas, 3 vistas SQL, claves foráneas e índices |
-| **Referencia de API REST** | [`docs/referencia-tecnica/api-endpoints.md`](docs/referencia-tecnica/api-endpoints.md) | Especificación de endpoints con JSON requests, status HTTP y errores |
-| **Design System** | [`docs/referencia-tecnica/design-system.md`](docs/referencia-tecnica/design-system.md) | Paleta (`#000000`, `#00BCD4`, `#D4AF37`), tipografía y tokens UI |
-| **Patrones Arquitectónicos** | [`docs/conceptos/patrones-arquitectonicos.md`](docs/conceptos/patrones-arquitectonicos.md) | 10 patrones aplicados (MVC/Capas, DTO, Redux Store, Interceptor...) |
+| **Esquema de Base de Datos** | [`docs/referencia-tecnica/database-schema.md`](docs/referencia-tecnica/database-schema.md) | Diccionario de 20 tablas, 4 vistas SQL, claves foráneas e índices |
+| **Referencia de API REST** | [`docs/referencia-tecnica/api-endpoints.md`](docs/referencia-tecnica/api-endpoints.md) | Catálogo de los 117 endpoints: método, ruta, autorización, paginación y errores |
+| **Design System** | [`docs/referencia-tecnica/design-system.md`](docs/referencia-tecnica/design-system.md) | Tokens de Tailwind v4, paleta negro/blanco/dorado, clases propias y deuda de estilos |
+| **Patrones Arquitectónicos** | [`docs/conceptos/patrones-arquitectonicos.md`](docs/conceptos/patrones-arquitectonicos.md) | 10 patrones aplicados (MVC/Capas, DTO, Context API, Component-Driven UI...) |
 | **Seguridad OWASP Top 10** | [`docs/conceptos/owasp-top-10.md`](docs/conceptos/owasp-top-10.md) | Análisis y mitigación de vulnerabilidades OWASP 2021 en Globde |
 | **Accesibilidad WCAG / ARIA** | [`docs/conceptos/accesibilidad-aria-wcag.md`](docs/conceptos/accesibilidad-aria-wcag.md) | Cumplimiento de estándares de accesibilidad e inclusión web |
 | **Guía de Setup Docker** | [`docs/setup/con-docker.md`](docs/setup/con-docker.md) | Despliegue en contenedores, variables y resolución de problemas |
@@ -298,7 +344,7 @@ Este proyecto fue desarrollado en el marco del programa **Tecnólogo en Análisi
 
 1. **Análisis y Especificación**: Levantamiento de requisitos formales (RF, HU, CU, RNF, Restricciones).
 2. **Diseño de Software y Datos**: Modelado Entidad-Relación, normalización de base de datos y arquitectura en capas.
-3. **Construcción y Desarrollo**: Implementación backend con FastAPI y frontend con React + Redux + TypeScript.
+3. **Construcción y Desarrollo**: Implementación backend con FastAPI y frontend con React + Context API + TypeScript.
 4. **Seguridad y Calidad**: Hashing de credenciales, mitigación de riesgos OWASP, accesibilidad WCAG y manejo de excepciones.
 
 ---
@@ -324,7 +370,7 @@ Este proyecto está licenciado bajo [Creative Commons Atribución-NoComercial-Co
 | :--- | :--- |
 | **Laura** | Diseño y Administración de Base de Datos (DBA / Data Modeling) |
 | **Juan Felipe Cañón** | Desarrollo Backend (FastAPI, Integración MySQL, Autenticación y Endpoints) |
-| **Dayanna Patiño** | Desarrollo Frontend (React, TypeScript, Redux Toolkit, UI/UX & Responsive) |
+| **Dayanna Patiño** | Desarrollo Frontend (React, TypeScript, Context API, UI/UX & Responsive) |
 
 ---
 *Globde — Excelencia en la gestión de servicios y barbería.*

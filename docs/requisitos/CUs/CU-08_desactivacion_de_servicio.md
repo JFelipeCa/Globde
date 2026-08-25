@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-08 |
-| **Historia de Usuario asociada** | [HU-08](../HUs/) |
+| **Historia de Usuario asociada** | [HU-008](../HUs/HU-008_desactivaci%C3%B3n_temporal_de_servicios.md) |
 | **Módulo** | Gestion de Clientes, Servicios y Barberos |
 | **Actores** | Administrador |
 

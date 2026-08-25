@@ -1,5 +1,16 @@
 # CU-32 — Exportación de Reportes
 
+> [!CAUTION]
+> **Estado real (ver HU-032): no implementada.**
+> No existe ningún endpoint de exportación en `backend/app/routers/reportes.py`
+> (los disponibles son `/dashboard`, `/dashboard/admin`, `/ingresos`,
+> `/ingresos/barberos`, `/citas`, `/ocupacion`, `/servicios-populares`,
+> `/fidelizacion`), y `backend/pyproject.toml` no declara ninguna librería de
+> generación de CSV/Excel (`openpyxl`, `pandas`).
+> Falta: endpoint que devuelva `StreamingResponse` con `text/csv` reutilizando
+> las consultas ya existentes de `reportes_service`, y el botón de descarga en
+> el panel de administración.
+
 [⬅ Volver al README principal](../../../README.md)
 
 ---
@@ -9,7 +20,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-32 |
-| **Historia de Usuario asociada** | [HU-32](../HUs/) |
+| **Historia de Usuario asociada** | [HU-032](../HUs/HU-032_exportaci%C3%B3n_de_reportes_a_excel_csv.md) |
 | **Módulo** | Reportes Administrativos |
 | **Actores** | Administrador |
 

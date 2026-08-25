@@ -20,12 +20,12 @@
    ```
 3. **Separación Estricta de Responsabilidades**:
    - Backend (`backend/`): Expone exclusivamente API REST en FastAPI, valida esquemas con Pydantic y gestiona datos en MySQL.
-   - Frontend (`frontend/`): Aplicación SPA en React + Vite + TypeScript con Redux Toolkit para estado centralizado.
-   - Base de Datos (`database/`): Scripts DDL/DML, vistas y procedimientos almacenados en MySQL.
+   - Frontend (`frontend/`): Aplicación SPA en React 19 + Vite 7 + TypeScript, con **React Context API** (`src/context/AppContext.tsx`) para el estado centralizado.
+   - Base de Datos: el esquema se versiona con **Alembic** en `backend/alembic/versions/`. `database/database.sql` es solo referencia histórica y no se ejecuta.
 
 ---
 
-## 2. Convenciones de Backend (FastAPI + Python 3.12)
+## 2. Convenciones de Backend (FastAPI + Python 3.13)
 
 - **Tipado Estricto**: Utilizar type hints en todas las funciones y endpoints (`def obtener_citas(id_barbero: int) -> list[dict]:`).
 - **Validación con Pydantic**: Todo request body debe tener su correspondiente clase que herede de `pydantic.BaseModel`.
@@ -42,14 +42,19 @@
 
 ---
 
-## 3. Convenciones de Frontend (React 18 + TypeScript + Redux)
+## 3. Convenciones de Frontend (React 19 + TypeScript + Context API)
 
-- **TypeScript Estricto**: No utilizar `any`. Definir contratos de interfaz claros en `types.ts` o en el módulo correspondiente.
-- **Manejo de Estado Global**:
-  - `authSlice.ts`: Almacena el usuario actual, token/sesión y rol (`id_rol`: 1=Admin, 2=Barbero, 3=Cliente).
-  - `dataSlice.ts`: Almacena colecciones de citas, barberos, servicios y clientes para sincronización rápida.
-- **Componentes Modulares**: Separar componentes reutilizables en `src/components/` y vistas de página en `src/pages/`.
-- **Protección de Rutas**: Utilizar el componente `ProtectedRoute.tsx` envolviendo las rutas que requieran autenticación o roles específicos.
+- **TypeScript Estricto**: No utilizar `any`. Definir contratos de interfaz claros en `src/types/index.ts` o en el módulo correspondiente.
+- **Manejo de Estado Global**: todo el estado compartido vive en `src/context/AppContext.tsx`
+  (usuario actual, sesión, rol `id_rol` 1=Admin / 2=Barbero / 3=Cliente, vista activa y colecciones
+  de citas, barberos, servicios y clientes). Se consume con `useContext`. **No se usa Redux.**
+- **Componentes Modulares**: `src/components/ui/` para componentes reutilizables,
+  `src/components/paneles/` para las vistas por rol y `src/components/sections/` para secciones de la landing.
+- **Navegación**: la aplicación **no usa React Router**; `App.tsx` conmuta la vista según el estado
+  de `AppContext`. El control de acceso por rol se resuelve ahí mismo, no con un `ProtectedRoute`.
+- **Cliente HTTP**: usar `src/utils/apiClient.ts` (basado en `fetch`, lee `VITE_API_URL`). No se usa Axios.
+- **Estilos**: Tailwind CSS v4 vía `@tailwindcss/vite`; los tokens se declaran con `@theme` en `src/index.css`.
+  Preferir clases utilitarias y tokens del tema antes que valores arbitrarios `[#hex]` o `!important`.
 - **Tokens de Color y Estilos**: Respetar la paleta oficial de Globde:
   - Dark Surface / Negro: `#000000` / `#111827`
   - Cian Acento: `#00BCD4`
@@ -86,5 +91,21 @@ Cada commit en el repositorio debe seguir el formato semántico:
 1. El archivo `.env` está estrictamente ignorado por `.gitignore` y **NUNCA debe ser comiteado**.
 2. Siempre mantener actualizado `.env.example` con los nombres de todas las variables requeridas y valores de prueba ficticios:
    - `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-   - `FRONTEND_URL`, `RESET_TOKEN_MINUTES`
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_STARTTLS`
+   - `JWT_SECRET`, `JWT_ALGORITHM`, `ACCESS_TOKEN_MINUTES`, `REFRESH_TOKEN_DAYS`, `BCRYPT_ROUNDS`
+   - `APP_ENV`, `DEBUG`, `FRONTEND_URL`, `CORS_ORIGINS`, `RESET_TOKEN_MINUTES`
+   - `EMAIL_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_STARTTLS`
+3. `DB_PASSWORD` y `JWT_SECRET` se entregan **vacías** en `.env.example` a propósito: no debe existir
+   ninguna contraseña por defecto en el repositorio. `docker-compose.yml` falla de forma explícita si
+   `DB_PASSWORD` no está definida.
+
+---
+
+## 6. Base de Datos y Migraciones
+
+1. **Alembic es la única fuente de verdad del esquema.** Nunca editar `database/database.sql` para
+   introducir un cambio: crear una migración con `alembic revision -m "..."`.
+2. Toda migración debe implementar `upgrade()` **y** `downgrade()`. En MySQL, el `downgrade` debe
+   envolverse con `SET FOREIGN_KEY_CHECKS=0` antes de los `drop_table`.
+3. Las vistas SQL se crean con `op.execute("CREATE OR REPLACE VIEW ...")` dentro de la migración.
+4. MySQL no revierte DDL: si una migración falla a mitad, recrear la base (`docker compose down -v`)
+   antes de reintentar.

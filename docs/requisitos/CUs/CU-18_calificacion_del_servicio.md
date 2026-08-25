@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-18 |
-| **Historia de Usuario asociada** | [HU-18](../HUs/) |
+| **Historia de Usuario asociada** | [HU-018](../HUs/HU-018_calificaci%C3%B3n_del_servicio_recibido.md) |
 | **Módulo** | Calificaciones, Historial y Notificaciones |
 | **Actores** | Cliente |
 

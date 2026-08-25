@@ -16,9 +16,15 @@
 | **Nombre** | Configuración de Horarios del Negocio y Festivos |
 | **Módulo** | Configuración del Sistema |
 | **Prioridad** | Media |
-| **Estado** | Implementado |
+| **Estado** | Parcial |
 | **HUs Asociadas** | HU-27, HU-28 |
 | **Fecha** | Febrero 2026 |
+
+> [!WARNING]
+> **Estado real (verificado contra el código, agosto 2026): parcial.**
+> Implementado el horario **por barbero** (`horarios_barbero`, `bloqueos_agenda`).
+> Pendiente el horario **comercial global** del negocio (HU-027) y los cierres de
+> día completo por festivo (HU-028).
 
 ---
 

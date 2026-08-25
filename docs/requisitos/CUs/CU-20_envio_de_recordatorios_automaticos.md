@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-20 |
-| **Historia de Usuario asociada** | [HU-20](../HUs/) |
+| **Historia de Usuario asociada** | [HU-020](../HUs/HU-020_recordatorio_autom%C3%A1tico_de_cita.md) |
 | **Módulo** | Calificaciones, Historial y Notificaciones |
 | **Actores** | Sistema (proceso automático), Cliente |
 

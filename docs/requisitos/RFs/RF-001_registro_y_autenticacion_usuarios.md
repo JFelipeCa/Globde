@@ -43,7 +43,7 @@ El sistema debe permitir que cualquier usuario cliente se registre de forma aut�
 ## Proceso
 
 1. El usuario accede a la vista de Login (`/login`) o Registro y diligencia los campos solicitados.
-2. El frontend valida la integridad de los campos antes de enviar la petición HTTP con Axios.
+2. El frontend valida la integridad de los campos antes de enviar la petición HTTP con `apiClient.ts` (basado en `fetch`).
 3. El backend recibe la solicitud en el endpoint correspondiente (`POST /api/login` o `POST /api/clientes`).
 4. En caso de registro:
    a. Verifica que el `email` no exista previamente en la tabla `usuarios`.
@@ -55,7 +55,7 @@ El sistema debe permitir que cualquier usuario cliente se registre de forma aut�
    b. Compara el hash de la contraseña mediante `bcrypt.checkpw(contrasena, contrasena_hash)`.
    c. Si coincide, recupera el rol y los datos complementarios del usuario.
 6. El backend retorna el objeto del usuario autenticado con código HTTP 200/201.
-7. El frontend almacena el usuario en el estado global de Redux (`authSlice`) y redirige al dashboard correspondiente según el rol.
+7. El frontend almacena el usuario en el estado global de la aplicación (`AppContext`) y muestra el panel correspondiente según el rol.
 
 ---
 

@@ -9,7 +9,7 @@
 | Campo | Valor |
 |---|---|
 | **ID** | CU-14 |
-| **Historia de Usuario asociada** | [HU-14](../HUs/) |
+| **Historia de Usuario asociada** | [HU-014](../HUs/HU-014_visualizaci%C3%B3n_de_agenda_del_barbero.md) |
 | **Módulo** | Disponibilidad y Agendamiento de Citas |
 | **Actores** | Barbero |
 

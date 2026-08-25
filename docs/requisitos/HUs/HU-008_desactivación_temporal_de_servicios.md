@@ -44,4 +44,4 @@
 ### CA-HU-008.3 — Control de accesos y persistencia
 - **Dado que** la acción se completa satisfactoriamente,
 - **cuando** se consulta el módulo correspondiente,
-- **entonces** la información debe reflejarse de forma consistente en el estado global de Redux y en la interfaz.
+- **entonces** la información debe reflejarse de forma consistente en el estado global de la aplicación (React Context API, `AppContext`) y en la interfaz.

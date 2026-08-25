@@ -5,23 +5,66 @@ services:
     container_name: globde_mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-changeme}
-      MYSQL_DATABASE: globde
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}"
+      MYSQL_DATABASE: ${DB_NAME:-globde}
+      # Sin esto el contenedor corre en UTC y las citas se guardan 5 horas
+      # adelantadas respecto a la hora de Colombia.
+      TZ: ${TZ:-America/Bogota}
     ports:
       - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./database:/docker-entrypoint-initdb.d
+      # El esquema ya no se carga desde database.sql: lo crea Alembic
+      # ('alembic upgrade head' en el entrypoint del backend). MySQL solo
+      # crea la base vacia via MYSQL_DATABASE.
+    healthcheck:
+      
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-P", "3306", "-uroot", "-p${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
 
   backend:
     build: ./backend
     container_name: globde_backend
+    restart: unless-stopped
     env_file:
+      
       - ./backend/.env
+    environment:
+     
+      # datetime.now() del backend debe dar la hora de Colombia, no UTC:
+      # si no, rechaza como "pasado" las citas de las proximas 5 horas.
+      TZ: ${TZ:-America/Bogota}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_PASSWORD: "${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}"
+      DB_NAME: ${DB_NAME:-globde}
     ports:
       - "8000:8000"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: globde_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      
+      TZ: ${TZ:-America/Bogota}
+      VITE_PROXY_TARGET: http://backend:8000
+    volumes:
+      
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      
+      - /app/node_modules
+    depends_on:
+      - backend
 
 volumes:
   mysql_data:

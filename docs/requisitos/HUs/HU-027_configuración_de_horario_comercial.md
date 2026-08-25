@@ -16,8 +16,17 @@
 | **Título** | Configuración de horario comercial |
 | **Módulo** | Configuración |
 | **Prioridad** | Media |
-| **Estado** | Implementada |
+| **Estado** | Parcial |
 | **RF Asociados** | RF-015 |
+
+> [!WARNING]
+> **Estado real (verificado contra el código, agosto 2026): parcial.**
+> El esquema define `horarios_barbero` (horario por barbero, endpoints
+> `POST/PUT/DELETE /barberos/{id}/horarios`), pero **no existe una tabla de
+> configuración global del negocio** ni endpoints para el horario comercial
+> único. Hoy el horario de atención es la unión de los horarios individuales.
+> Falta: tabla `configuracion_negocio` (o equivalente) + endpoints de lectura
+> y escritura + validación de que los horarios de barbero caigan dentro de él.
 
 ---
 
@@ -44,4 +53,4 @@
 ### CA-HU-027.3 — Control de accesos y persistencia
 - **Dado que** la acción se completa satisfactoriamente,
 - **cuando** se consulta el módulo correspondiente,
-- **entonces** la información debe reflejarse de forma consistente en el estado global de Redux y en la interfaz.
+- **entonces** la información debe reflejarse de forma consistente en el estado global de la aplicación (React Context API, `AppContext`) y en la interfaz.
