@@ -9,8 +9,8 @@ import {
   ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE,
 } from '../types';
 import {
-  BARBEROS, SERVICIOS, CATALOGO_CORTES, PREMIOS,
-  CITAS, LISTA_ESPERA, FACTURAS, TESTIMONIOS, EXTRAS_SERVICIO,
+  CATALOGO_CORTES, PREMIOS,
+  LISTA_ESPERA, FACTURAS, TESTIMONIOS, EXTRAS_SERVICIO,
 } from '../data/mockData';
 import {
   sumarMinutos, haySolape, generarCodigoOTP,
@@ -173,11 +173,74 @@ function mapCitaApi(c: Record<string, unknown>): Cita {
   };
 }
 
+// Convierte ServicioOut de la API v2 al tipo `Servicio` de la UI.
+function mapServicioApi(s: Record<string, unknown>, index: number): Servicio {
+  return {
+    id_servicio: Number(s.id_servicio ?? index + 1),
+    nombre: String(s.nombre ?? `Servicio ${index + 1}`),
+    categoria: String(s.categoria ?? 'Cortes') as Servicio['categoria'],
+    descripcion: String(s.descripcion ?? 'Servicio disponible en Globde.'),
+    precio: Number(s.precio ?? 20000),
+    duracion_minutos: Number(s.duracion_minutos ?? 30),
+    popular: Boolean(s.popular),
+    icono: emojiDeIcono(s.icono),
+    imagen_url: String(s.imagen_url ?? 'https://images.pexels.com/photos/34702982/pexels-photo-34702982.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp'),
+    puntos_otorga: Number(s.puntos_otorga ?? 20),
+    activo: s.activo !== false,
+  };
+}
+
+// Convierte BarberoOut + su detalle (horarios/servicios de /barberos/{id}) +
+// ranking a el tipo `Barbero` de la UI.
+function mapBarberoApi(u: Record<string, unknown>, detalle: Record<string, unknown>, ranking: Record<string, unknown> | undefined, index: number): Barbero {
+  const puntos = Number(u.puntos ?? 150);
+  const jornadas: { dia_semana: number; hora_inicio: string; hora_fin: string }[] = (
+    Array.isArray(detalle.horarios) ? detalle.horarios : []
+  ).map((h: Record<string, unknown>) => ({
+    dia_semana: Number(h.dia_semana),
+    hora_inicio: String(h.hora_inicio ?? '08:00'),
+    hora_fin: String(h.hora_fin ?? '20:00'),
+  }));
+  const serviciosIds: number[] = (
+    Array.isArray(detalle.servicios) ? detalle.servicios : []
+  ).map((sv: unknown) =>
+    typeof sv === 'object'
+      ? Number((sv as Record<string, unknown>).id_servicio ?? (sv as Record<string, unknown>).id ?? 0)
+      : Number(sv)
+  ).filter((x) => x > 0);
+  const especialidades = Array.isArray(detalle.servicios)
+    ? detalle.servicios.map((sv: unknown) => String((sv as Record<string, unknown>).nombre ?? '')).filter(Boolean)
+    : ['Corte profesional'];
+  const aperturas = jornadas.map((j) => j.hora_inicio).sort();
+  const cierres = jornadas.map((j) => j.hora_fin).sort();
+  return {
+    id_barbero: Number(u.id_barbero ?? index + 1),
+    id_usuario: Number(u.id_usuario ?? index + 1),
+    nombre: String(u.nombre ?? `Barbero ${index + 1}`),
+    rol_titulo: String(u.titulo ?? 'Barbero certificado'),
+    nivel: String(ranking?.nivel ?? (puntos >= 250 ? 'Oro' : 'Plata')) as Barbero['nivel'],
+    experiencia_anos: Number(u.experiencia_anios ?? 4),
+    rating: Number(u.rating ?? 4.8),
+    total_resenas: Number(u.total_resenas ?? 120),
+    especialidades,
+    foto_url: String(u.foto_url ?? 'https://images.pexels.com/photos/12304510/pexels-photo-12304510.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=700&w=600&fm=webp'),
+    disponible_hoy: Boolean(u.disponible ?? true),
+    hora_apertura: aperturas[0] ?? '08:00',
+    hora_cierre: cierres[cierres.length - 1] ?? '20:00',
+    porcentaje_incremento: Number(ranking?.porcentaje_incremento ?? 10),
+    citas_completadas: Number(u.citas_completadas ?? ranking?.total_citas ?? 0),
+    bio: String(u.bio ?? 'Barbero certificado de Globde.'),
+    color: String(u.color ?? '#D4AF37'),
+    horarios: jornadas,
+    servicios_ids: serviciosIds,
+  };
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
-  const [citas, setCitas] = useState<Cita[]>(CITAS);
-  const [servicios, setServicios] = useState<Servicio[]>(SERVICIOS);
-  const [barberos, setBarberos] = useState<Barbero[]>(BARBEROS);
+  const [citas, setCitas] = useState<Cita[]>([]);
+  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [barberos, setBarberos] = useState<Barbero[]>([]);
   const [listaEspera, setListaEspera] = useState<EntradaListaEspera[]>(LISTA_ESPERA);
   const [facturas] = useState<Factura[]>(FACTURAS);
   const [testimonios, setTestimonios] = useState<Testimonio[]>(TESTIMONIOS);
@@ -216,126 +279,64 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   void restaurarSesion();
 }, []);
 
+  // Carga inicial desde la API v2 (sin el endpoint legacy /datos):
+  //   - servicios y barberos son públicos (sin token).
+  //   - la agenda/citas requiere sesión y se carga según el rol del token.
+  // Si el backend no responde, la UI falla explícito en vez de mostrar datos ficticios.
   useEffect(() => {
-    const cargarDatosBackend = async () => {
+    const cargarCatalogo = async () => {
       try {
-        const datos = await apiRequest<Record<string, unknown>>('/datos');
-        const usuariosBackend = Array.isArray(datos.usuarios) ? datos.usuarios : [];
-        const serviciosBackend = Array.isArray(datos.servicios) ? datos.servicios : [];
-        const citasBackend = Array.isArray(datos.citas) ? datos.citas : [];
-        const barberosBackend = Array.isArray(datos.usuarios) ? datos.usuarios.filter((u: Record<string, unknown>) => Number(u.id_rol) === ROL_BARBERO) : [];
-        const rankingBackend = Array.isArray(datos.ranking_barberos) ? datos.ranking_barberos : [];
-        const clientesBackend = Array.isArray(datos.clientes) ? datos.clientes : [];
-        const horariosBackend = Array.isArray(datos.horarios_barberos) ? datos.horarios_barberos : [];
-        const barberoServicioBackend = Array.isArray(datos.barbero_servicio) ? datos.barbero_servicio : [];
+        const [servicios, barberos, ranking] = await Promise.all([
+          apiRequest<Record<string, unknown>[]>('/servicios'),
+          apiRequest<Record<string, unknown>[]>('/barberos'),
+          apiRequest<Record<string, unknown>[]>('/barberos/ranking').catch(() => [] as Record<string, unknown>[]),
+        ]);
 
-        if (serviciosBackend.length) {
-          setServicios(serviciosBackend.map((s: Record<string, unknown>, index: number) => ({
-            id_servicio: Number(s.id_servicio ?? index + 1),
-            nombre: String(s.nombre ?? `Servicio ${index + 1}`),
-            categoria: String(s.categoria ?? 'Cortes') as Servicio['categoria'],
-            descripcion: String(s.descripcion ?? 'Servicio disponible en Globde.'),
-            precio: Number(s.precio ?? 20000),
-            duracion_minutos: Number(s.duracion_minutos ?? 30),
-            popular: Boolean(s.popular),
-            icono: emojiDeIcono(s.icono),
-            imagen_url: String(s.imagen_url ?? 'https://images.pexels.com/photos/34702982/pexels-photo-34702982.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp'),
-            puntos_otorga: Number(s.puntos_otorga ?? 20),
-            activo: s.activo !== false,
-          })));
+        if (Array.isArray(servicios) && servicios.length) {
+          const listaServicios = servicios as Record<string, unknown>[];
+          setServicios(listaServicios.map((s, index) => mapServicioApi(s, index)));
         }
 
-        if (barberosBackend.length) {
-          setBarberos(barberosBackend.map((u: Record<string, unknown>, index: number) => {
-            const ranking = rankingBackend.find((r: Record<string, unknown>) => Number(r.id_usuario) === Number(u.id_usuario)) as Record<string, unknown> | undefined;
-            const puntos = Number(u.puntos ?? 150);
-            // OJO: id_barbero es la PK de la tabla `barberos` y NO coincide con
-            // id_usuario (el usuario 2 es el barbero 1). El backend espera esta.
-            const idBarbero = Number(u.id_barbero ?? index + 1);
-            const jornadas = horariosBackend
-              .filter((h: Record<string, unknown>) => Number(h.id_barbero) === idBarbero)
-              .map((h: Record<string, unknown>) => ({
-                dia_semana: Number(h.dia_semana),
-                hora_inicio: String(h.hora_inicio ?? '08:00'),
-                hora_fin: String(h.hora_fin ?? '20:00'),
-              }));
-            const aperturas = jornadas.map((j) => j.hora_inicio).sort();
-            const cierres = jornadas.map((j) => j.hora_fin).sort();
-            const serviciosIds = barberoServicioBackend
-              .filter((r: Record<string, unknown>) => Number(r.id_barbero) === idBarbero)
-              .map((r: Record<string, unknown>) => Number(r.id_servicio));
-            return {
-              id_barbero: idBarbero,
-              id_usuario: Number(u.id_usuario ?? index + 1),
-              nombre: String(u.nombre ?? `Barbero ${index + 1}`),
-              rol_titulo: String(u.rol_titulo ?? 'Barbero certificado'),
-              nivel: String(ranking?.nivel ?? (puntos >= 250 ? 'Oro' : 'Plata')) as Barbero['nivel'],
-              experiencia_anos: Number(u.experiencia_anos ?? 4),
-              rating: Number(u.rating ?? 4.8),
-              total_resenas: Number(u.total_resenas ?? 120),
-              especialidades: Array.isArray(u.especialidades) ? u.especialidades.map(String) : ['Corte profesional'],
-              foto_url: String(u.foto_url ?? u.avatar_url ?? 'https://images.pexels.com/photos/12304510/pexels-photo-12304510.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=700&w=600&fm=webp'),
-              disponible_hoy: true,
-              hora_apertura: aperturas[0] ?? '08:00',
-              hora_cierre: cierres[cierres.length - 1] ?? '20:00',
-              porcentaje_incremento: Number(ranking?.porcentaje_incremento ?? 10),
-              citas_completadas: Number(ranking?.total_citas ?? 0),
-              bio: String(u.bio ?? 'Barbero certificado de Globde.'),
-              color: '#D4AF37',
-              horarios: jornadas,
-              servicios_ids: serviciosIds,
-            };
+        if (Array.isArray(barberos) && barberos.length) {
+          const listaBarberos = barberos as Record<string, unknown>[];
+          // Cada perfil trae horarios y servicios que presta (GET /barberos/{id}).
+          const detalles = await Promise.all(
+            listaBarberos.map((b) =>
+              apiRequest<Record<string, unknown>>(`/barberos/${Number(b.id_barbero)}`).catch(() => ({}))
+            )
+          );
+          const rankingLista = Array.isArray(ranking) ? ranking : [];
+          setBarberos(listaBarberos.map((u, index) => {
+            const rankingBarbero = rankingLista.find((r) => Number((r as Record<string, unknown>).id_usuario) === Number(u.id_usuario)) as Record<string, unknown> | undefined;
+            return mapBarberoApi(u, detalles[index] ?? {}, rankingBarbero, index);
           }));
         }
-
-        if (citasBackend.length) {
-          const serviciosMap = new Map(serviciosBackend.map((s: Record<string, unknown>) => [Number(s.id_servicio), s]));
-          const usuariosMap = new Map(usuariosBackend.map((u: Record<string, unknown>) => [Number(u.id_usuario), u]));
-          const clientesMap = new Map(clientesBackend.map((c: Record<string, unknown>) => [Number(c.id_usuario), c]));
-          setCitas(citasBackend.map((c: Record<string, unknown>, index: number) => {
-            const servicio = serviciosMap.get(Number(c.id_servicio)) as Record<string, unknown> | undefined;
-            const barbero = usuariosMap.get(Number(c.id_usuario)) as Record<string, unknown> | undefined;
-            // Las franjas ocupadas se cruzan por id_barbero, no por id_usuario.
-            const cliente = clientesMap.get(Number(c.id_cliente)) as Record<string, unknown> | undefined ?? usuariosMap.get(Number(c.id_cliente));
-            const inicio = String(c.hora ?? '12:00');
-            const duracion = Number(servicio?.duracion_minutos ?? 30);
-            const fin = sumarMinutos(inicio, duracion);
-            return {
-              id_cita: Number(c.id_cita ?? index + 1),
-              codigo_reserva: `GLB-${String(c.id_cita ?? index + 1).padStart(4, '0')}`,
-              id_cliente: Number(c.id_cliente ?? 0),
-              cliente_nombre: String(cliente?.nombre ?? 'Cliente Globde'),
-              cliente_telefono: String(cliente?.telefono ?? '+57 300 000 0000'),
-              cliente_correo: String(cliente?.correo ?? 'cliente@globde.com'),
-              id_barbero: Number(c.id_barbero ?? 0),
-              barbero_nombre: String(barbero?.nombre ?? 'Barbero Globde'),
-              id_servicio: Number(c.id_servicio ?? 1),
-              servicio_nombre: String(servicio?.nombre ?? 'Servicio'),
-              precio_total: Number(servicio?.precio ?? 20000),
-              descuento_aplicado: 0,
-              puntos_canjeados: 0,
-              fecha: String(c.fecha ?? hoyISO()),
-              hora_inicio: inicio,
-              hora_fin: fin,
-              duracion_minutos: duracion,
-              estado: String(c.estado ?? 'confirmada') as Cita['estado'],
-              observaciones: String(c.observaciones ?? ''),
-              extras: [],
-              creado_en: String(c.creado_en ?? new Date().toLocaleString('es-CO')),
-              metodo_pago: 'Por definir',
-            } as Cita;
-          }));
-        }
-
       } catch (error) {
-        // La app conserva los datos locales mientras se completa la migración
-        // // desde /api/datos hacia los endpoints v2.
-        console.warn('No se pudieron cargar los datos iniciales.', error);
+        // Sin backend no hay catálogo veraz: lo marcamos explícito y dejamos
+        // el catálogo vacío para que la UI avise, en vez de inventar datos.
+        console.warn('No se pudo cargar el catálogo desde la API.', error);
       }
     };
 
-    cargarDatosBackend();
+    void cargarCatalogo();
   }, []);
+
+  // Carga las citas según la sesión activa (rol del token). Reintenta al entrar.
+  useEffect(() => {
+    const cargarCitas = async () => {
+      if (!obtenerAccessToken()) return;
+      try {
+        // GET /citas aplica el filtro por rol en el backend: el cliente ve las
+        // suyas, el barbero sus citas y el administrador todas.
+        const data = await apiRequest<Record<string, unknown>>('/citas?por_pagina=100');
+        const items = (Array.isArray(data.items) ? data.items : []) as Record<string, unknown>[];
+        if (items.length) setCitas(items.map(mapCitaApi));
+      } catch (error) {
+        console.warn('No se pudieron cargar las citas.', error);
+      }
+    };
+    void cargarCitas();
+  }, [usuario?.id_usuario]);
 
   const notificar = useCallback(
     (titulo: string, mensaje: string, tipo: Notificacion['tipo'] = 'sistema') => {
