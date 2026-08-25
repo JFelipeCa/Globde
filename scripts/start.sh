@@ -38,7 +38,7 @@ set_secret "DB_PASSWORD"
 
 # 3) Levantar el stack.
 echo "→ Levantando contenedores (docker compose up -d --build)..."
-docker compose up -d --build
+docker compose --env-file backend/.env up -d --build
 
 # 4) Esperar a que la base de datos y la API estén listas.
 echo "→ Esperando a que la API responda..."
