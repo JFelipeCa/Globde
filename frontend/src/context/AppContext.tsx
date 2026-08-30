@@ -91,7 +91,7 @@ interface ContextoApp {
   actualizarNivelBarbero: (id: number, nivel: Barbero['nivel'], pct: number) => void;
   alternarDisponibilidad: (id: number) => void;
   notificar: (titulo: string, mensaje: string, tipo?: Notificacion['tipo']) => void;
-  difusionMasiva: (titulo: string, mensaje: string) => void;
+  difusionMasiva: (titulo: string, mensaje: string) => Promise<Resultado>;
 }
 
 const Ctx = createContext<ContextoApp | undefined>(undefined);
@@ -825,7 +825,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBarberos((prev) => prev.map((b) => (b.id_barbero === id ? { ...b, disponible_hoy: !b.disponible_hoy } : b)));
   };
 
-  const difusionMasiva = (titulo: string, mensaje: string) => notificar(`📢 ${titulo}`, mensaje, 'promo');
+  // HU-022 / CU-22 — Envio de notificaciones masivas. Crea el aviso en el
+  // backend (POST /notificaciones/masiva) para que persista y se notifique a
+  // todos los clientes, en lugar de solo mostrar un toast local.
+  const difusionMasiva = useCallback(
+    async (titulo: string, mensaje: string): Promise<Resultado> => {
+      try {
+        await apiRequest<Record<string, unknown>>('/notificaciones/masiva', {
+          method: 'POST',
+          body: JSON.stringify({
+            id_rol: ROL_CLIENTE,
+            tipo: 'promo',
+            titulo,
+            mensaje,
+            enviar_correo: false,
+          }),
+        });
+        notificar(`📢 ${titulo}`, mensaje, 'promo');
+        return { ok: true, mensaje: 'Aviso enviado a todos los clientes.' };
+      } catch (error) {
+        const detalle =
+          error instanceof Error
+            ? error.message
+            : 'No se pudo enviar la difusión.';
+        notificar('No se pudo enviar la difusión', detalle, 'sistema');
+        return { ok: false, mensaje: `No se pudo enviar la difusión: ${detalle}` };
+      }
+    },
+    [notificar],
+  );
 
   return (
     <Ctx.Provider

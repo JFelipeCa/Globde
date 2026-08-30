@@ -401,7 +401,7 @@ export const PanelAdmin: React.FC = () => {
                 <Send className="h-5 w-5 text-violet-300" /> Notificación masiva
               </h3>
               <p className="mt-1 text-xs text-[#93A1B1]">Envía promociones o recordatorios a todos los clientes.</p>
-              <form onSubmit={(e) => { e.preventDefault(); difusionMasiva(aTitulo, aMensaje); setATitulo(''); setAMensaje(''); mostrar('Aviso enviado a todos los clientes.'); }}
+              <form onSubmit={async (e) => { e.preventDefault(); const r = await difusionMasiva(aTitulo, aMensaje); if (r.ok) { setATitulo(''); setAMensaje(''); } mostrar(r.mensaje); }}
                 className="mt-4 space-y-3">
                 <input value={aTitulo} onChange={(e) => setATitulo(e.target.value)} required placeholder="Título del aviso" className={input} />
                 <textarea rows={3} value={aMensaje} onChange={(e) => setAMensaje(e.target.value)} required
