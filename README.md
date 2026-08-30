@@ -6,6 +6,22 @@ Sistema web fullstack para la gestión integral de citas, barberos, clientes, fi
 
 ---
 
+## 🎯 Estado del proyecto (verificado en `develop` · agosto 2026)
+
+| Área | Estado | Detalle |
+| :--- | :---: | :--- |
+| **Backend** | ✅ Terminado | API v2 con JWT por roles (admin/barbero/cliente), **132 pruebas** pytest (~70 % cobertura) y CI contra MySQL real. **115 endpoints**. |
+| **Frontend ↔ Backend** | ✅ Conectado | Login/registro por JWT, catálogo y citas cargados desde la API, operaciones (crear/editar/cancelar/calificar/canjear) que **persisten en el backend**. Nada vuelve a datos ficticios al recargar. |
+| **Autenticación** | ✅ | Token persistido en `sessionStorage`, enviado como `Bearer` por `apiClient`. Autorización real por rol en el backend (`SoloAdmin`/`SoloBarbero`/`SoloCliente`); la interfaz solo oculta paneles. |
+| **Rutas legacy** | ✅ Apagadas | `ENABLE_LEGACY_ROUTES=false` por defecto. `GET /api/datos` ya no expone datos sin autenticación. |
+| **Seguridad** | ✅ | `bcrypt`, consultas parametrizadas, `DB_PASSWORD`/`JWT_SECRET` obligatorios (compose falla explícito), `.env` ignorado. |
+| **Dependencias** | ✅ Exactas | Backend y frontend 100 % pinados sin comodines (`starlette==1.6.0`, `python-multipart==0.0.32`, etc.). `pip-audit` + `pnpm audit` en el CI. |
+| **Requisitos** | 🟡 29/33 HUs | 29 historias implementadas. **4 documentadas como fuera de alcance**: HU-020 (recordatorio por correo), HU-028 (días no laborales), HU-032 (exportación), HU-033 (lista de espera). HU-022 (notificaciones masivas) está conectada al backend. Ver [matriz de trazabilidad](docs/requisitos/matriz-trazabilidad.md). |
+
+> **Descargos de alcance:** las historias HU-020, HU-028, HU-032 y HU-033 quedan documentadas como **no implementadas en la entrega** (con su issue en la columna *Backlog* del GitHub Project). El núcleo conectado cubre **29 de 33 (≈ 88 %)**, por encima del 80 % exigido. La nomenclatura del código se mantiene en español por decisión deliberada (ver [REX-001](docs/restricciones.md#rex--excepción-declarada)).
+
+---
+
 ## 📝 Antes de empezar
 
 Este repositorio contiene la arquitectura completa, el backend API REST, el frontend SPA responsive y la base de datos relacional con vistas SQL del proyecto **GLOBDE**. Si es tu primer acercamiento al código, te recomendamos leer primero la [**Arquitectura**](docs/referencia-tecnica/architecture.md), que explica cómo se comunican las tres capas, y las [**historias de usuario y casos de uso**](docs/requisitos.md), que documentan qué se construyó y por qué.

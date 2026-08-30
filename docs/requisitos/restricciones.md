@@ -39,3 +39,24 @@
 | **RN-003** | **Anticipación mínima de cancelación** | La cancelación autónoma por parte del cliente debe realizarse con un mínimo de 2 horas de anticipación; de lo contrario, el sistema puede generar un registro de penalidad. |
 | **RN-004** | **Unicidad de cuenta por correo electrónico** | No pueden existir dos cuentas registradas con el mismo correo electrónico en la tabla `usuarios`. |
 | **RN-005** | **Expiración de tokens de recuperación** | Los enlaces y tokens de restablecimiento de contraseña tienen una vigencia máxima de 30 minutos y quedan invalidados inmediatamente tras su uso. |
+
+---
+
+## 4. Excepción declarada: nomenclatura de código (ID: REX-001)
+
+> Norma del proyecto: **nomenclatura técnica en inglés** y documentación en español.
+> El código real de GLOBDE nombró de forma **consistente en español** (ej.
+> `obtener_usuario_actual`, `citas_service`, `franjasOcupadas`, `mapCitaApi`).
+
+| ID | Decisión | Justificación (gestión de riesgo) |
+| :--- | :--- | :--- |
+| **REX-001** | **Se conserva la nomenclatura en español y NO se renombra** | El backend tiene **132 pruebas** (ID REX-001-1) y el frontend un contrato de tipos estrecho. Un renombrado masivo a 15 días de la entrega rompería las pruebas y consumiría el carril crítico sin añadir una sola funcionalidad. |
+
+**Alcance de la excepción:**
+- Aplica a **identificadores de código** (nombres de función, variables, servicios de dominio, rutas de módulos): el backend usa `app/services/citas_service.py`, `app/routers/citas.py`, `app/core/dependencies.py` y el frontend usa `obtener_usuario_actual`, `franjasOcupadas`, etc.
+- **No se aplica** a la **documentación, la API expuesta ni los contratos**:
+  - Los endpoints públicos se documentan en español y con descriptores claros.
+  - Los campos JSON de la API son los del esquema de base de datos (snake_case), que no se renombran.
+  - La nomenclatura técnica que la norma exige (arquitectura, cadenas de CORS, nombres de tablas, tipos) permanece en inglés cuando es convención (ej. `id_rol`, `access_token`).
+
+**Fundamento de la excepción (RT-001 a RT-005):** la norma de idioma es una restricción de consistencia, no de funcionalidad. Dado que el 100 % del código compila y las 132 pruebas pasan, el riesgo de un renombrado global (> 200 símbolos) supera el beneficio estético a 15 días de la sustentación. Se documenta como **decisión deliberada de gestión de riesgo**.

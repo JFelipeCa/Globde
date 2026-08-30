@@ -22,6 +22,11 @@
 - **RD-01:** Paleta corporativa estricta (Negro / Blanco / Dorado) y Tailwind CSS v4.
 - **RD-02:** Responsive obligatorio.
 
+## REX — Excepción declarada
+- **REX-001:** Nomenclatura de código en español (a pesar de que la norma pide inglés).
+  Ver la justificación de gestión de riesgo en
+  [`requisitos/restricciones.md`](requisitos/restricciones.md#4-excepción-declarada-nomenclatura-de-código-id-rex-001).
+
 ---
 
 > [!NOTE]
