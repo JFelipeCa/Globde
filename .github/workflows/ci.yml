@@ -6,9 +6,9 @@ name: CI
 
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, develop, "feature/**"]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 jobs:
@@ -60,6 +60,12 @@ jobs:
       - name: Instalar dependencias del backend
         working-directory: backend
         run: uv sync --group dev --frozen
+
+      - name: Auditar dependencias del backend
+        working-directory: backend
+        # Par de `pnpm audit` en el job de frontend. Audita el arbol resuelto
+        # (via uv.lock) contra la base CVE; falla ante vulnerabilidades.
+        run: uv run pip-audit
 
       - name: Esperar a que MySQL acepte conexiones
         run: |
