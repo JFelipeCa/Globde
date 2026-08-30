@@ -1,6 +1,9 @@
-# Frontend GLOBDE - entorno de desarrollo con Vite.
-# Sirve la app en :5173 y redirige /api al backend por el proxy de Vite,
-# de modo que el navegador nunca necesita conocer la URL del backend.
+# Frontend GLOBDE - SOLO ENTORNO DE DESARROLLO (Vite).
+# Sirve la app en :5173 con HMR y redirige /api al backend por el proxy de
+# Vite, de modo que el navegador nunca necesita conocer la URL del backend.
+#
+# Para PRODUCCION usa `Dockerfile.prod` (build multi-stage -> nginx) y
+# `docker-compose.prod.yml`. Este archivo NO se debe usar en despliegue.
 FROM node:22-slim
 
 RUN corepack enable && corepack prepare pnpm@11.20.0 --activate

@@ -1,0 +1,67 @@
+# Vía de ENTREGA en producción (GLOBDE).
+# Igual que docker-compose.yml pero el frontend se compila
+# (vite build) y se sirve con nginx en el puerto 80, con reverse proxy /api.
+#
+# Uso:
+#   cp backend/.env.example backend/.env   # y define DB_PASSWORD + JWT_SECRET
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Endpoints:
+#   - Frontend:  http://localhost:80
+#   - API/Docs:  http://localhost:8000/docs
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: globde_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}"
+      MYSQL_DATABASE: ${DB_NAME:-globde}
+      TZ: ${TZ:-America/Bogota}
+    # En produccion NO se expone el puerto al host: la comunicacion es solo
+    # interna (backend). Se quito el `ports:` del compose de desarrollo.
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-P", "3306", "-uroot", "-p${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}", "--silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  backend:
+    build: ./backend
+    container_name: globde_backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      TZ: ${TZ:-America/Bogota}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_PASSWORD: "${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}"
+      DB_NAME: ${DB_NAME:-globde}
+      APP_ENV: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: globde_frontend
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-America/Bogota}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

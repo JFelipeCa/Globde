@@ -1,0 +1,27 @@
+# Frontend GLOBDE — imagen de PRODUCCION (multi-stage).
+# 1) stage de build: compila con Vite a `dist/` (un solo index.html).
+# 2) stage de runtime: nginx sirve el build y hace de reverse proxy de /api.
+#
+# Este archivo NO es el flujo de desarrollo (usado por docker-compose), que
+# sirve el dev server de Vite. Para desplegar, construye con:
+#   docker build -f Dockerfile.prod -t globde_frontend .
+# o levanta con `docker compose -f docker-compose.prod.yml up`.
+
+# --- Stage 1: build ---
+FROM node:22-alpine AS build
+RUN corepack enable && corepack prepare pnpm@11.20.0 --activate
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY . .
+# El build no necesita el backend: usa URL relativa /api (la resuelve nginx).
+ENV VITE_API_URL=/api
+RUN pnpm build
+
+# --- Stage 2: runtime ---
+FROM nginx:1.27-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+# nginx sirve el build y reenvia /api al backend por la red de compose.
+CMD ["nginx", "-g", "daemon off;"]
