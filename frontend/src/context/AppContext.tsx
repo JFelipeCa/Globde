@@ -34,6 +34,26 @@ interface Resultado {
   mensaje: string;
 }
 
+type TipoReporte = 'ingresos' | 'citas' | 'clientes';
+
+const descargarCSV = (nombre: string, filas: Record<string, unknown>[]) => {
+  if (!filas.length) throw new Error('El reporte no contiene datos para descargar.');
+  const columnas = [...new Set(filas.flatMap((fila) => Object.keys(fila)))];
+  const escapar = (valor: unknown) => {
+    const texto = valor == null ? '' : String(valor);
+    return `"${texto.replaceAll('"', '""')}"`;
+  };
+  const contenido = [
+    columnas.map(escapar).join(','),
+    ...filas.map((fila) => columnas.map((columna) => escapar(fila[columna])).join(',')),
+  ].join('\n');
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(new Blob([`\uFEFF${contenido}`], { type: 'text/csv;charset=utf-8' }));
+  enlace.download = nombre;
+  enlace.click();
+  URL.revokeObjectURL(enlace.href);
+};
+
 interface ResultadoCliente extends Resultado {
   idCliente?: number;
 }
@@ -90,6 +110,7 @@ interface ContextoApp {
   cancelarCita: (id: number, motivo: string) => Promise<Resultado>;
   calificarCita: (id: number, rating: number, comentario: string, etiquetas: string[]) => Promise<Resultado>;
   actualizarAvatar: (archivo: File) => Promise<Resultado>;
+  descargarReporte: (tipo: TipoReporte) => Promise<Resultado>;
 
   canjearPremio: (p: PremioFidelidad) => Promise<Resultado>;
   unirseListaEspera: (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => void;
@@ -900,7 +921,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           method: 'POST',
           body: JSON.stringify({
             id_rol: ROL_CLIENTE,
-            tipo: 'promo',
+            tipo: 'sistema',
             titulo,
             mensaje,
             enviar_correo: false,
@@ -919,6 +940,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     [notificar],
   );
+
+  const descargarReporte = async (tipo: TipoReporte): Promise<Resultado> => {
+    try {
+      if (tipo === 'ingresos') {
+        const reporte = await apiRequest<{ periodos?: Record<string, unknown>[] }>('/reportes/ingresos');
+        descargarCSV('reporte-ingresos.csv', reporte.periodos ?? []);
+      } else if (tipo === 'citas') {
+        const reporte = await apiRequest<{ por_barbero?: Record<string, unknown>[] }>('/reportes/citas');
+        descargarCSV('reporte-citas-por-barbero.csv', reporte.por_barbero ?? []);
+      } else {
+        const reporte = await apiRequest<{ items?: Record<string, unknown>[] }>('/clientes?por_pagina=100');
+        descargarCSV('clientes-y-puntos.csv', reporte.items ?? []);
+      }
+      return { ok: true, mensaje: 'Reporte descargado correctamente.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo descargar el reporte.';
+      return { ok: false, mensaje };
+    }
+  };
 
   return (
     <Ctx.Provider
@@ -970,6 +1010,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cancelarCita,
         calificarCita,
         actualizarAvatar,
+        descargarReporte,
         canjearPremio,
         unirseListaEspera,
         agregarServicio,
