@@ -3,6 +3,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -85,6 +86,8 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=ciclo_de_vida,
 )
+
+app.mount("/api/media", StaticFiles(directory="media"), name="media")
 
 app.add_middleware(
     CORSMiddleware,

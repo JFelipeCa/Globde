@@ -84,6 +84,7 @@ interface ContextoApp {
   confirmarCita: (id: number) => void;
   cancelarCita: (id: number, motivo: string) => Promise<Resultado>;
   calificarCita: (id: number, rating: number, comentario: string, etiquetas: string[]) => Promise<Resultado>;
+  actualizarAvatar: (archivo: File) => Promise<Resultado>;
 
   canjearPremio: (p: PremioFidelidad) => Promise<Resultado>;
   unirseListaEspera: (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => void;
@@ -125,6 +126,7 @@ function mapUsuarioBackend(payload: Record<string, unknown>): Usuario {
     telefono: String(payload.telefono ?? '+57 300 000 0000'),
     id_rol: rol as TipoRol,
     fecha_creacion: String(payload.fecha_creacion ?? hoyISO()),
+    avatar_url: typeof payload.avatar_url === 'string' ? payload.avatar_url : undefined,
     puntos,
     nivel_fidelizacion: nivelPorPuntos(puntos),
     id_cliente:
@@ -767,6 +769,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const actualizarAvatar = async (archivo: File): Promise<Resultado> => {
+    try {
+      const formulario = new FormData();
+      formulario.append('archivo', archivo);
+      const respuesta = await apiRequest<Record<string, unknown>>('/usuarios/me/avatar', {
+        method: 'POST',
+        body: formulario,
+      });
+      setUsuario((actual) => actual ? { ...actual, avatar_url: String(respuesta.avatar_url ?? '') } : actual);
+      notificar('Foto actualizada', 'Tu foto de perfil se guardó correctamente.', 'sistema');
+      return { ok: true, mensaje: 'Foto actualizada' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo actualizar la foto';
+      return { ok: false, mensaje };
+    }
+  };
+
   const canjearPremio = async (p: PremioFidelidad): Promise<Resultado> => {
     if (!usuario) {
       setModalAuth('login');
@@ -925,6 +944,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         confirmarCita,
         cancelarCita,
         calificarCita,
+        actualizarAvatar,
         canjearPremio,
         unirseListaEspera,
         agregarServicio,
