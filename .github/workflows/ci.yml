@@ -136,7 +136,7 @@ jobs:
       - name: Fallar si alguna prueba se salto
         # Una prueba saltada casi siempre significa que la base de datos no
         # estaba lista. Sin este control el CI pasaria en verde con 41 de 132.
-        if: always()
+        if: always() && hashFiles('backend/resultados-pytest.xml') != ''
         working-directory: backend
         run: |
           python3 - <<'PY'
@@ -152,7 +152,7 @@ jobs:
           PY
 
       - name: Publicar resumen de cobertura
-        if: always()
+        if: always() && hashFiles('backend/coverage.xml') != ''
         working-directory: backend
         run: |
           python3 - <<'PY'
