@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   X, Sparkles, ArrowRight, RotateCcw, Crown, Clock, Check, Bell,
-  CalendarDays, Scissors, MapPin, Phone, Mail, ShieldCheck, Code2,
+  CalendarDays, Scissors, MapPin, Phone, ShieldCheck, Code2,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatoCOP, hoyISO, duracionLegible } from '../../utils/helpers';
@@ -252,8 +252,8 @@ export const Footer: React.FC = () => {
               </span>
             </div>
             <p className="text-xs leading-relaxed text-[#93A1B1]">
-              Sistema de agendamiento, fidelización y gestión para barberías modernas. Arquitectura MVC con
-              React + TypeScript y FastAPI con procedimientos almacenados en MySQL.
+              Tu barbershop de confianza en Bogotá. Agenda tu cita en línea, acumula
+              puntos con cada visita y disfruta de beneficios exclusivos en cada corte.
             </p>
           </div>
 
@@ -284,7 +284,6 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-xs text-[#93A1B1]">
               <li className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 text-amber-600" /> Calle 85 #14-20, Zona Rosa, Bogotá</li>
               <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-amber-600" /> +57 312 456 7890</li>
-              <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-amber-600" /> contacto@globde.com</li>
               <li className="flex items-center gap-2"><Scissors className="h-4 w-4 text-amber-600" /> 3 barberos certificados</li>
             </ul>
           </div>
