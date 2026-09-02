@@ -4,7 +4,7 @@ const ACCESS_TOKEN_KEY = 'globde_access_token';
 const REFRESH_TOKEN_KEY = 'globde_refresh_token';
 const VISTA_KEY = 'globde_vista';
 const VISTAS_VALIDAS: Vista[] = [
-  'inicio', 'catalogo', 'fidelizacion', 'mis-citas',
+  'inicio', 'catalogo', 'fidelizacion',
   'panel-admin', 'panel-barbero', 'panel-cliente',
 ];
 
