@@ -43,6 +43,8 @@ export const PanelAdmin: React.FC = () => {
   const [nClienteTexto, setNClienteTexto] = useState('');
   const [nClienteResultados, setNClienteResultados] = useState<ClienteBusqueda[]>([]);
   const [nBuscando, setNBuscando] = useState(false);
+  const [nBuscadoYa, setNBuscadoYa] = useState(false);
+  const [nErrorBusqueda, setNErrorBusqueda] = useState('');
   const [nBarbero, setNBarbero] = useState(1);
   const [nServicio, setNServicio] = useState(1);
   const [nFecha, setNFecha] = useState('');
@@ -114,17 +116,24 @@ export const PanelAdmin: React.FC = () => {
   const abrirNuevaCita = () => {
     setModalCita(true);
     setNCliente(null); setNClienteTexto(''); setNClienteResultados([]);
+    setNBuscando(false); setNBuscadoYa(false); setNErrorBusqueda('');
     setNBarbero(barberos[0]?.id_barbero ?? 1); setNServicio(servicios[0]?.id_servicio ?? 1);
     setNFecha(sumarDiasISO(0)); setNHora(''); setNObs(''); setNError('');
   };
 
   // Buscar clientes con un pequeño debounce para no disparar una petición por tecla.
   useEffect(() => {
-    if (!modalCita || nCliente || nClienteTexto.trim().length < 2) { setNClienteResultados([]); return; }
+    if (!modalCita || nCliente || nClienteTexto.trim().length < 2) {
+      setNClienteResultados([]); setNBuscadoYa(false); setNErrorBusqueda('');
+      return;
+    }
     let vigente = true;
-    setNBuscando(true);
+    setNBuscando(true); setNBuscadoYa(false); setNErrorBusqueda('');
     const temporizador = setTimeout(() => {
-      buscarClientes(nClienteTexto).then((res) => { if (vigente) { setNClienteResultados(res); setNBuscando(false); } });
+      buscarClientes(nClienteTexto)
+        .then((res) => { if (vigente) { setNClienteResultados(res); } })
+        .catch(() => { if (vigente) { setNErrorBusqueda('No se pudo buscar clientes. Revisa la conexión con el backend.'); setNClienteResultados([]); } })
+        .finally(() => { if (vigente) { setNBuscando(false); setNBuscadoYa(true); } });
     }, 350);
     return () => { vigente = false; clearTimeout(temporizador); };
   }, [nClienteTexto, nCliente, modalCita, buscarClientes]);
@@ -617,13 +626,16 @@ export const PanelAdmin: React.FC = () => {
                     <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#6B7A8C]" />
                     <input value={nClienteTexto} onChange={(e) => setNClienteTexto(e.target.value)}
                       placeholder="Buscar cliente por nombre, correo o teléfono…" className={input + ' pl-10'} />
-                    {(nBuscando || nClienteResultados.length > 0) && nClienteTexto.trim().length >= 2 && (
+                    {nClienteTexto.trim().length >= 2 && (nBuscando || nBuscadoYa) && (
                       <div className="mt-1 max-h-48 overflow-y-auto rounded-2xl border border-white/10 bg-[#0F151C]">
                         {nBuscando && <p className="p-3 text-xs text-[#6B7A8C]">Buscando…</p>}
-                        {!nBuscando && nClienteResultados.length === 0 && (
+                        {!nBuscando && nErrorBusqueda && (
+                          <p className="p-3 text-xs font-bold text-rose-300">{nErrorBusqueda}</p>
+                        )}
+                        {!nBuscando && !nErrorBusqueda && nClienteResultados.length === 0 && (
                           <p className="p-3 text-xs text-[#6B7A8C]">Sin resultados. Verifica el dato o registra al cliente primero.</p>
                         )}
-                        {nClienteResultados.map((c) => (
+                        {!nBuscando && nClienteResultados.map((c) => (
                           <button key={c.id_cliente} onClick={() => { setNCliente(c); setNClienteResultados([]); }}
                             className="flex w-full flex-col items-start px-4 py-2.5 text-left transition hover:bg-white/5">
                             <span className="text-sm font-bold text-[#EAF0F6]">{c.nombre}</span>

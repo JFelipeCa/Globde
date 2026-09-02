@@ -545,14 +545,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const buscarClientes = useCallback(async (texto: string): Promise<ClienteBusqueda[]> => {
     const t = texto.trim();
     if (t.length < 2) return [];
-    try {
-      const respuesta = await apiRequest<{ items: ClienteBusqueda[] }>(
-        `/clientes?buscar=${encodeURIComponent(t)}&por_pagina=8`,
-      );
-      return respuesta.items ?? [];
-    } catch {
-      return [];
-    }
+    const respuesta = await apiRequest<{ items: ClienteBusqueda[] }>(
+      `/clientes?buscar=${encodeURIComponent(t)}&por_pagina=8`,
+    );
+    return respuesta.items ?? [];
   }, []);
 
   const crearCita = async (d: DatosReserva): Promise<Resultado> => {
