@@ -41,7 +41,7 @@ const descargarCSV = (nombre: string, filas: Record<string, unknown>[]) => {
   const columnas = [...new Set(filas.flatMap((fila) => Object.keys(fila)))];
   const escapar = (valor: unknown) => {
     const texto = valor == null ? '' : String(valor);
-    return `"${texto.replaceAll('"', '""')}"`;
+    return `"${texto.replace(/"/g, '""')}"`;
   };
   const contenido = [
     columnas.map(escapar).join(','),
