@@ -127,10 +127,6 @@ function mapUsuarioBackend(payload: Record<string, unknown>): Usuario {
     fecha_creacion: String(payload.fecha_creacion ?? hoyISO()),
     puntos,
     nivel_fidelizacion: nivelPorPuntos(puntos),
-    avatar_url: String(
-      payload.avatar_url ??
-        'https://images.pexels.com/photos/804009/pexels-photo-804009.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=200&w=200&fm=webp',
-    ),
     id_cliente:
       payload.id_cliente != null
         ? Number(payload.id_cliente)
@@ -744,7 +740,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             texto: comentario,
             rating,
             barbero_favorito: cita.barbero_nombre,
-            avatar_url: usuario?.avatar_url ?? 'https://images.pexels.com/photos/804009/pexels-photo-804009.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=140&w=140&fm=webp',
             corte: cita.servicio_nombre,
             fecha: 'Reciente',
           },

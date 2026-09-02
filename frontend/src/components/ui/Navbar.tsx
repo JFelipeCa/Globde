@@ -142,11 +142,9 @@ export const Navbar: React.FC = () => {
                   onClick={() => setPerfil(!perfil)}
                   className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#141A21] p-1.5 pr-2.5 transition hover:border-amber-400/50"
                 >
-                  <img src={usuario.avatar_url} alt={usuario.nombre} className="h-8 w-8 rounded-xl object-cover" />
-                  <span className="hidden max-w-[92px] truncate text-xs font-semibold text-[#C6D0DC] md:inline">
-                    {usuario.nombre.split(' ')[0]}
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 text-[#6B7A8C]" />
+            {usuario.avatar_url
+                 ? <img src={usuario.avatar_url} alt={usuario.nombre} className="h-8 w-8 rounded-xl object-cover" />
+                : <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 text-[#1A1400]"><UserRound className="h-4 w-4" strokeWidth={2.5} /></span>}                  <ChevronDown className="h-3.5 w-3.5 text-[#6B7A8C]" />
                 </button>
 
                 {perfil && (

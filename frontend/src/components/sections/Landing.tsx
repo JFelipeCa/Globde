@@ -565,8 +565,9 @@ export const Resenas: React.FC = () => {
                 <blockquote className="mt-3 text-sm italic leading-relaxed text-[#C6D0DC]">“{t.texto}”</blockquote>
               </div>
               <figcaption className="mt-5 flex items-center gap-3 border-t border-white/8 pt-4">
-                <img src={t.avatar_url} alt={t.nombre} className="h-10 w-10 rounded-full object-cover" />
-                <div className="min-w-0">
+        {t.avatar_url
+         ? <img src={t.avatar_url} alt={t.nombre} className="h-10 w-10 rounded-full object-cover" />
+          : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-sm font-black text-[#1A1400]">{(t.nombre.trim()[0] ?? '?').toUpperCase()}</span>}                <div className="min-w-0">
                   <p className="truncate text-xs font-black text-[#EAF0F6]">{t.nombre}</p>
                   <p className="truncate text-[11px] text-[#6B7A8C]">{t.rol}</p>
                   <p className="truncate text-[11px] font-semibold text-amber-700">{t.corte}</p>

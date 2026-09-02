@@ -87,8 +87,11 @@ export const PanelCliente: React.FC = () => {
         <div className="card overflow-hidden">
           <div className="flex flex-col items-start gap-5 malla-suave p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
             <div className="flex items-center gap-4">
-              <img src={usuario?.avatar_url} alt="" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
-              <div>
+      {usuario?.avatar_url
+        ? <img src={usuario.avatar_url} alt="" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
+        : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 font-heading text-2xl font-black text-[#1A1400] shadow-md ring-1 ring-amber-400/50 sm:h-20 sm:w-20 sm:text-3xl">
+      {(usuario?.nombre.trim()[0] ?? '?').toUpperCase()}
+    </span>}              <div>
                 <h1 className="font-heading text-2xl font-black text-[#EAF0F6] sm:text-3xl">
                   ¡Hola, {usuario?.nombre.split(' ')[0]}! 💈
                 </h1>
