@@ -9,7 +9,9 @@ dependencies = [
     # la CVE-2026-48710 ("BadHost"); 1.6.0 es la version resuelta actual.
     "starlette==1.6.0",
     "uvicorn[standard]==0.34.0",
-    "python-dotenv==1.0.1",
+    # >=1.2.2 corrige PYSEC-2026-2270 (set_key()/unset_key() seguian symlinks
+    # al reescribir el .env, permitiendo sobrescribir archivos arbitrarios).
+    "python-dotenv==1.2.2",
     "mysql-connector-python==9.1.0",
     "pydantic==2.10.4",
     "email-validator==2.2.0",
