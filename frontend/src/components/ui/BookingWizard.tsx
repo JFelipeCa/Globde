@@ -60,7 +60,12 @@ export const BookingWizard: React.FC = () => {
   const ocupadas = franjasOcupadas(fecha, idBarbero);
 
   const franjas = useMemo(() => {
-    const base = generarFranjas(barbero.hora_apertura, barbero.hora_cierre, 15, duracionTotal);
+    const base = generarFranjas(
+      barbero.hora_apertura,
+      barbero.hora_cierre,
+      duracionTotal,
+      duracionTotal,
+    );
     return franjasVigentes(base, fecha).map((ini) => {
       const fin = sumarMinutos(ini, duracionTotal);
       const libre = !ocupadas.some((o) => haySolape(ini, fin, o.inicio, o.fin));
