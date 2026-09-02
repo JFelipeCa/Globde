@@ -14,7 +14,7 @@ const POR_PAGINA = 4;
 export const PanelBarbero: React.FC = () => {
   const {
     usuario, citas, barberos, servicios, cambiarEstadoCita,
-    crearCita, alternarDisponibilidad, franjasOcupadas, verTicket,
+    crearCita, crearClientePresencial, alternarDisponibilidad, franjasOcupadas, verTicket,
   } = useApp();
 
   const barbero = barberos.find((b) => b.id_usuario === usuario?.id_usuario) ?? barberos[0];
@@ -54,11 +54,15 @@ export const PanelBarbero: React.FC = () => {
 
   const crearWalkin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!wNombre.trim()) { setWError('Ingresa el nombre del cliente.'); return; }
     if (!wHora) { setWError('Selecciona una franja libre.'); return; }
+    const cliente = await crearClientePresencial(wNombre, wTel);
+    if (!cliente.ok || !cliente.idCliente) { setWError(cliente.mensaje); return; }
     const r = await crearCita({
       servicio_id: Number(wServ), barbero_id: barbero.id_barbero, fecha: hoy, hora_inicio: wHora,
+      id_cliente: cliente.idCliente,
       extras: [], usar_puntos: false, puntos_a_usar: 0,
-      nombre: wNombre || 'Cliente presencial', correo: 'walkin@globde.com',
+      nombre: wNombre, correo: `presencial+${cliente.idCliente}@globde.com`,
       telefono: wTel || '+57 300 000 0000', observaciones: 'Cliente presencial (walk-in)',
     });
     if (!r.ok) { setWError(r.mensaje); return; }

@@ -7,7 +7,7 @@ import { useApp } from '../../context/AppContext';
 import { EXTRAS_SERVICIO, SERVICIOS, BARBEROS } from '../../data/mockData';
 import {
   formatoCOP, hoyISO, sumarDiasISO, desglosarFecha, generarFranjas,
-  sumarMinutos, hora12, duracionLegible, haySolape, fechaLarga,
+  sumarMinutos, hora12, duracionLegible, haySolape, fechaLarga, franjasVigentes,
 } from '../../utils/helpers';
 
 const PASOS = ['Servicio', 'Barbero', 'Fecha y hora', 'Confirmar'];
@@ -60,13 +60,18 @@ export const BookingWizard: React.FC = () => {
   const ocupadas = franjasOcupadas(fecha, idBarbero);
 
   const franjas = useMemo(() => {
-    const base = generarFranjas(barbero.hora_apertura, barbero.hora_cierre, 15, duracionTotal);
-    return base.map((ini) => {
+    const base = generarFranjas(
+      barbero.hora_apertura,
+      barbero.hora_cierre,
+      duracionTotal,
+      duracionTotal,
+    );
+    return franjasVigentes(base, fecha).map((ini) => {
       const fin = sumarMinutos(ini, duracionTotal);
       const libre = !ocupadas.some((o) => haySolape(ini, fin, o.inicio, o.fin));
       return { ini, fin, libre };
     });
-  }, [barbero, duracionTotal, ocupadas]);
+  }, [barbero, duracionTotal, fecha, ocupadas]);
 
   const franjasManana = franjas.filter((f) => Number(f.ini.split(':')[0]) < 13);
   const franjasTarde = franjas.filter((f) => Number(f.ini.split(':')[0]) >= 13);

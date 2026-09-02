@@ -17,7 +17,7 @@ export const PanelAdmin: React.FC = () => {
     citas, servicios, barberos, facturas, confirmarCita, cambiarEstadoCita,
     cancelarCita, editarCita, agregarServicio, eliminarServicio,
     actualizarNivelBarbero, difusionMasiva, verTicket, franjasOcupadas,
-    crearCita, buscarClientes,
+    crearCita, buscarClientes, descargarReporte,
   } = useApp();
 
   const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'avisos'>('resumen');
@@ -26,6 +26,7 @@ export const PanelAdmin: React.FC = () => {
   const [fBarbero, setFBarbero] = useState('todos');
   const [fEstado, setFEstado] = useState('todos');
   const [aviso, setAviso] = useState('');
+  const [reporteDescargando, setReporteDescargando] = useState<string | null>(null);
 
   /* edición */
   const [edit, setEdit] = useState<Cita | null>(null);
@@ -492,11 +493,15 @@ export const PanelAdmin: React.FC = () => {
               </h3>
               <p className="mt-1 text-xs text-[#93A1B1]">Descarga la información operativa y contable del negocio.</p>
               <div className="mt-4 space-y-2">
-                {['Reporte de ingresos y facturación (.xlsx)', 'Historial de citas por barbero (.pdf)', 'Clientes y puntos de fidelidad (.csv)'].map((r) => (
-                  <div key={r} className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-3 text-xs">
-                    <span className="font-semibold text-[#93A1B1]">{r}</span>
-                    <button onClick={() => mostrar(`Generando: ${r}`)} className="rounded-xl bg-teal-400/12 px-3 py-1.5 text-[11px] font-black text-teal-300 hover:bg-teal-400/20">
-                      Descargar
+                {[
+                  { etiqueta: 'Reporte de ingresos y facturación (.csv)', tipo: 'ingresos' as const },
+                  { etiqueta: 'Historial de citas por barbero (.csv)', tipo: 'citas' as const },
+                  { etiqueta: 'Clientes y puntos de fidelidad (.csv)', tipo: 'clientes' as const },
+                ].map((reporte) => (
+                  <div key={reporte.tipo} className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-3 text-xs">
+                    <span className="font-semibold text-[#93A1B1]">{reporte.etiqueta}</span>
+                    <button onClick={async () => { setReporteDescargando(reporte.tipo); const r = await descargarReporte(reporte.tipo); setReporteDescargando(null); mostrar(r.mensaje); }} disabled={reporteDescargando !== null} className="rounded-xl bg-teal-400/12 px-3 py-1.5 text-[11px] font-black text-teal-300 hover:bg-teal-400/20 disabled:cursor-wait disabled:opacity-50">
+                      {reporteDescargando === reporte.tipo ? 'Generando…' : 'Descargar'}
                     </button>
                   </div>
                 ))}

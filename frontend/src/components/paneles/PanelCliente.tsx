@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   CalendarDays, Crown, Plus, QrCode, Star, Timer, Ban, Check,
-  RotateCcw, CircleAlert, Gift, History, Hourglass, X, Eye, Sparkles,
+  RotateCcw, CircleAlert, Gift, History, Hourglass, X, Eye, Sparkles, Camera,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Cita } from '../../types';
@@ -21,7 +21,7 @@ const MOTIVOS = [
 export const PanelCliente: React.FC = () => {
   const {
     usuario, citas, barberos, abrirReserva, verTicket, cancelarCita,
-    editarCita, calificarCita, setEsperaAbierta, irA, listaEspera, franjasOcupadas,
+    editarCita, calificarCita, actualizarAvatar, setEsperaAbierta, irA, listaEspera, franjasOcupadas,
   } = useApp();
 
   const [tab, setTab] = useState<'proximas' | 'historial' | 'espera'>('proximas');
@@ -35,6 +35,7 @@ export const PanelCliente: React.FC = () => {
   const [comentario, setComentario] = useState('');
   const [aviso, setAviso] = useState('');
   const [error, setError] = useState('');
+  const [subiendoAvatar, setSubiendoAvatar] = useState(false);
 
   const mias = citas.filter((c) => c.id_cliente === usuario?.id_usuario || c.cliente_correo === usuario?.correo);
   const proximas = mias.filter((c) => ['pendiente', 'confirmada', 'en_atencion'].includes(c.estado));
@@ -42,6 +43,25 @@ export const PanelCliente: React.FC = () => {
   const misEsperas = listaEspera.filter((e) => e.id_cliente === usuario?.id_usuario);
 
   const mostrarAviso = (t: string) => { setAviso(t); setTimeout(() => setAviso(''), 4500); };
+
+  const seleccionarAvatar = async (evento: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = evento.target.files?.[0];
+    evento.target.value = '';
+    if (!archivo) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type)) {
+      setError('La foto debe estar en formato JPG, PNG o WebP.');
+      return;
+    }
+    if (archivo.size > 2 * 1024 * 1024) {
+      setError('La foto no puede superar los 2 MB.');
+      return;
+    }
+    setSubiendoAvatar(true);
+    setError('');
+    const resultado = await actualizarAvatar(archivo);
+    setSubiendoAvatar(false);
+    if (!resultado.ok) setError(resultado.mensaje);
+  };
 
   const confirmarCancelacion = async () => {
     if (!aCancelar) return;
@@ -87,11 +107,23 @@ export const PanelCliente: React.FC = () => {
         <div className="card overflow-hidden">
           <div className="flex flex-col items-start gap-5 malla-suave p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
             <div className="flex items-center gap-4">
+      <div className="relative shrink-0">
       {usuario?.avatar_url
+<<<<<<< HEAD
         ? <img src={usuario.avatar_url} alt="" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
         : <span className="avatar-respaldo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl font-heading text-2xl font-black text-[#06232A] shadow-md ring-1 ring-cyan-300/60 sm:h-20 sm:w-20 sm:text-3xl">
+=======
+        ? <img src={usuario.avatar_url} alt="Foto de perfil" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
+        : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 font-heading text-2xl font-black text-[#1A1400] shadow-md ring-1 ring-amber-400/50 sm:h-20 sm:w-20 sm:text-3xl">
+>>>>>>> origin/feature/cambios-frontend
       {(usuario?.nombre.trim()[0] ?? '?').toUpperCase()}
-    </span>}              <div>
+    </span>}
+        <label className="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-[#0B0F14] bg-amber-400 text-[#1A1400] shadow-lg transition hover:bg-amber-300" title="Cambiar foto de perfil">
+          <Camera className="h-4 w-4" />
+          <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={seleccionarAvatar} disabled={subiendoAvatar} />
+        </label>
+      </div>
+              <div>
                 <h1 className="font-heading text-2xl font-black text-[#EAF0F6] sm:text-3xl">
                   ¡Hola, {usuario?.nombre.split(' ')[0]}! 💈
                 </h1>

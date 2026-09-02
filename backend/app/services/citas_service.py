@@ -703,6 +703,15 @@ def calcular_disponibilidad(
     barberos_service.obtener(id_barbero)
     dia = _a_fecha(fecha)
 
+    if dia < datetime.now().date():
+        return {
+            "id_barbero": id_barbero,
+            "fecha": dia.isoformat(),
+            "id_servicio": int(id_servicio) if id_servicio else None,
+            "duracion_minutos": 30,
+            "slots": [],
+        }
+
     duracion = 30
     if id_servicio is not None:
         servicio = _obtener_servicio(int(id_servicio))
