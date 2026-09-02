@@ -34,6 +34,10 @@ interface Resultado {
   mensaje: string;
 }
 
+interface ResultadoCliente extends Resultado {
+  idCliente?: number;
+}
+
 interface ContextoApp {
   usuario: Usuario | null;
   citas: Cita[];
@@ -78,6 +82,7 @@ interface ContextoApp {
   franjasOcupadas: (fecha: string, barberoId: number) => { inicio: string; fin: string }[];
   franjaDisponible: (fecha: string, barberoId: number, inicio: string, dur: number, ignorarId?: number) => boolean;
   crearCita: (d: DatosReserva) => Promise<Resultado>;
+  crearClientePresencial: (nombre: string, telefono: string) => Promise<ResultadoCliente>;
   buscarClientes: (texto: string) => Promise<ClienteBusqueda[]>;
   editarCita: (id: number, cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>) => Promise<Resultado>;
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void;
@@ -559,6 +564,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return respuesta.items ?? [];
   }, []);
 
+  const crearClientePresencial = async (nombre: string, telefono: string): Promise<ResultadoCliente> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>('/clientes', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          telefono: telefono.trim() || null,
+          correo: `presencial+${Date.now()}@globde.com`,
+        }),
+      });
+      const idCliente = Number(respuesta.id_cliente ?? 0);
+      if (!idCliente) throw new Error('El servidor no devolvió el cliente creado.');
+      return { ok: true, mensaje: 'Cliente creado', idCliente };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo registrar el cliente';
+      return { ok: false, mensaje };
+    }
+  };
+
   const crearCita = async (d: DatosReserva): Promise<Resultado> => {
     const servicio = servicios.find((s) => s.id_servicio === d.servicio_id) ?? servicios[0];
     const barbero = barberos.find((b) => b.id_barbero === d.barbero_id) ?? barberos[0];
@@ -938,6 +962,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         franjasOcupadas,
         franjaDisponible,
         crearCita,
+        crearClientePresencial,
         buscarClientes,
         editarCita,
         cambiarEstadoCita,
