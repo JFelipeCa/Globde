@@ -266,3 +266,10 @@ input[type=date] { color-scheme: light; }
 [class*="text-teal"], [class*="text-turquesa"] { color: #B8941F !important; }
 [class*="bg-teal-50"] { background-color: #FBF6E7 !important; }
 [class*="border-teal-200"], [class*="border-teal-300"] { border-color: #E8C766 !important; }
+
+/* Tarjeta seleccionada (wizard de reservas) */
+.card.seleccionada {
+  border-color: #D4AF37;
+  background: #FFFBEB;
+  box-shadow: 0 0 0 2px #D4AF37, 0 18px 40px -28px rgba(10, 10, 10, .35);
+}

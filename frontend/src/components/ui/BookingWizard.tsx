@@ -4,9 +4,9 @@ import {
   CalendarDays, Sparkles, CircleAlert, Plus,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { EXTRAS_SERVICIO } from '../../data/mockData';
+import { EXTRAS_SERVICIO, SERVICIOS, BARBEROS } from '../../data/mockData';
 import {
-  formatoCOP, hoyISO, sumarDiasISO, desglosarFecha, generarFranjas, franjasVigentes,
+  formatoCOP, hoyISO, sumarDiasISO, desglosarFecha, generarFranjas,
   sumarMinutos, hora12, duracionLegible, haySolape, fechaLarga,
 } from '../../utils/helpers';
 
@@ -30,9 +30,11 @@ export const BookingWizard: React.FC = () => {
   const [telefono, setTelefono] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [error, setError] = useState('');
+  const [saltarBarbero, setSaltarBarbero] = useState(false);
 
   useEffect(() => {
     if (!reservaAbierta) return;
+    setSaltarBarbero(Boolean(configReserva.barberoId));
     setPaso(configReserva.servicioId ? 2 : 1);
     if (configReserva.servicioId) setIdServicio(configReserva.servicioId);
     if (configReserva.barberoId) setIdBarbero(configReserva.barberoId);
@@ -40,17 +42,16 @@ export const BookingWizard: React.FC = () => {
     setHoraInicio(''); setError('');
   }, [reservaAbierta, configReserva, usuario]);
 
-  // El catálogo se carga de la API de forma asíncrona. Mientras no haya datos
-  // (o si el backend no responde) estas variables quedan llenas con un valor
-  // neutro para no romper el render del asistente.
-  const servicio = servicios.find((s) => s.id_servicio === idServicio) ?? servicios[0];
-  const barbero = barberos.find((b) => b.id_barbero === idBarbero) ?? barberos[0];
-  const catalogoListo = Boolean(servicios.length && barberos.length);
+  // Respaldo: si el backend no trae catálogo, se usan los datos mock
+  const listaServicios = servicios.length ? servicios : SERVICIOS;
+  const listaBarberos = barberos.length ? barberos : BARBEROS;
+  const servicio = listaServicios.find((s) => s.id_servicio === idServicio) ?? listaServicios[0];
+  const barbero = listaBarberos.find((b) => b.id_barbero === idBarbero) ?? listaBarberos[0];
 
   const minutosExtras = extras.reduce((a, e) => a + (EXTRAS_SERVICIO.find((x) => x.id === e)?.minutos ?? 0), 0);
   const costoExtras = extras.reduce((a, e) => a + (EXTRAS_SERVICIO.find((x) => x.id === e)?.precio ?? 0), 0);
-  const duracionTotal = (servicio?.duracion_minutos ?? 30) + minutosExtras;
-  const subtotal = (servicio?.precio ?? 0) + costoExtras;
+  const duracionTotal = servicio.duracion_minutos + minutosExtras;
+  const subtotal = servicio.precio + costoExtras;
   const puntosUsables = usarPuntos && usuario && usuario.puntos >= 50 ? 50 : 0;
   const descuento = (puntosUsables / 100) * 10000;
   const total = Math.max(0, subtotal - descuento);
@@ -58,119 +59,35 @@ export const BookingWizard: React.FC = () => {
   const dias = useMemo(() => Array.from({ length: 10 }, (_, i) => sumarDiasISO(i)), []);
   const ocupadas = franjasOcupadas(fecha, idBarbero);
 
-  // Solo los barberos que prestan el servicio elegido. Si el backend no envio
-  // la relacion, se muestran todos para no dejar el paso vacio.
-  const barberosDisponibles = useMemo(
-    () =>
-      barberos.filter(
-        (b) => !b.servicios_ids?.length || b.servicios_ids.includes(idServicio)
-      ),
-    [barberos, idServicio]
-  );
-
-  // Domingo debe ser 7, no 0 (el backend usa 1=Lunes … 7=Domingo).
-  const diaSemana = useMemo(() => {
-    const [a, m, d] = fecha.split('-').map(Number);
-    return new Date(a, m - 1, d).getDay() || 7;
-  }, [fecha]);
-
-  const jornadaDelDia = useMemo(
-    () =>
-      barbero?.horarios?.filter((h) => h.dia_semana === diaSemana) ?? [],
-    [barbero?.horarios, diaSemana],
-  );
-  const barberoDescansa = Boolean(barbero?.horarios?.length) && jornadaDelDia.length === 0;
-
   const franjas = useMemo(() => {
-    // Se generan solo las horas de la jornada real de ese barbero ese dia.
-    const base = barbero?.horarios?.length
-      ? jornadaDelDia.flatMap((j) => generarFranjas(j.hora_inicio, j.hora_fin, 15, duracionTotal))
-      : generarFranjas(barbero?.hora_apertura ?? '08:00', barbero?.hora_cierre ?? '20:00', 15, duracionTotal);
-
-    // Si la fecha es hoy, no tiene sentido ofrecer horas que ya pasaron.
-    return franjasVigentes(base, fecha)
-      .map((ini) => {
-        const fin = sumarMinutos(ini, duracionTotal);
-        const libre = !ocupadas.some((o) => haySolape(ini, fin, o.inicio, o.fin));
-        return { ini, fin, libre };
-      });
-  }, [barbero, jornadaDelDia, duracionTotal, ocupadas, fecha]);
+    const base = generarFranjas(barbero.hora_apertura, barbero.hora_cierre, 15, duracionTotal);
+    return base.map((ini) => {
+      const fin = sumarMinutos(ini, duracionTotal);
+      const libre = !ocupadas.some((o) => haySolape(ini, fin, o.inicio, o.fin));
+      return { ini, fin, libre };
+    });
+  }, [barbero, duracionTotal, ocupadas]);
 
   const franjasManana = franjas.filter((f) => Number(f.ini.split(':')[0]) < 13);
   const franjasTarde = franjas.filter((f) => Number(f.ini.split(':')[0]) >= 13);
 
   if (!reservaAbierta) return null;
 
-  // Si el catálogo aún no llegó del backend (o no hay servicios/barberos),
-  // mostramos un estado de carga en lugar de un asistente vacío que rompe.
-  if (!catalogoListo) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm">
-        <div className="anim-zoom card flex w-full max-w-md flex-col items-center gap-3 px-6 py-10 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 text-2xl">💈</div>
-          <h3 className="font-heading text-xl font-black text-[#EAF0F6]">Cargando el catálogo…</h3>
-          <p className="text-sm text-[#9AA8B5]">Estamos consultando los servicios y barberos disponibles.</p>
-          <button onClick={cerrarReserva} className="btn-primario mt-2 inline-flex rounded-2xl px-5 py-2.5 text-sm font-bold">
-            Cerrar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const alternarExtra = (id: string) => {
     setHoraInicio('');
     setExtras((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
   };
 
-  // Requisito que debe cumplirse para poder ABANDONAR cada paso. Se consulta
-  // desde el boton "Continuar" y desde el stepper de cabecera, para que no
-  // exista ninguna via de llegar al paso 4 sin haber elegido franja: esa fuga
-  // era la que producia el error "Faltan datos de la cita: hora_inicio".
-  const faltanteDelPaso = (n: number): string => {
-    if (n === 2 && !barberosDisponibles.some((b) => b.id_barbero === idBarbero))
-      return 'Elige un barbero que preste el servicio seleccionado.';
-    if (n === 3 && !horaInicio) return 'Selecciona una franja horaria disponible para continuar.';
-    return '';
-  };
-
-  // Solo se permite saltar a un paso si todos los anteriores estan completos.
-  const puedeIrA = (destino: number) =>
-    Array.from({ length: destino - 1 }, (_, i) => i + 1).every((n) => !faltanteDelPaso(n));
-
-  const irAPaso = (destino: number) => {
-    if (destino === paso) return;
-    if (destino < paso) { setError(''); return setPaso(destino); }
-    const primerFallo = Array.from({ length: destino - 1 }, (_, i) => i + 1)
-      .map((n) => ({ n, falta: faltanteDelPaso(n) }))
-      .find((x) => x.falta);
-    if (primerFallo) { setPaso(primerFallo.n); return setError(primerFallo.falta); }
-    setError('');
-    setPaso(destino);
-  };
-
   const siguiente = () => {
     setError('');
-    // Si al cambiar de servicio el barbero elegido ya no lo presta, se reasigna.
-    if (paso === 1 && !barberosDisponibles.some((b) => b.id_barbero === idBarbero)) {
-      if (!barberosDisponibles.length) return setError('Ningún barbero presta ese servicio todavía.');
-      setIdBarbero(barberosDisponibles[0].id_barbero);
-      setHoraInicio('');
-    }
-    const falta = faltanteDelPaso(paso);
-    if (falta) return setError(falta);
-    setPaso((p) => Math.min(4, p + 1));
+    if (paso === 3 && !horaInicio) return setError('Selecciona una franja horaria disponible para continuar.');
+    setPaso((p) => (p === 1 && saltarBarbero ? 3 : Math.min(4, p + 1)));
   };
 
-  const confirmar = async () => {
+  const confirmar = () => {
     setError('');
-    // Ultima red de seguridad: nunca enviar al backend una cita incompleta.
-    for (const n of [1, 2, 3]) {
-      const falta = faltanteDelPaso(n);
-      if (falta) { setPaso(n); return setError(falta); }
-    }
     if (!nombre.trim() || !telefono.trim()) return setError('Completa tu nombre y teléfono de contacto.');
-    const r = await crearCita({
+    const r = crearCita({
       servicio_id: idServicio, barbero_id: idBarbero, fecha, hora_inicio: horaInicio,
       extras, usar_puntos: usarPuntos, puntos_a_usar: puntosUsables,
       nombre, correo, telefono, observaciones,
@@ -213,21 +130,23 @@ export const BookingWizard: React.FC = () => {
             </button>
           </div>
 
-          <div className="mt-4 grid grid-cols-4 gap-1.5">
-            {PASOS.map((p, i) => (
-              <button
-                key={p} onClick={() => irAPaso(i + 1)}
-                disabled={i + 1 > paso && !puedeIrA(i + 1)}
-                className={`rounded-xl px-1 py-1.5 text-[11px] font-bold transition ${
-                  paso === i + 1 ? 'bg-amber-400 text-[#1A1400] shadow' : paso > i + 1 ? 'bg-white/20 text-white' : 'bg-white/8 text-white/60'
-                } ${i + 1 > paso && !puedeIrA(i + 1) ? 'cursor-not-allowed opacity-60' : ''}`}
-              >
-                <span className="flex items-center justify-center gap-1">
-                  {paso > i + 1 ? <Check className="h-3 w-3" /> : <span>{i + 1}</span>}
-                  <span className="hidden sm:inline">{p}</span>
-                </span>
-              </button>
-            ))}
+          <div className={`mt-4 grid gap-1.5 ${saltarBarbero ? 'grid-cols-3' : 'grid-cols-4'}`}>
+            {PASOS
+              .map((etiqueta, i) => ({ id: i + 1, etiqueta }))
+              .filter((p) => !(saltarBarbero && p.id === 2))
+              .map((p, i) => (
+                <button
+                  key={p.etiqueta} onClick={() => p.id < paso && setPaso(p.id)}
+                  className={`rounded-xl px-1 py-1.5 text-[11px] font-bold transition ${
+                    paso === p.id ? 'bg-amber-400 text-[#1A1400] shadow' : paso > p.id ? 'bg-white/20 text-white' : 'bg-white/8 text-white/60'
+                  }`}
+                >
+                  <span className="flex items-center justify-center gap-1">
+                    {paso > p.id ? <Check className="h-3 w-3" /> : <span>{i + 1}</span>}
+                    <span className="hidden sm:inline">{p.etiqueta}</span>
+                  </span>
+                </button>
+              ))}
           </div>
         </div>
 
@@ -247,7 +166,7 @@ export const BookingWizard: React.FC = () => {
                 {servicios.map((s) => (
                   <button
                     key={s.id_servicio} onClick={() => { setIdServicio(s.id_servicio); setHoraInicio(''); }}
-                    className={`card card-hover flex gap-3 p-4 text-left ${idServicio === s.id_servicio ? 'ring-2 ring-amber-400' : ''}`}
+                    className={`card card-hover flex gap-3 p-4 text-left ${idServicio === s.id_servicio ? 'seleccionada' : ''}`}
                   >
                     <span className="text-2xl">{s.icono}</span>
                     <span className="flex-1">
@@ -273,23 +192,10 @@ export const BookingWizard: React.FC = () => {
           {paso === 2 && (
             <div className="anim-aparecer space-y-3">
               <h4 className="font-heading text-lg font-black text-[#EAF0F6]">Elige a tu barbero</h4>
-              {/* Si el catalogo tiene mas barberos que los mostrados, se avisa por que:
-                  sin este texto parecia que la lista se habia roto. */}
-              {barberosDisponibles.length > 0 && barberosDisponibles.length < barberos.length && (
-                <p className="text-xs font-semibold text-[#93A1B1]">
-                  Mostrando {barberosDisponibles.length} de {barberos.length} barberos: solo aparecen
-                  quienes realizan «{servicio.nombre}».
-                </p>
-              )}
-              {!barberosDisponibles.length && (
-                <p className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-700">
-                  Ningún barbero presta este servicio por ahora. Vuelve al paso anterior y elige otro.
-                </p>
-              )}
-              {barberosDisponibles.map((b) => (
+              {listaBarberos.map((b) => (
                 <button
                   key={b.id_barbero} onClick={() => { setIdBarbero(b.id_barbero); setHoraInicio(''); }}
-                  className={`card card-hover flex w-full items-center gap-4 p-4 text-left ${idBarbero === b.id_barbero ? 'ring-2 ring-amber-400' : ''}`}
+                  className={`card card-hover flex w-full items-center gap-4 p-4 text-left ${idBarbero === b.id_barbero ? 'seleccionada' : ''}`}
                 >
                   <img src={b.foto_url} alt={b.nombre} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
                   <div className="min-w-0 flex-1">
@@ -318,10 +224,6 @@ export const BookingWizard: React.FC = () => {
             <div className="anim-aparecer space-y-5">
               <div>
                 <h4 className="font-heading text-lg font-black text-[#EAF0F6]">Selecciona el día</h4>
-                <p className="mt-1 text-sm text-[#EAF0F6]/60">
-                  Solo mostramos los turnos que {barbero.nombre.split(' ')[0]} tiene libres según su
-                  jornada. Si eliges hoy, las horas que ya pasaron desaparecen de la lista.
-                </p>
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
                   {dias.map((d) => {
                     const inf = desglosarFecha(d);
@@ -353,29 +255,16 @@ export const BookingWizard: React.FC = () => {
                   </span>
                 </div>
 
-                {barberoDescansa ? (
-                  <p className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-700">
-                    {barbero.nombre.split(' ')[0]} no atiende este día. Elige otra fecha u otro barbero.
-                  </p>
-                ) : !franjas.length ? (
-                  <p className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-700">
-                    No quedan turnos disponibles para este día. Prueba con la siguiente fecha.
-                  </p>
-                ) : (
-                  <>
-                    <p className="mt-3 text-[11px] font-semibold text-[#6B7A8C]">MAÑANA</p>
-                    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                      {franjasManana.length ? franjasManana.map((f) => <BotonFranja key={f.ini} f={f} />)
-                        : <p className="col-span-4 text-xs text-[#6B7A8C]">Sin turnos en la mañana para este barbero.</p>}
-                    </div>
+                <p className="mt-3 text-[11px] font-semibold text-[#6B7A8C]">MAÑANA</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {franjasManana.length ? franjasManana.map((f) => <BotonFranja key={f.ini} f={f} />)
+                    : <p className="col-span-4 text-xs text-[#6B7A8C]">Sin turnos en la mañana para este barbero.</p>}
+                </div>
 
-                    <p className="mt-4 text-[11px] font-semibold text-[#6B7A8C]">TARDE Y NOCHE</p>
-                    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                      {franjasTarde.length ? franjasTarde.map((f) => <BotonFranja key={f.ini} f={f} />)
-                        : <p className="col-span-4 text-xs text-[#6B7A8C]">Sin turnos en la tarde para este barbero.</p>}
-                    </div>
-                  </>
-                )}
+                <p className="mt-4 text-[11px] font-semibold text-[#6B7A8C]">TARDE Y NOCHE</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {franjasTarde.map((f) => <BotonFranja key={f.ini} f={f} />)}
+                </div>
 
                 {horaInicio && (
                   <div className="anim-aparecer mt-4 flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm font-bold text-amber-700">
@@ -469,18 +358,13 @@ export const BookingWizard: React.FC = () => {
         {/* Pie */}
         <div className="flex shrink-0 items-center justify-between border-t border-white/8 bg-[#141A21] px-5 py-4 sm:px-7">
           {paso > 1 ? (
-            <button onClick={() => setPaso(paso - 1)} className="flex items-center gap-1.5 rounded-2xl border border-white/12 px-4 py-2.5 text-xs font-bold text-[#93A1B1] transition hover:bg-white/5">
+            <button onClick={() => setPaso(paso === 3 && saltarBarbero ? 1 : paso - 1)} className="flex items-center gap-1.5 rounded-2xl border border-white/12 px-4 py-2.5 text-xs font-bold text-[#93A1B1] transition hover:bg-white/5">
               <ArrowLeft className="h-4 w-4" /> Atrás
             </button>
           ) : <span />}
 
           {paso < 4 ? (
-            <button
-              onClick={siguiente}
-              disabled={Boolean(faltanteDelPaso(paso))}
-              title={faltanteDelPaso(paso) || undefined}
-              className="btn-primario flex items-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <button onClick={siguiente} className="btn-primario flex items-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-bold">
               Continuar <ArrowRight className="h-4 w-4" />
             </button>
           ) : (
