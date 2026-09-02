@@ -90,14 +90,14 @@ export const Hero: React.FC = () => {
 
             <div className="absolute bottom-6 right-6 w-48 rounded-2xl border border-white/10 bg-[#0B0F14]/90 p-3.5 shadow-xl backdrop-blur">
               <div className="flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/15"><Crown className="h-4 w-4 text-amber-300" /></span>
+                <span className="puntos-icono flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/15"><Crown className="puntos-corona h-4 w-4" /></span>
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">Club Globde</p>
                   <p className="text-xs font-black text-[#EAF0F6]">+25 pts por cita</p>
                 </div>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8">
-                <div className="h-full w-3/4 rounded-full bg-gradient-to-r from-amber-300 to-amber-500" />
+                <div className="puntos-progreso h-full w-3/4 rounded-full bg-gradient-to-r from-amber-300 to-amber-500" />
               </div>
               <p className="mt-1 text-[10px] text-[#6B7A8C]">185/250 pts para nivel Oro</p>
             </div>
@@ -140,7 +140,7 @@ export const Beneficios: React.FC = () => {
         <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {items.map((x, i) => (
             <div key={x.t} className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} p-6`}>
-              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${x.c}`}><x.i className="h-6 w-6" /></span>
+              <span className={`beneficio-icono flex h-12 w-12 items-center justify-center rounded-2xl ${x.c}`}><x.i className="h-6 w-6" /></span>
               <h3 className="font-heading mt-4 text-lg font-black text-[#EAF0F6]">{x.t}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-[#93A1B1]">{x.d}</p>
             </div>

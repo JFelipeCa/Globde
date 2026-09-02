@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X, Mail, Lock, User, Phone, ArrowRight, ShieldCheck, Sparkles,
-  Eye, EyeOff, Check, KeyRound, CircleAlert, MailCheck, RotateCcw, ChevronDown,
+  Eye, EyeOff, Check, KeyRound, CircleAlert, MailCheck, RotateCcw,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { evaluarPassword, validarCorreo, validarNombre, validarTelefono } from '../../utils/helpers';
@@ -56,9 +56,6 @@ const Campo: React.FC<{
   </div>
 );
 
-/** Contrasena de las cuentas de la semilla (solo entornos de prueba). */
-const CLAVE_DEMO = 'Globde2025*';
-
 const inputCls =
   'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-400/15';
 
@@ -88,11 +85,31 @@ export const AuthModal: React.FC = () => {
   const [nuevaPwd2, setNuevaPwd2] = useState('');
   const [exitoRec, setExitoRec] = useState('');
 
+  useEffect(() => {
+    if (modalAuth) return;
+    setCorreo('');
+    setContrasena('');
+    setVerPwd(false);
+    setError('');
+    setRNombre('');
+    setRCorreo('');
+    setRTel('');
+    setRPwd('');
+    setRPwd2('');
+    setPasoRec(1);
+    setRecCorreo('');
+    setCodigoDemo('');
+    setCodigoInput(['', '', '', '', '', '']);
+    setNuevaPwd('');
+    setNuevaPwd2('');
+    setExitoRec('');
+  }, [modalAuth]);
+
   if (!modalAuth) return null;
 
   const cerrar = () => {
-    cerrarAuth(); setError(''); setPasoRec(1); setExitoRec('');
-    setCodigoInput(['', '', '', '', '', '']); limpiarRecuperacion();
+    cerrarAuth();
+    limpiarRecuperacion();
   };
 
   const enviarLogin = async (e: React.FormEvent) => {
@@ -198,13 +215,13 @@ export const AuthModal: React.FC = () => {
           {modalAuth === 'login' && (
             <form onSubmit={enviarLogin} className="anim-aparecer space-y-4">
               <Campo etiqueta="Correo electrónico" icono={Mail}>
-                <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)}
-                  placeholder="tucorreo@ejemplo.com" className={inputCls} />
+                <input type="email" value={correo} maxLength={128} onChange={(e) => setCorreo(e.target.value)}
+                  placeholder="tucorreo@ejemplo.com" pattern="[^\s@]+@[^\s@]+\.[A-Za-z]{2,}" title="Ingresa un correo válido, por ejemplo nombre@dominio.com" className={inputCls} />
               </Campo>
 
               <Campo etiqueta="Contraseña" icono={Lock}>
                 <div className="relative">
-                  <input type={verPwd ? 'text' : 'password'} value={contrasena} onChange={(e) => setContrasena(e.target.value)}
+                  <input type={verPwd ? 'text' : 'password'} value={contrasena} maxLength={128} onChange={(e) => setContrasena(e.target.value)}
                     placeholder="••••••••" className={inputCls + ' pr-11'} />
                   <button type="button" onClick={() => setVerPwd(!verPwd)}
                     className="absolute right-3 top-2.5 text-[#6B7A8C] hover:text-amber-600">
@@ -222,36 +239,6 @@ export const AuthModal: React.FC = () => {
                 Entrar a mi cuenta <ArrowRight className="h-4 w-4" />
               </button>
 
-              {/* Las cuentas de prueba son utiles para sustentar, pero ocupaban
-                  medio modal y le restaban seriedad al login. Ahora van
-                  plegadas: quien las necesite las abre en un clic. */}
-              <details className="group rounded-2xl border border-white/8 bg-[#0F151C]">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-3 text-[11px] font-bold text-[#93A1B1] transition hover:text-[#C6D0DC]">
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Cuentas de prueba
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
-                </summary>
-                <div className="px-3 pb-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { t: 'Cliente', correo: 'cliente1@example.com', c: 'border-amber-400/30 bg-amber-400/10 text-amber-700' },
-                      { t: 'Barbero', correo: 'barbero1@globde.test', c: 'border-neutral-400/40 bg-neutral-500/10 text-neutral-800' },
-                      { t: 'Admin', correo: 'admin@globde.test', c: 'border-neutral-900/40 bg-neutral-900/10 text-neutral-900' },
-                    ].map((o) => (
-                      <button key={o.t} type="button"
-                        onClick={() => { setCorreo(o.correo); setContrasena(CLAVE_DEMO); setError(''); }}
-                        className={`rounded-xl border py-1.5 text-[11px] font-bold transition hover:brightness-125 ${o.c}`}>
-                        {o.t}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-[10px] leading-snug text-[#5A6878]">
-                    Rellena el formulario con una cuenta real de la base de datos. Pulsa
-                    «Entrar a mi cuenta» para iniciar sesión de verdad.
-                  </p>
-                </div>
-              </details>
             </form>
           )}
 
@@ -259,21 +246,23 @@ export const AuthModal: React.FC = () => {
           {modalAuth === 'registro' && (
             <form onSubmit={enviarRegistro} className="anim-aparecer space-y-3.5">
               <Campo etiqueta="Nombre completo" icono={User}>
-                <input value={rNombre} onChange={(e) => setRNombre(e.target.value)} placeholder="Nombre y apellido" className={inputCls} />
+                <input value={rNombre} maxLength={80} onChange={(e) => setRNombre(e.target.value)} placeholder="Nombre y apellido" className={inputCls} />
               </Campo>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Campo etiqueta="Correo" icono={Mail}>
-                  <input type="email" value={rCorreo} onChange={(e) => setRCorreo(e.target.value)} placeholder="correo@ejemplo.com" className={inputCls} />
+                  <input type="email" value={rCorreo} maxLength={128} onChange={(e) => setRCorreo(e.target.value)} placeholder="correo@ejemplo.com" pattern="[^\s@]+@[^\s@]+\.[A-Za-z]{2,}" title="Ingresa un correo válido, por ejemplo nombre@dominio.com" className={inputCls} />
                 </Campo>
                 <Campo etiqueta="Celular" icono={Phone}>
-                  <input value={rTel} onChange={(e) => setRTel(e.target.value)} placeholder="+57 300 000 0000" className={inputCls} />
+                  <input type="tel" inputMode="numeric" value={rTel} maxLength={15}
+                    onChange={(e) => setRTel(e.target.value.replace(/\D/g, ''))}
+                    placeholder="3000000000" pattern="[0-9]{7,15}" title="Ingresa entre 7 y 15 dígitos" className={inputCls} />
                 </Campo>
               </div>
 
               <Campo etiqueta="Crear contraseña segura" icono={Lock}>
                 <div className="relative">
-                  <input type={verPwd ? 'text' : 'password'} value={rPwd} onChange={(e) => setRPwd(e.target.value)}
+                  <input type={verPwd ? 'text' : 'password'} value={rPwd} maxLength={128} onChange={(e) => setRPwd(e.target.value)}
                     placeholder="Ej: Globde2026*" className={inputCls + ' pr-11'} />
                   <button type="button" onClick={() => setVerPwd(!verPwd)} className="absolute right-3 top-2.5 text-[#6B7A8C] hover:text-amber-600">
                     {verPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -317,8 +306,8 @@ export const AuthModal: React.FC = () => {
               {pasoRec === 1 && (
                 <form onSubmit={pedirCodigo} className="space-y-4">
                   <Campo etiqueta="Correo registrado" icono={Mail}>
-                    <input type="email" value={recCorreo} onChange={(e) => setRecCorreo(e.target.value)}
-                      placeholder="tucorreo@ejemplo.com" className={inputCls} />
+                        <input type="email" value={recCorreo} maxLength={128} onChange={(e) => setRecCorreo(e.target.value)}
+                          placeholder="tucorreo@ejemplo.com" pattern="[^\s@]+@[^\s@]+\.[A-Za-z]{2,}" title="Ingresa un correo válido, por ejemplo nombre@dominio.com" className={inputCls} />
                   </Campo>
                   <button type="submit" className="btn-primario flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold">
                     <MailCheck className="h-4 w-4" /> Enviarme el código

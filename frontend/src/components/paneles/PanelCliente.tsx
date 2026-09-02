@@ -89,7 +89,7 @@ export const PanelCliente: React.FC = () => {
             <div className="flex items-center gap-4">
       {usuario?.avatar_url
         ? <img src={usuario.avatar_url} alt="" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
-        : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 font-heading text-2xl font-black text-[#1A1400] shadow-md ring-1 ring-amber-400/50 sm:h-20 sm:w-20 sm:text-3xl">
+        : <span className="avatar-respaldo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl font-heading text-2xl font-black text-[#06232A] shadow-md ring-1 ring-cyan-300/60 sm:h-20 sm:w-20 sm:text-3xl">
       {(usuario?.nombre.trim()[0] ?? '?').toUpperCase()}
     </span>}              <div>
                 <h1 className="font-heading text-2xl font-black text-[#EAF0F6] sm:text-3xl">
@@ -163,7 +163,7 @@ export const PanelCliente: React.FC = () => {
                   </div>
 
                   <div className="space-y-4 p-5">
-                    <div className="rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4">
+                    <div className="cita-horario rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4">
                       <span className="text-[11px] font-black uppercase tracking-widest text-amber-700">Franja reservada</span>
                       <p className="font-heading text-2xl font-black text-[#EAF0F6]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
                       <p className="text-xs font-semibold text-[#93A1B1]">

@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Scissors, CalendarDays, Crown, Sparkles, Menu, X, LogOut,
-  LayoutDashboard, ChevronDown, Clock, UserRound, MapPin,
+  LayoutDashboard, ChevronDown, Clock, UserRound, MapPin, Sun, Moon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE } from '../../types';
@@ -15,6 +15,13 @@ export const Navbar: React.FC = () => {
 
   const [menu, setMenu] = useState(false);
   const [perfil, setPerfil] = useState(false);
+  const [modoOscuro, setModoOscuro] = useState(() => localStorage.getItem('globde_tema') === 'oscuro');
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('tema-oscuro', modoOscuro);
+    document.documentElement.classList.toggle('tema-claro', !modoOscuro);
+    localStorage.setItem('globde_tema', modoOscuro ? 'oscuro' : 'claro');
+  }, [modoOscuro]);
 
   // La cinta decia "Abierto hoy" a cualquier hora y cualquier dia. Ahora
   // refleja el reloj real: el domingo la barberia no abre.
@@ -67,8 +74,8 @@ export const Navbar: React.FC = () => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           {/* Marca */}
           <button onClick={() => ir('inicio')} className="group flex items-center gap-3">
-            <span className="poste-barberia relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-amber-400/40">
-              <span className="font-heading text-xl font-black text-amber-400">G</span>
+            <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-amber-400/40">
+              <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
             </span>
             <span className="text-left leading-none">
               <span className="font-heading block text-xl font-black tracking-tight text-[#EAF0F6]">
@@ -136,6 +143,16 @@ export const Navbar: React.FC = () => {
               <span className="sm:hidden">Reservar</span>
             </button>
 
+            <button
+              type="button"
+              onClick={() => setModoOscuro((actual) => !actual)}
+              aria-label={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              title={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              className="rounded-2xl border border-white/12 bg-[#141A21] p-2.5 text-[#C6D0DC] transition hover:border-amber-400/50 hover:text-amber-600"
+            >
+              {modoOscuro ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+
             {usuario ? (
               <div className="relative">
                 <button
@@ -144,7 +161,7 @@ export const Navbar: React.FC = () => {
                 >
             {usuario.avatar_url
                  ? <img src={usuario.avatar_url} alt={usuario.nombre} className="h-8 w-8 rounded-xl object-cover" />
-                : <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 text-[#1A1400]"><UserRound className="h-4 w-4" strokeWidth={2.5} /></span>}                  <ChevronDown className="h-3.5 w-3.5 text-[#6B7A8C]" />
+                : <span className="avatar-respaldo flex h-8 w-8 items-center justify-center rounded-xl text-[#06232A]"><UserRound className="h-4 w-4" strokeWidth={2.5} /></span>}                  <ChevronDown className="h-3.5 w-3.5 text-[#6B7A8C]" />
                 </button>
 
                 {perfil && (

@@ -21,6 +21,9 @@ import {
   guardarSesion,
   limpiarSesion,
   obtenerAccessToken,
+  guardarVista,
+  obtenerVista,
+  limpiarVista,
 } from '../utils/session';
 
 interface ConfigReserva {
@@ -243,7 +246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [testimonios, setTestimonios] = useState<Testimonio[]>(TESTIMONIOS);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
 
-  const [vista, setVista] = useState<Vista>('inicio');
+  const [vista, setVista] = useState<Vista>(() => obtenerVista() ?? 'inicio');
   const [modalAuth, setModalAuth] = useState<false | 'login' | 'registro' | 'recuperar'>(false);
   const [reservaAbierta, setReservaAbierta] = useState(false);
   const [configReserva, setConfigReserva] = useState<ConfigReserva>({});
@@ -269,6 +272,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Si el token venció, es inválido o el backend lo rechaza,
       // limpiamos la sesión del navegador.
       limpiarSesion();
+      limpiarVista();
       setUsuario(null);
     }
   };
@@ -354,6 +358,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const irA = (v: Vista) => {
     setVista(v);
+    guardarVista(v);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -488,6 +493,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = () => {
   limpiarSesion();
+    limpiarVista();
   setUsuario(null);
   irA('inicio');
   notificar(
