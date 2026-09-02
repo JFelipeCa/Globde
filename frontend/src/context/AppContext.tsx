@@ -750,6 +750,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             texto: comentario,
             rating,
             barbero_favorito: cita.barbero_nombre,
+            avatar_url: '',
             corte: cita.servicio_nombre,
             fecha: 'Reciente',
           },

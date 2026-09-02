@@ -84,10 +84,10 @@ export const BookingWizard: React.FC = () => {
     setPaso((p) => (p === 1 && saltarBarbero ? 3 : Math.min(4, p + 1)));
   };
 
-  const confirmar = () => {
+  const confirmar = async () => {
     setError('');
     if (!nombre.trim() || !telefono.trim()) return setError('Completa tu nombre y teléfono de contacto.');
-    const r = crearCita({
+    const r = await crearCita({
       servicio_id: idServicio, barbero_id: idBarbero, fecha, hora_inicio: horaInicio,
       extras, usar_puntos: usarPuntos, puntos_a_usar: puntosUsables,
       nombre, correo, telefono, observaciones,
