@@ -188,6 +188,15 @@ export interface DatosReserva {
   correo: string;
   telefono: string;
   observaciones: string;
+  /** Requerido cuando quien agenda no es el propio cliente (admin/barbero registrando una cita manual). */
+  id_cliente?: number;
+}
+
+export interface ClienteBusqueda {
+  id_cliente: number;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
 }
 
 export type Vista =

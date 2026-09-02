@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Coins, CalendarDays, Scissors, Award, Send, Download, Search, Check, X,
   Pencil, Eye, Ban, ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import type { Cita, CategoriaServicio, EstadoCita } from '../../types';
+import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita } from '../../types';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
   paginar, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
@@ -17,6 +17,7 @@ export const PanelAdmin: React.FC = () => {
     citas, servicios, barberos, facturas, confirmarCita, cambiarEstadoCita,
     cancelarCita, editarCita, agregarServicio, eliminarServicio,
     actualizarNivelBarbero, difusionMasiva, verTicket, franjasOcupadas,
+    crearCita, buscarClientes,
   } = useApp();
 
   const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'avisos'>('resumen');
@@ -35,6 +36,20 @@ export const PanelAdmin: React.FC = () => {
   const [eEstado, setEEstado] = useState<EstadoCita>('confirmada');
   const [eObs, setEObs] = useState('');
   const [eError, setEError] = useState('');
+
+  /* nueva cita (agendamiento manual desde administración) */
+  const [modalCita, setModalCita] = useState(false);
+  const [nCliente, setNCliente] = useState<ClienteBusqueda | null>(null);
+  const [nClienteTexto, setNClienteTexto] = useState('');
+  const [nClienteResultados, setNClienteResultados] = useState<ClienteBusqueda[]>([]);
+  const [nBuscando, setNBuscando] = useState(false);
+  const [nBarbero, setNBarbero] = useState(1);
+  const [nServicio, setNServicio] = useState(1);
+  const [nFecha, setNFecha] = useState('');
+  const [nHora, setNHora] = useState('');
+  const [nObs, setNObs] = useState('');
+  const [nError, setNError] = useState('');
+  const [nGuardando, setNGuardando] = useState(false);
 
   /* nuevo servicio */
   const [modalServ, setModalServ] = useState(false);
@@ -82,6 +97,53 @@ export const PanelAdmin: React.FC = () => {
         return { ini, fin, libre: propia || !ocupEdit.some((o) => haySolape(ini, fin, o.inicio, o.fin)) };
       })
     : [];
+
+  const servNueva = servicios.find((s) => s.id_servicio === nServicio) ?? servicios[0];
+  const barbNueva = barberos.find((b) => b.id_barbero === nBarbero) ?? barberos[0];
+  const ocupNueva = modalCita ? franjasOcupadas(nFecha, nBarbero) : [];
+  const franjasNueva = modalCita
+    ? franjasVigentes(
+        generarFranjas(barbNueva.hora_apertura, barbNueva.hora_cierre, 15, servNueva.duracion_minutos),
+        nFecha,
+      ).map((ini) => {
+        const fin = sumarMinutos(ini, servNueva.duracion_minutos);
+        return { ini, fin, libre: !ocupNueva.some((o) => haySolape(ini, fin, o.inicio, o.fin)) };
+      })
+    : [];
+
+  const abrirNuevaCita = () => {
+    setModalCita(true);
+    setNCliente(null); setNClienteTexto(''); setNClienteResultados([]);
+    setNBarbero(barberos[0]?.id_barbero ?? 1); setNServicio(servicios[0]?.id_servicio ?? 1);
+    setNFecha(sumarDiasISO(0)); setNHora(''); setNObs(''); setNError('');
+  };
+
+  // Buscar clientes con un pequeño debounce para no disparar una petición por tecla.
+  useEffect(() => {
+    if (!modalCita || nCliente || nClienteTexto.trim().length < 2) { setNClienteResultados([]); return; }
+    let vigente = true;
+    setNBuscando(true);
+    const temporizador = setTimeout(() => {
+      buscarClientes(nClienteTexto).then((res) => { if (vigente) { setNClienteResultados(res); setNBuscando(false); } });
+    }, 350);
+    return () => { vigente = false; clearTimeout(temporizador); };
+  }, [nClienteTexto, nCliente, modalCita, buscarClientes]);
+
+  const guardarNuevaCita = async () => {
+    if (!nCliente) { setNError('Busca y selecciona el cliente para el que se agenda la cita.'); return; }
+    if (!nHora) { setNError('Selecciona una franja disponible.'); return; }
+    setNGuardando(true);
+    const r = await crearCita({
+      servicio_id: nServicio, barbero_id: nBarbero, fecha: nFecha, hora_inicio: nHora,
+      extras: [], usar_puntos: false, puntos_a_usar: 0,
+      nombre: nCliente.nombre, correo: nCliente.correo, telefono: nCliente.telefono || '',
+      observaciones: nObs || 'Cita creada por administración', id_cliente: nCliente.id_cliente,
+    });
+    setNGuardando(false);
+    if (!r.ok) { setNError(r.mensaje); return; }
+    setModalCita(false);
+    mostrar(`Cita agendada para ${nCliente.nombre}.`);
+  };
 
   const guardarEdicion = async () => {
     if (!edit) return;
@@ -217,6 +279,11 @@ export const PanelAdmin: React.FC = () => {
         {/* CITAS */}
         {seccion === 'citas' && (
           <div className="anim-aparecer space-y-4">
+            <div className="flex justify-end">
+              <button onClick={abrirNuevaCita} className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black">
+                <Plus className="h-4 w-4" /> Nueva cita
+              </button>
+            </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#6B7A8C]" />
@@ -514,6 +581,126 @@ export const PanelAdmin: React.FC = () => {
               <div className="flex gap-2 border-t border-white/8 pt-4">
                 <button onClick={() => setEdit(null)} className="flex-1 rounded-2xl border border-white/12 py-3 text-sm font-bold text-[#93A1B1] hover:bg-white/5">Cancelar</button>
                 <button onClick={guardarEdicion} className="btn-primario flex-1 rounded-2xl py-3 text-sm font-black">Guardar cambios</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL NUEVA CITA (agendamiento manual) */}
+      {modalCita && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="anim-zoom card max-h-[92vh] w-full max-w-2xl overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-start justify-between bg-gradient-to-r from-teal-600 to-teal-400 px-6 py-5 text-[#04211F]">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] opacity-75">Agendamiento manual</span>
+                <h3 className="font-heading text-2xl font-black">Nueva cita</h3>
+              </div>
+              <button onClick={() => setModalCita(false)} className="rounded-full bg-[#04211F]/15 p-2 hover:bg-[#04211F]/25"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="space-y-4 p-6">
+              {nError && <p className="rounded-2xl bg-rose-400/10 p-3 text-xs font-bold text-rose-300">{nError}</p>}
+
+              <div>
+                <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Cliente</label>
+                {nCliente ? (
+                  <div className="flex items-center justify-between rounded-2xl border border-teal-400/40 bg-teal-400/10 px-4 py-3">
+                    <div>
+                      <p className="font-bold text-[#EAF0F6]">{nCliente.nombre}</p>
+                      <p className="text-[11px] text-[#93A1B1]">{nCliente.correo} · {nCliente.telefono || 'sin teléfono'}</p>
+                    </div>
+                    <button onClick={() => { setNCliente(null); setNClienteTexto(''); }} className="rounded-xl border border-white/12 px-3 py-1.5 text-[11px] font-black text-[#93A1B1] hover:bg-white/5">Cambiar</button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#6B7A8C]" />
+                    <input value={nClienteTexto} onChange={(e) => setNClienteTexto(e.target.value)}
+                      placeholder="Buscar cliente por nombre, correo o teléfono…" className={input + ' pl-10'} />
+                    {(nBuscando || nClienteResultados.length > 0) && nClienteTexto.trim().length >= 2 && (
+                      <div className="mt-1 max-h-48 overflow-y-auto rounded-2xl border border-white/10 bg-[#0F151C]">
+                        {nBuscando && <p className="p-3 text-xs text-[#6B7A8C]">Buscando…</p>}
+                        {!nBuscando && nClienteResultados.length === 0 && (
+                          <p className="p-3 text-xs text-[#6B7A8C]">Sin resultados. Verifica el dato o registra al cliente primero.</p>
+                        )}
+                        {nClienteResultados.map((c) => (
+                          <button key={c.id_cliente} onClick={() => { setNCliente(c); setNClienteResultados([]); }}
+                            className="flex w-full flex-col items-start px-4 py-2.5 text-left transition hover:bg-white/5">
+                            <span className="text-sm font-bold text-[#EAF0F6]">{c.nombre}</span>
+                            <span className="text-[11px] text-[#6B7A8C]">{c.correo} · {c.telefono || 'sin teléfono'}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Servicio</label>
+                  <select value={nServicio} onChange={(e) => { setNServicio(Number(e.target.value)); setNHora(''); }} className={input}>
+                    {servicios.map((s) => <option key={s.id_servicio} value={s.id_servicio}>{s.nombre} · {duracionLegible(s.duracion_minutos)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Barbero</label>
+                  <select value={nBarbero} onChange={(e) => { setNBarbero(Number(e.target.value)); setNHora(''); }} className={input}>
+                    {barberos.map((b) => <option key={b.id_barbero} value={b.id_barbero}>{b.nombre}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-[#93A1B1]">Fecha</label>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {Array.from({ length: 10 }, (_, i) => sumarDiasISO(i)).map((d) => {
+                    const inf = desglosarFecha(d);
+                    return (
+                      <button key={d} onClick={() => { setNFecha(d); setNHora(''); }}
+                        className={`min-w-[64px] rounded-2xl border px-2.5 py-2 text-center transition ${
+                          nFecha === d ? 'border-teal-400 bg-teal-400 text-[#04211F]' : 'border-white/10 bg-[#141A21] text-[#93A1B1]'
+                        }`}>
+                        <span className="block text-[10px] font-bold uppercase">{inf.esHoy ? 'Hoy' : inf.diaSemanaCorto}</span>
+                        <span className="font-heading block text-base font-black">{inf.dia}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold text-[#93A1B1]">
+                  Franja ({duracionLegible(servNueva.duracion_minutos)})
+                </label>
+                <div className="grid max-h-44 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-5">
+                  {franjasNueva.map((f) => (
+                    <button key={f.ini} disabled={!f.libre} onClick={() => setNHora(f.ini)}
+                      className={`rounded-xl border px-1.5 py-1.5 text-center text-[11px] transition ${
+                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#3D4855] line-through'
+                        : nHora === f.ini ? 'border-teal-400 bg-teal-400 text-[#04211F]'
+                        : 'border-white/10 text-[#93A1B1] hover:border-teal-400/50'
+                      }`}>
+                      <span className="block font-black">{hora12(f.ini)}</span>
+                      <span className="block text-[9px] opacity-70">a {hora12(f.fin)}</span>
+                    </button>
+                  ))}
+                  {franjasNueva.length === 0 && (
+                    <p className="col-span-full text-xs text-[#6B7A8C]">El barbero no tiene franjas ese día.</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Observaciones</label>
+                <input value={nObs} onChange={(e) => setNObs(e.target.value)} className={input} placeholder="Notas internas o del cliente" />
+              </div>
+
+              <div className="flex gap-2 border-t border-white/8 pt-4">
+                <button onClick={() => setModalCita(false)} className="flex-1 rounded-2xl border border-white/12 py-3 text-sm font-bold text-[#93A1B1] hover:bg-white/5">Cancelar</button>
+                <button onClick={guardarNuevaCita} disabled={nGuardando} className="btn-primario flex-1 rounded-2xl py-3 text-sm font-black disabled:opacity-60">
+                  {nGuardando ? 'Guardando…' : 'Agendar cita'}
+                </button>
               </div>
             </div>
           </div>

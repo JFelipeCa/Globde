@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import type {
   Usuario, Barbero, Servicio, Cita, CatalogoCorte, PremioFidelidad,
   EntradaListaEspera, Factura, Testimonio, Notificacion, TipoRol,
-  EstadoCita, DatosReserva, Vista,
+  EstadoCita, DatosReserva, Vista, ClienteBusqueda,
 } from '../types';
 import {
   ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE,
@@ -78,6 +78,7 @@ interface ContextoApp {
   franjasOcupadas: (fecha: string, barberoId: number) => { inicio: string; fin: string }[];
   franjaDisponible: (fecha: string, barberoId: number, inicio: string, dur: number, ignorarId?: number) => boolean;
   crearCita: (d: DatosReserva) => Promise<Resultado>;
+  buscarClientes: (texto: string) => Promise<ClienteBusqueda[]>;
   editarCita: (id: number, cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>) => Promise<Resultado>;
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void;
   confirmarCita: (id: number) => void;
@@ -541,6 +542,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [citas]
   );
 
+  const buscarClientes = useCallback(async (texto: string): Promise<ClienteBusqueda[]> => {
+    const t = texto.trim();
+    if (t.length < 2) return [];
+    try {
+      const respuesta = await apiRequest<{ items: ClienteBusqueda[] }>(
+        `/clientes?buscar=${encodeURIComponent(t)}&por_pagina=8`,
+      );
+      return respuesta.items ?? [];
+    } catch {
+      return [];
+    }
+  }, []);
+
   const crearCita = async (d: DatosReserva): Promise<Resultado> => {
     const servicio = servicios.find((s) => s.id_servicio === d.servicio_id) ?? servicios[0];
     const barbero = barberos.find((b) => b.id_barbero === d.barbero_id) ?? barberos[0];
@@ -554,12 +568,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // El backend exige la PK de `clientes`. Antes se enviaba id_usuario con 999
     // de respaldo y respondia 404 "El cliente no existe".
-    if (!usuario?.id_cliente) {
+    // Un cliente siempre reserva para si mismo (usuario.id_cliente). Un admin o
+    // barbero registrando una cita manual/presencial debe indicar explicitamente
+    // el id_cliente del titular (d.id_cliente), obtenido de un buscador de clientes.
+    const idClienteFinal = usuario?.id_rol === ROL_CLIENTE ? usuario.id_cliente : (d.id_cliente ?? usuario?.id_cliente);
+    if (!idClienteFinal) {
       return {
         ok: false,
-        mensaje: usuario
-          ? 'Tu perfil no tiene una ficha de cliente asociada. Inicia sesión con una cuenta de cliente para reservar.'
-          : 'Inicia sesión como cliente para confirmar la reserva.',
+        mensaje: usuario && usuario.id_rol !== ROL_CLIENTE
+          ? 'Selecciona el cliente para el que se agenda la cita.'
+          : usuario
+            ? 'Tu perfil no tiene una ficha de cliente asociada. Inicia sesión con una cuenta de cliente para reservar.'
+            : 'Inicia sesión como cliente para confirmar la reserva.',
       };
     }
 
@@ -567,7 +587,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const response = await apiRequest<Record<string, unknown>>('/citas', {
         method: 'POST',
         body: JSON.stringify({
-          id_cliente: usuario.id_cliente,
+          id_cliente: idClienteFinal,
           id_barbero: barbero.id_barbero,
           id_servicio: servicio.id_servicio,
           fecha: d.fecha,
@@ -579,7 +599,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const nueva: Cita = {
         id_cita: Number(response.id_cita ?? Date.now()),
         codigo_reserva: `GLB-${String(response.id_cita ?? Date.now()).padStart(4, '0')}`,
-        id_cliente: Number(response.id_cliente ?? usuario.id_cliente),
+        id_cliente: Number(response.id_cliente ?? idClienteFinal),
         cliente_nombre: d.nombre || usuario?.nombre || 'Cliente',
         cliente_telefono: d.telefono || usuario?.telefono || '',
         cliente_correo: d.correo || usuario?.correo || '',
@@ -897,6 +917,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         franjasOcupadas,
         franjaDisponible,
         crearCita,
+        buscarClientes,
         editarCita,
         cambiarEstadoCita,
         confirmarCita,
