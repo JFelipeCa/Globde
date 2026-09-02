@@ -361,6 +361,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const cerrarAuth = () => setModalAuth(false);
 
   const abrirReserva = (c: ConfigReserva = {}) => {
+    // El asistente publico de reserva (BookingWizard) esta pensado solo para
+    // clientes: no tiene forma de elegir a nombre de que cliente se agenda.
+    // Si un admin/barbero llega aqui (por cualquiera de los botones "Reservar
+    // cita" repartidos en Navbar/Landing/Extras), lo mandamos a su propio
+    // panel, donde ya existe un flujo de agendamiento manual con selector de
+    // cliente en vez de abrir un formulario que no va a poder completar.
+    if (usuario && usuario.id_rol !== ROL_CLIENTE) {
+      irAPanel(usuario.id_rol);
+      return;
+    }
     setConfigReserva(c);
     setReservaAbierta(true);
   };

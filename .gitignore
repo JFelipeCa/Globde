@@ -24,3 +24,7 @@ frontend/.env
 coverage.xml
 htmlcov/
 resultados-pytest.xml
+
+# Configuración local de VS Code y SQLTools
+.vscode/
+globde.session.sql
