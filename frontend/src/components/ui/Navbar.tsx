@@ -134,7 +134,7 @@ export const Navbar: React.FC = () => {
               </button>
             )}
 
-            {usuario?.id_rol !== ROL_ADMINISTRADOR && (
+            {(!usuario || usuario.id_rol === ROL_CLIENTE) && (
               <button
                 onClick={() => abrirReserva()}
                 className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold"

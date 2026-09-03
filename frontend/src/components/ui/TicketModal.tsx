@@ -148,22 +148,32 @@ export const TicketModal: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4 text-center">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Tu franja reservada</span>
-            <p className="font-heading mt-1 text-2xl font-black text-[#06232A]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
-            <p className="text-xs font-semibold text-[#24515A]">{fechaLarga(c.fecha)} · {duracionLegible(c.duracion_minutos)}</p>
-          </div>
+          {c.estado === 'completada' ? (
+            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-center">
+              <Check className="mx-auto h-7 w-7 text-emerald-300" />
+              <p className="mt-1 text-sm font-black text-emerald-200">Servicio completado</p>
+              <p className="text-xs text-[#93A1B1]">Esta cita ya fue atendida. Los puntos correspondientes fueron acreditados.</p>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4 text-center">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Tu franja reservada</span>
+                <p className="font-heading mt-1 text-2xl font-black text-[#06232A]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
+                <p className="text-xs font-semibold text-[#24515A]">{fechaLarga(c.fecha)} · {duracionLegible(c.duracion_minutos)}</p>
+              </div>
 
-          <div className="flex items-center gap-4 rounded-2xl border border-white/8 p-3">
-            <div className="rounded-xl bg-[#EAF0F6] p-2">
-              <QrCode className="h-14 w-14 text-[#0B0F14]" />
-            </div>
-            <div className="text-xs text-[#93A1B1]">
-              <p className="font-bold text-[#EAF0F6]">Muestra este código al llegar</p>
-              <p className="mt-0.5">Con él validamos tu turno y acreditamos tus puntos automáticamente.</p>
-              <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700"><MapPin className="h-3 w-3" /> Calle 85 #14-20, Bogotá</p>
-            </div>
-          </div>
+              <div className="flex items-center gap-4 rounded-2xl border border-white/8 p-3">
+                <div className="rounded-xl bg-[#EAF0F6] p-2">
+                  <QrCode className="h-14 w-14 text-[#0B0F14]" />
+                </div>
+                <div className="text-xs text-[#93A1B1]">
+                  <p className="font-bold text-[#EAF0F6]">Muestra este código al llegar</p>
+                  <p className="mt-0.5">Con él validamos tu turno y acreditamos tus puntos automáticamente.</p>
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700"><MapPin className="h-3 w-3" /> Calle 85 #14-20, Bogotá</p>
+                </div>
+              </div>
+            </>
+          )}
 
           {c.extras.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -178,15 +188,17 @@ export const TicketModal: React.FC = () => {
             <span className="font-heading text-xl font-black text-[#EAF0F6]">{formatoCOP(c.precio_total)}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <a href={urlCalendario()} target="_blank" rel="noreferrer"
-              className="flex items-center justify-center gap-1.5 rounded-2xl border border-white/12 py-2.5 text-xs font-bold text-[#C6D0DC] transition hover:border-amber-400/50">
-              <Download className="h-3.5 w-3.5 text-amber-600" /> Calendario
-            </a>
-            <button onClick={compartir} className="flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-500 py-2.5 text-xs font-bold text-[#04211F] transition hover:bg-emerald-400">
-              <Share2 className="h-3.5 w-3.5" /> WhatsApp
-            </button>
-          </div>
+          {c.estado !== 'completada' && (
+            <div className="grid grid-cols-2 gap-2">
+              <a href={urlCalendario()} target="_blank" rel="noreferrer"
+                className="flex items-center justify-center gap-1.5 rounded-2xl border border-white/12 py-2.5 text-xs font-bold text-[#C6D0DC] transition hover:border-amber-400/50">
+                <Download className="h-3.5 w-3.5 text-amber-600" /> Calendario
+              </a>
+              <button onClick={compartir} className="flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-500 py-2.5 text-xs font-bold text-[#04211F] transition hover:bg-emerald-400">
+                <Share2 className="h-3.5 w-3.5" /> WhatsApp
+              </button>
+            </div>
+          )}
 
           {c.estado !== 'completada' && c.estado !== 'cancelada' && (
             <button
