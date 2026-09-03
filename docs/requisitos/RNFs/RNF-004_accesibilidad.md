@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # RNF-004 — Accesibilidad Web (WCAG 2.1 AA y ARIA)
 
 <!--
@@ -31,17 +30,3 @@ Todos los elementos interactivos (botones, campos de entrada, selectores de fech
 
 ### RNF-004.3 — Semántica HTML5 y Atributos ARIA
 El código JSX debe emplear etiquetas estructurales semánticas (`<header>`, `<main>`, `<nav>`, `<section>`, `<footer>`, `<dialog>`) y atributos `aria-label`, `aria-expanded` y `aria-current` en menús colapsables y controles de estado.
-=======
-# RNF-004 — Accesibilidad
-
-## Identificación
-| Campo | Valor |
-|---|---|
-| **ID** | RNF-004 |
-| **Nombre** | Accesibilidad |
-| **Prioridad** | Media |
-| **Estado** | Parcial |
-
-## Detalles de Implementación
-1. Navegación fluida por teclado (Tab, Enter, Esc).\n2. Contraste mínimo de color 4.5:1.\n3. Etiquetas descriptivas y atributos ARIA en formularios y modales.
->>>>>>> origin/main

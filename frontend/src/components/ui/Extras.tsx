@@ -243,8 +243,8 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <span className="poste-barberia relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0F151C] ring-1 ring-amber-400/40">
-                <span className="font-heading text-xl font-black text-amber-400">G</span>
+              <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0F151C] ring-1 ring-amber-400/40">
+                <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
               </span>
               <span>
                 <span className="font-heading block text-lg font-black text-[#EAF0F6]">GLOB<span className="text-amber-500">DE</span></span>

@@ -21,6 +21,25 @@ export const sumarDiasISO = (dias: number): string => {
   return d.toISOString().split('T')[0];
 };
 
+type JornadaBarbero = { dia_semana: number; hora_inicio: string; hora_fin: string };
+
+export const generarFranjasJornada = (
+  barbero: { hora_apertura: string; hora_cierre: string; horarios?: JornadaBarbero[] },
+  fecha: string,
+  paso: number,
+  duracion: number,
+): string[] => {
+  const [ano, mes, dia] = fecha.split('-').map(Number);
+  const diaSemana = new Date(ano, mes - 1, dia).getDay() || 7;
+  const jornadas = barbero.horarios;
+  if (jornadas) {
+    return jornadas
+      .filter((jornada) => jornada.dia_semana === diaSemana)
+      .flatMap((jornada) => generarFranjas(jornada.hora_inicio, jornada.hora_fin, paso, duracion));
+  }
+  return generarFranjas(barbero.hora_apertura, barbero.hora_cierre, paso, duracion);
+};
+
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # RNF-002 — Rendimiento y Tiempos de Respuesta
 
 <!--
@@ -36,17 +35,3 @@ Para evitar joins redundantes y sobrecarga en el servidor de base de datos, el b
 ### RNF-002.3 — Carga Inicial y Renderizado Frontend (Vite)
 - La aplicación SPA en React debe servirse mediante el empaquetador **Vite**, logrando tiempos de compilación y recarga en caliente (HMR) inferiores a **200 ms** en desarrollo.
 - El First Contentful Paint (FCP) en navegadores de escritorio no debe superar **1.5 segundos**.
-=======
-# RNF-002 — Rendimiento
-
-## Identificación
-| Campo | Valor |
-|---|---|
-| **ID** | RNF-002 |
-| **Nombre** | Rendimiento |
-| **Prioridad** | Alta |
-| **Estado** | Implementado |
-
-## Detalles de Implementación
-1. API responde en menos de 500ms.\n2. Frontend React carga en menos de 3s (FCP).\n3. Base de datos con índices en campos clave de búsqueda.
->>>>>>> origin/main

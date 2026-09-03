@@ -22,6 +22,19 @@ export interface Usuario {
   id_barbero?: number;
 }
 
+export interface UsuarioInternoCreate {
+  nombre: string;
+  correo: string;
+  telefono: string;
+  contrasena: string;
+  id_rol: 1 | 2;
+  titulo?: string;
+  experiencia_anios?: number;
+  bio?: string;
+  foto_url?: string;
+  color?: string;
+}
+
 export interface Barbero {
   id_barbero: number;
   id_usuario: number;

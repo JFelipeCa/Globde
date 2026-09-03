@@ -1,5 +1,12 @@
+import type { Vista } from '../types';
+
 const ACCESS_TOKEN_KEY = 'globde_access_token';
 const REFRESH_TOKEN_KEY = 'globde_refresh_token';
+const VISTA_KEY = 'globde_vista';
+const VISTAS_VALIDAS: Vista[] = [
+  'inicio', 'catalogo', 'fidelizacion',
+  'panel-admin', 'panel-barbero', 'panel-cliente',
+];
 
 /**
  * Guarda las credenciales de sesión.
@@ -24,4 +31,17 @@ export function obtenerRefreshToken(): string | null {
 export function limpiarSesion(): void {
   sessionStorage.removeItem(ACCESS_TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+export function guardarVista(vista: Vista): void {
+  sessionStorage.setItem(VISTA_KEY, vista);
+}
+
+export function obtenerVista(): Vista | null {
+  const vista = sessionStorage.getItem(VISTA_KEY);
+  return vista && VISTAS_VALIDAS.includes(vista as Vista) ? vista as Vista : null;
+}
+
+export function limpiarVista(): void {
+  sessionStorage.removeItem(VISTA_KEY);
 }

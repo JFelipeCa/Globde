@@ -4,10 +4,10 @@ import {
   Pencil, Eye, Ban, ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita } from '../../types';
+import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita, UsuarioInternoCreate } from '../../types';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  paginar, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
+  paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
 } from '../../utils/helpers';
 
 const POR_PAGINA = 6;
@@ -17,7 +17,7 @@ export const PanelAdmin: React.FC = () => {
     citas, servicios, barberos, facturas, confirmarCita, cambiarEstadoCita,
     cancelarCita, editarCita, agregarServicio, eliminarServicio,
     actualizarNivelBarbero, difusionMasiva, verTicket, franjasOcupadas,
-    crearCita, buscarClientes,
+    crearCita, buscarClientes, descargarReporte, crearUsuarioInterno,
   } = useApp();
 
   const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'avisos'>('resumen');
@@ -26,6 +26,7 @@ export const PanelAdmin: React.FC = () => {
   const [fBarbero, setFBarbero] = useState('todos');
   const [fEstado, setFEstado] = useState('todos');
   const [aviso, setAviso] = useState('');
+  const [reporteDescargando, setReporteDescargando] = useState<string | null>(null);
 
   /* edición */
   const [edit, setEdit] = useState<Cita | null>(null);
@@ -65,6 +66,18 @@ export const PanelAdmin: React.FC = () => {
   const [aTitulo, setATitulo] = useState('');
   const [aMensaje, setAMensaje] = useState('');
 
+  const [modalUsuario, setModalUsuario] = useState(false);
+  const [uNombre, setUNombre] = useState('');
+  const [uCorreo, setUCorreo] = useState('');
+  const [uTelefono, setUTelefono] = useState('');
+  const [uContrasena, setUContrasena] = useState('');
+  const [uRol, setURol] = useState<UsuarioInternoCreate['id_rol']>(2);
+  const [uTitulo, setUTitulo] = useState('');
+  const [uExperiencia, setUExperiencia] = useState(0);
+  const [uBio, setUBio] = useState('');
+  const [uError, setUError] = useState('');
+  const [uGuardando, setUGuardando] = useState(false);
+
   const ingresos = facturas.reduce((a, f) => a + f.total, 0);
   const completadas = citas.filter((c) => c.estado === 'completada').length;
   const pendientes = citas.filter((c) => c.estado === 'pendiente');
@@ -81,6 +94,25 @@ export const PanelAdmin: React.FC = () => {
 
   const mostrar = (t: string) => { setAviso(t); setTimeout(() => setAviso(''), 4000); };
 
+  const abrirNuevoUsuario = () => {
+    setModalUsuario(true); setUNombre(''); setUCorreo(''); setUTelefono(''); setUContrasena('');
+    setURol(2); setUTitulo(''); setUExperiencia(0); setUBio(''); setUError('');
+  };
+
+  const guardarNuevoUsuario = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUGuardando(true); setUError('');
+    const datos: UsuarioInternoCreate = {
+      nombre: uNombre.trim(), correo: uCorreo.trim(), telefono: uTelefono,
+      contrasena: uContrasena, id_rol: uRol,
+      ...(uRol === 2 ? { titulo: uTitulo.trim() || 'Barbero', experiencia_anios: Number(uExperiencia), bio: uBio.trim() || undefined } : {}),
+    };
+    const r = await crearUsuarioInterno(datos);
+    setUGuardando(false);
+    if (!r.ok) { setUError(r.mensaje); return; }
+    setModalUsuario(false); mostrar(r.mensaje);
+  };
+
   const abrirEdicion = (c: Cita) => {
     setEdit(c); setEFecha(c.fecha); setEHora(c.hora_inicio); setEBarbero(c.id_barbero);
     setEServicio(c.id_servicio); setEEstado(c.estado); setEObs(c.observaciones); setEError('');
@@ -91,7 +123,7 @@ export const PanelAdmin: React.FC = () => {
   const ocupEdit = edit ? franjasOcupadas(eFecha, eBarbero) : [];
   const franjasEdit = edit
     ? franjasVigentes(
-        generarFranjas(barbEdit.hora_apertura, barbEdit.hora_cierre, 15, servEdit.duracion_minutos),
+        generarFranjasJornada(barbEdit, eFecha, servEdit.duracion_minutos, servEdit.duracion_minutos),
         eFecha,
       ).map((ini) => {
         const fin = sumarMinutos(ini, servEdit.duracion_minutos);
@@ -105,7 +137,7 @@ export const PanelAdmin: React.FC = () => {
   const ocupNueva = modalCita ? franjasOcupadas(nFecha, nBarbero) : [];
   const franjasNueva = modalCita
     ? franjasVigentes(
-        generarFranjas(barbNueva.hora_apertura, barbNueva.hora_cierre, 15, servNueva.duracion_minutos),
+        generarFranjasJornada(barbNueva, nFecha, servNueva.duracion_minutos, servNueva.duracion_minutos),
         nFecha,
       ).map((ini) => {
         const fin = sumarMinutos(ini, servNueva.duracion_minutos);
@@ -439,7 +471,17 @@ export const PanelAdmin: React.FC = () => {
 
         {/* EQUIPO */}
         {seccion === 'equipo' && (
-          <div className="anim-aparecer grid grid-cols-1 gap-5 md:grid-cols-3">
+          <div className="anim-aparecer space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-heading text-xl font-black text-[#EAF0F6]">Equipo interno</h2>
+                <p className="text-xs text-[#93A1B1]">Crea accesos para administradores y barberos.</p>
+              </div>
+              <button onClick={abrirNuevoUsuario} className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold">
+                <Plus className="h-4 w-4" /> Crear perfil
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             {barberos.map((b) => (
               <div key={b.id_barbero} className="card p-6">
                 <div className="flex items-center gap-3">
@@ -466,6 +508,7 @@ export const PanelAdmin: React.FC = () => {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         )}
 
@@ -492,11 +535,15 @@ export const PanelAdmin: React.FC = () => {
               </h3>
               <p className="mt-1 text-xs text-[#93A1B1]">Descarga la información operativa y contable del negocio.</p>
               <div className="mt-4 space-y-2">
-                {['Reporte de ingresos y facturación (.xlsx)', 'Historial de citas por barbero (.pdf)', 'Clientes y puntos de fidelidad (.csv)'].map((r) => (
-                  <div key={r} className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-3 text-xs">
-                    <span className="font-semibold text-[#93A1B1]">{r}</span>
-                    <button onClick={() => mostrar(`Generando: ${r}`)} className="rounded-xl bg-teal-400/12 px-3 py-1.5 text-[11px] font-black text-teal-300 hover:bg-teal-400/20">
-                      Descargar
+                {[
+                  { etiqueta: 'Reporte de ingresos y facturación (.csv)', tipo: 'ingresos' as const },
+                  { etiqueta: 'Historial de citas por barbero (.csv)', tipo: 'citas' as const },
+                  { etiqueta: 'Clientes y puntos de fidelidad (.csv)', tipo: 'clientes' as const },
+                ].map((reporte) => (
+                  <div key={reporte.tipo} className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-3 text-xs">
+                    <span className="font-semibold text-[#93A1B1]">{reporte.etiqueta}</span>
+                    <button onClick={async () => { setReporteDescargando(reporte.tipo); const r = await descargarReporte(reporte.tipo); setReporteDescargando(null); mostrar(r.mensaje); }} disabled={reporteDescargando !== null} className="rounded-xl bg-teal-400/12 px-3 py-1.5 text-[11px] font-black text-teal-300 hover:bg-teal-400/20 disabled:cursor-wait disabled:opacity-50">
+                      {reporteDescargando === reporte.tipo ? 'Generando…' : 'Descargar'}
                     </button>
                   </div>
                 ))}
@@ -505,6 +552,77 @@ export const PanelAdmin: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* MODAL NUEVO PERFIL INTERNO */}
+      {modalUsuario && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="anim-zoom card max-h-[92vh] w-full max-w-xl overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-start justify-between bg-gradient-to-r from-teal-600 to-teal-400 px-6 py-5 text-[#04211F]">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] opacity-75">Acceso administrativo</span>
+                <h3 className="font-heading text-2xl font-black">Crear perfil interno</h3>
+              </div>
+              <button onClick={() => setModalUsuario(false)} className="rounded-full bg-[#04211F]/15 p-2 hover:bg-[#04211F]/25"><X className="h-4 w-4" /></button>
+            </div>
+
+            <form onSubmit={guardarNuevoUsuario} className="space-y-4 p-6">
+              {uError && <p className="rounded-2xl bg-rose-400/10 p-3 text-xs font-bold text-rose-300">{uError}</p>}
+              <div>
+                <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Tipo de perfil</label>
+                <select value={uRol} onChange={(e) => setURol(Number(e.target.value) as UsuarioInternoCreate['id_rol'])} className={input}>
+                  <option value={2}>Barbero</option>
+                  <option value={1}>Administrador</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Nombre completo</label>
+                  <input value={uNombre} onChange={(e) => setUNombre(e.target.value)} required minLength={3} className={input} placeholder="Nombre completo" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Correo</label>
+                  <input type="email" value={uCorreo} onChange={(e) => setUCorreo(e.target.value)} required className={input} placeholder="correo@ejemplo.com" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Teléfono</label>
+                  <input value={uTelefono} onChange={(e) => setUTelefono(e.target.value)} className={input} placeholder="Teléfono (opcional)" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Contraseña</label>
+                  <input type="password" value={uContrasena} onChange={(e) => setUContrasena(e.target.value)} required minLength={8} className={input} placeholder="Mínimo 8 caracteres" />
+                </div>
+              </div>
+
+              {uRol === 2 && (
+                <div className="space-y-3 rounded-2xl border border-white/8 bg-[#0F151C] p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-teal-300">Perfil del barbero</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Título</label>
+                      <input value={uTitulo} onChange={(e) => setUTitulo(e.target.value)} className={input} placeholder="Barbero senior" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Años de experiencia</label>
+                      <input type="number" min={0} max={80} value={uExperiencia} onChange={(e) => setUExperiencia(Number(e.target.value))} className={input} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-[#93A1B1]">Biografía</label>
+                    <textarea rows={3} value={uBio} onChange={(e) => setUBio(e.target.value)} className={input + ' resize-none'} placeholder="Presentación profesional (opcional)" />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 border-t border-white/8 pt-4">
+                <button type="button" onClick={() => setModalUsuario(false)} className="flex-1 rounded-2xl border border-white/12 py-3 text-sm font-bold text-[#93A1B1] hover:bg-white/5">Cancelar</button>
+                <button type="submit" disabled={uGuardando} className="btn-primario flex-1 rounded-2xl py-3 text-sm font-black disabled:opacity-60">
+                  {uGuardando ? 'Creando…' : 'Crear perfil'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL EDITAR CITA */}
       {edit && (

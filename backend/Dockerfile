@@ -26,6 +26,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 RUN chmod +x /app/docker-entrypoint.sh \
     && useradd --create-home --shell /bin/bash globde \
+    && mkdir -p /app/media/avatars \
     && chown -R globde:globde /app
 USER globde
 

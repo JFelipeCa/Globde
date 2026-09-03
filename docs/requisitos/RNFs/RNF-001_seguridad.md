@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # RNF-001 — Seguridad de la Información
 
 <!--
@@ -41,17 +40,3 @@ Los tokens generados para recuperación de credenciales (`POST /api/password/for
 
 ### RNF-001.5 — Aislamiento de Variables de Entorno
 Credenciales de acceso a MySQL, puertos y configuraciones de correo SMTP no deben estar incrustadas en el código fuente. Se debe utilizar `python-dotenv` cargando los parámetros desde `.env` no versionado.
-=======
-# RNF-001 — Seguridad
-
-## Identificación
-| Campo | Valor |
-|---|---|
-| **ID** | RNF-001 |
-| **Nombre** | Seguridad |
-| **Prioridad** | Crítica |
-| **Estado** | Parcial |
-
-## Detalles de Implementación
-1. Hashing contraseñas con bcrypt.\n2. Roles estrictos en backend (1:Admin, 2:Barbero, 3:Cliente).\n3. CORS limitado al dominio del frontend.\n4. Evitar SQL Injection usando parámetros `%s` en consultas MySQL.\n5. Secretos en archivo `.env`.
->>>>>>> origin/main

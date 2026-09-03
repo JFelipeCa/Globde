@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/ui/Navbar';
 import { AuthModal } from './components/ui/AuthModal';
@@ -99,9 +99,19 @@ const Contenido: React.FC = () => {
 };
 
 export default function App() {
-  const esRutaRecuperacion =
+  const [esRutaRecuperacion, setEsRutaRecuperacion] = useState(() => (
     window.location.pathname === '/restablecer-password' &&
-    new URLSearchParams(window.location.search).has('token');
+    new URLSearchParams(window.location.search).has('token')
+  ));
+
+  useEffect(() => {
+    const actualizarRuta = () => setEsRutaRecuperacion(
+      window.location.pathname === '/restablecer-password' &&
+      new URLSearchParams(window.location.search).has('token'),
+    );
+    window.addEventListener('popstate', actualizarRuta);
+    return () => window.removeEventListener('popstate', actualizarRuta);
+  }, []);
 
   return (
     <AppProvider>

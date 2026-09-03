@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import type {
   Usuario, Barbero, Servicio, Cita, CatalogoCorte, PremioFidelidad,
   EntradaListaEspera, Factura, Testimonio, Notificacion, TipoRol,
-  EstadoCita, DatosReserva, Vista, ClienteBusqueda,
+  EstadoCita, DatosReserva, Vista, ClienteBusqueda, UsuarioInternoCreate,
 } from '../types';
 import {
   ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE,
@@ -21,6 +21,9 @@ import {
   guardarSesion,
   limpiarSesion,
   obtenerAccessToken,
+  guardarVista,
+  obtenerVista,
+  limpiarVista,
 } from '../utils/session';
 
 interface ConfigReserva {
@@ -32,6 +35,30 @@ interface ConfigReserva {
 interface Resultado {
   ok: boolean;
   mensaje: string;
+}
+
+type TipoReporte = 'ingresos' | 'citas' | 'clientes';
+
+const descargarCSV = (nombre: string, filas: Record<string, unknown>[]) => {
+  if (!filas.length) throw new Error('El reporte no contiene datos para descargar.');
+  const columnas = [...new Set(filas.flatMap((fila) => Object.keys(fila)))];
+  const escapar = (valor: unknown) => {
+    const texto = valor == null ? '' : String(valor);
+    return `"${texto.replace(/"/g, '""')}"`;
+  };
+  const contenido = [
+    columnas.map(escapar).join(','),
+    ...filas.map((fila) => columnas.map((columna) => escapar(fila[columna])).join(',')),
+  ].join('\n');
+  const enlace = document.createElement('a');
+  enlace.href = URL.createObjectURL(new Blob([`\uFEFF${contenido}`], { type: 'text/csv;charset=utf-8' }));
+  enlace.download = nombre;
+  enlace.click();
+  URL.revokeObjectURL(enlace.href);
+};
+
+interface ResultadoCliente extends Resultado {
+  idCliente?: number;
 }
 
 interface ContextoApp {
@@ -78,12 +105,16 @@ interface ContextoApp {
   franjasOcupadas: (fecha: string, barberoId: number) => { inicio: string; fin: string }[];
   franjaDisponible: (fecha: string, barberoId: number, inicio: string, dur: number, ignorarId?: number) => boolean;
   crearCita: (d: DatosReserva) => Promise<Resultado>;
+  crearClientePresencial: (nombre: string, telefono: string) => Promise<ResultadoCliente>;
+  crearUsuarioInterno: (datos: UsuarioInternoCreate) => Promise<Resultado>;
   buscarClientes: (texto: string) => Promise<ClienteBusqueda[]>;
   editarCita: (id: number, cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>) => Promise<Resultado>;
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void;
   confirmarCita: (id: number) => void;
   cancelarCita: (id: number, motivo: string) => Promise<Resultado>;
   calificarCita: (id: number, rating: number, comentario: string, etiquetas: string[]) => Promise<Resultado>;
+  actualizarAvatar: (archivo: File) => Promise<Resultado>;
+  descargarReporte: (tipo: TipoReporte) => Promise<Resultado>;
 
   canjearPremio: (p: PremioFidelidad) => Promise<Resultado>;
   unirseListaEspera: (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => void;
@@ -125,6 +156,7 @@ function mapUsuarioBackend(payload: Record<string, unknown>): Usuario {
     telefono: String(payload.telefono ?? '+57 300 000 0000'),
     id_rol: rol as TipoRol,
     fecha_creacion: String(payload.fecha_creacion ?? hoyISO()),
+    avatar_url: typeof payload.avatar_url === 'string' ? payload.avatar_url : undefined,
     puntos,
     nivel_fidelizacion: nivelPorPuntos(puntos),
     id_cliente:
@@ -243,7 +275,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [testimonios, setTestimonios] = useState<Testimonio[]>(TESTIMONIOS);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
 
-  const [vista, setVista] = useState<Vista>('inicio');
+  const [vista, setVista] = useState<Vista>(() => obtenerVista() ?? 'inicio');
   const [modalAuth, setModalAuth] = useState<false | 'login' | 'registro' | 'recuperar'>(() => {
     const token = new URLSearchParams(window.location.search).get('token');
     return token ? 'recuperar' : false;
@@ -272,6 +304,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Si el token venció, es inválido o el backend lo rechaza,
       // limpiamos la sesión del navegador.
       limpiarSesion();
+      limpiarVista();
       setUsuario(null);
     }
   };
@@ -338,6 +371,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     void cargarCitas();
   }, [usuario?.id_usuario]);
 
+  useEffect(() => {
+    const cargarNotificaciones = async () => {
+      if (!obtenerAccessToken()) {
+        setNotificaciones([]);
+        return;
+      }
+
+      try {
+        const data = await apiRequest<{
+          items?: Array<Record<string, unknown>>;
+        }>('/notificaciones?solo_no_leidas=true&por_pagina=20');
+        const items = Array.isArray(data.items) ? data.items : [];
+        const persistidas: Notificacion[] = items.map((item) => ({
+            id: String(item.id_notificacion),
+            titulo: String(item.titulo ?? ''),
+            mensaje: String(item.mensaje ?? ''),
+            tipo: String(item.tipo ?? 'sistema') as Notificacion['tipo'],
+            fecha: String(item.creado_en ?? ''),
+          }));
+        setNotificaciones((actuales) => [
+          ...actuales.filter((notificacion) => notificacion.id.startsWith('n')),
+          ...persistidas,
+        ].slice(0, 4));
+        await Promise.all(
+          items.map((item) => apiRequest(`/notificaciones/${Number(item.id_notificacion)}/leida`, { method: 'PATCH' }))
+        );
+      } catch (error) {
+        console.warn('No se pudieron cargar las notificaciones.', error);
+      }
+    };
+
+    void cargarNotificaciones();
+  }, [usuario?.id_usuario]);
+
   const notificar = useCallback(
     (titulo: string, mensaje: string, tipo: Notificacion['tipo'] = 'sistema') => {
       const nueva: Notificacion = {
@@ -357,6 +424,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const irA = (v: Vista) => {
     setVista(v);
+    guardarVista(v);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -491,6 +559,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = () => {
   limpiarSesion();
+    limpiarVista();
   setUsuario(null);
   irA('inicio');
   notificar(
@@ -585,6 +654,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     return respuesta.items ?? [];
   }, []);
+
+  const crearClientePresencial = async (nombre: string, telefono: string): Promise<ResultadoCliente> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>('/clientes', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: nombre.trim(),
+          telefono: telefono.trim() || null,
+          correo: `presencial+${Date.now()}@globde.com`,
+        }),
+      });
+      const idCliente = Number(respuesta.id_cliente ?? 0);
+      if (!idCliente) throw new Error('El servidor no devolvió el cliente creado.');
+      return { ok: true, mensaje: 'Cliente creado', idCliente };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo registrar el cliente';
+      return { ok: false, mensaje };
+    }
+  };
+
+  const crearUsuarioInterno = async (datos: UsuarioInternoCreate): Promise<Resultado> => {
+    try {
+      await apiRequest<Record<string, unknown>>('/usuarios/interno', {
+        method: 'POST',
+        body: JSON.stringify({ ...datos, telefono: datos.telefono.trim() || null }),
+      });
+      notificar(
+        datos.id_rol === ROL_BARBERO ? 'Barbero creado' : 'Administrador creado',
+        `${datos.nombre} ya puede ingresar al sistema.`,
+        'sistema',
+      );
+      return { ok: true, mensaje: 'Perfil creado correctamente.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo crear el perfil';
+      return { ok: false, mensaje };
+    }
+  };
 
   const crearCita = async (d: DatosReserva): Promise<Resultado> => {
     const servicio = servicios.find((s) => s.id_servicio === d.servicio_id) ?? servicios[0];
@@ -779,6 +885,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             texto: comentario,
             rating,
             barbero_favorito: cita.barbero_nombre,
+            avatar_url: '',
             corte: cita.servicio_nombre,
             fecha: 'Reciente',
           },
@@ -791,6 +898,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No se pudo guardar la reseña';
       notificar('No se pudo guardar la reseña', mensaje, 'error');
+      return { ok: false, mensaje };
+    }
+  };
+
+  const actualizarAvatar = async (archivo: File): Promise<Resultado> => {
+    try {
+      const formulario = new FormData();
+      formulario.append('archivo', archivo);
+      const respuesta = await apiRequest<Record<string, unknown>>('/usuarios/me/avatar', {
+        method: 'POST',
+        body: formulario,
+      });
+      setUsuario((actual) => actual ? { ...actual, avatar_url: String(respuesta.avatar_url ?? '') } : actual);
+      notificar('Foto actualizada', 'Tu foto de perfil se guardó correctamente.', 'sistema');
+      return { ok: true, mensaje: 'Foto actualizada' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo actualizar la foto';
       return { ok: false, mensaje };
     }
   };
@@ -885,7 +1009,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           method: 'POST',
           body: JSON.stringify({
             id_rol: ROL_CLIENTE,
-            tipo: 'promo',
+            tipo: 'sistema',
             titulo,
             mensaje,
             enviar_correo: false,
@@ -904,6 +1028,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     [notificar],
   );
+
+  const descargarReporte = async (tipo: TipoReporte): Promise<Resultado> => {
+    try {
+      if (tipo === 'ingresos') {
+        const reporte = await apiRequest<{ periodos?: Record<string, unknown>[] }>('/reportes/ingresos');
+        descargarCSV('reporte-ingresos.csv', reporte.periodos ?? []);
+      } else if (tipo === 'citas') {
+        const reporte = await apiRequest<{ por_barbero?: Record<string, unknown>[] }>('/reportes/citas');
+        descargarCSV('reporte-citas-por-barbero.csv', reporte.por_barbero ?? []);
+      } else {
+        const reporte = await apiRequest<{ items?: Record<string, unknown>[] }>('/clientes?por_pagina=100');
+        descargarCSV('clientes-y-puntos.csv', reporte.items ?? []);
+      }
+      return { ok: true, mensaje: 'Reporte descargado correctamente.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo descargar el reporte.';
+      return { ok: false, mensaje };
+    }
+  };
 
   return (
     <Ctx.Provider
@@ -947,12 +1090,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         franjasOcupadas,
         franjaDisponible,
         crearCita,
+        crearClientePresencial,
+        crearUsuarioInterno,
         buscarClientes,
         editarCita,
         cambiarEstadoCita,
         confirmarCita,
         cancelarCita,
         calificarCita,
+        actualizarAvatar,
+        descargarReporte,
         canjearPremio,
         unirseListaEspera,
         agregarServicio,

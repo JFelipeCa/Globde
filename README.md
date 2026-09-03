@@ -2,6 +2,10 @@
 
 # 💈 GLOBDE — Sistema Integral de Gestión de Citas y Barbería
 
+<p align="center">
+  <img src="docs/assets/globde-banner-premium.svg" alt="Banner GLOBDE premium" width="1200" />
+</p>
+
 Sistema web fullstack para la gestión integral de citas, barberos, clientes, fidelización por puntos y reportes analíticos para barberías modernas. Desarrollado con **FastAPI (Python 3.13)** en el backend, **React 19 + TypeScript + Vite (Context API)** en el frontend y **MySQL** como motor relacional.
 
 ---

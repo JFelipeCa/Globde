@@ -1,6 +1,9 @@
 """Rutas de administracion de usuarios y perfil propio."""
 
-from fastapi import APIRouter, Query, status
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, File, Query, UploadFile, status
 
 from app.core.dependencies import DatosPeticion, SoloAdmin, UsuarioAuth
 from app.core.exceptions import Prohibido
@@ -11,6 +14,11 @@ from app.services.auditoria_service import Accion, registrar_auditoria
 from app.utils.paginacion import offset_de, paginar
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+
+AVATAR_DIR = Path("media/avatars")
+AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+TIPOS_IMAGEN = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+MAX_AVATAR_BYTES = 2 * 1024 * 1024
 
 
 @router.get("", response_model=RespuestaPaginada[UsuarioOut], summary="Listar usuarios")
@@ -46,6 +54,38 @@ def actualizar_mi_perfil(datos: PerfilUpdate, usuario: UsuarioAuth, contexto: Da
     registrar_auditoria(
         Accion.USUARIO_ACTUALIZADO, "usuarios", usuario.id_usuario, usuario.id_usuario,
         contexto.get("ip"), contexto.get("user_agent"),
+    )
+    return actualizado
+
+
+@router.post("/me/avatar", response_model=UsuarioOut, summary="Actualizar foto de perfil")
+async def actualizar_avatar(
+    usuario: UsuarioAuth,
+    contexto: DatosPeticion = ...,
+    archivo: UploadFile = File(...),
+):
+    extension = TIPOS_IMAGEN.get(archivo.content_type or "")
+    if not extension:
+        raise Prohibido("La foto debe estar en formato JPG, PNG o WebP")
+
+    contenido = await archivo.read(MAX_AVATAR_BYTES + 1)
+    if len(contenido) > MAX_AVATAR_BYTES:
+        raise Prohibido("La foto no puede superar los 2 MB")
+
+    AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+    nombre = f"{usuario.id_usuario}-{uuid4().hex}{extension}"
+    destino = AVATAR_DIR / nombre
+    destino.write_bytes(contenido)
+
+    anterior = usuarios_service.obtener(usuario.id_usuario).get("avatar_url")
+    actualizado = usuarios_service.actualizar(
+        usuario.id_usuario, {"avatar_url": f"/api/media/avatars/{nombre}"}
+    )
+    if anterior and anterior.startswith("/api/media/avatars/"):
+        Path(anterior.removeprefix("/api/media/")).unlink(missing_ok=True)
+    registrar_auditoria(
+        Accion.USUARIO_ACTUALIZADO, "usuarios", usuario.id_usuario, usuario.id_usuario,
+        contexto.get("ip"), contexto.get("user_agent"), {"campo": "avatar_url"},
     )
     return actualizado
 

@@ -42,6 +42,7 @@ jobs:
       JWT_SECRET: ci_secret_no_produccion_solo_pruebas
       JWT_ALGORITHM: HS256
       APP_ENV: testing
+      ENABLE_LEGACY_ROUTES: "true"
       EMAIL_ENABLED: "false"
 
     steps:

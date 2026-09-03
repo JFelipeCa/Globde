@@ -6,7 +6,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  hoyISO, paginar, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape,
+  hoyISO, paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape,
 } from '../../utils/helpers';
 
 const POR_PAGINA = 4;
@@ -14,7 +14,7 @@ const POR_PAGINA = 4;
 export const PanelBarbero: React.FC = () => {
   const {
     usuario, citas, barberos, servicios, cambiarEstadoCita,
-    crearCita, alternarDisponibilidad, franjasOcupadas, verTicket,
+    crearCita, crearClientePresencial, alternarDisponibilidad, franjasOcupadas, verTicket,
   } = useApp();
 
   const barbero = barberos.find((b) => b.id_usuario === usuario?.id_usuario) ?? barberos[0];
@@ -46,7 +46,7 @@ export const PanelBarbero: React.FC = () => {
   const servWalk = servicios.find((s) => s.id_servicio === Number(wServ)) ?? servicios[0];
   const ocupadasHoy = franjasOcupadas(hoy, barbero.id_barbero);
   const franjasLibres = franjasVigentes(
-    generarFranjas(barbero.hora_apertura, barbero.hora_cierre, 15, servWalk.duracion_minutos),
+    generarFranjasJornada(barbero, hoy, servWalk.duracion_minutos, servWalk.duracion_minutos),
     hoy,
   )
     .map((ini) => ({ ini, fin: sumarMinutos(ini, servWalk.duracion_minutos) }))
@@ -54,11 +54,15 @@ export const PanelBarbero: React.FC = () => {
 
   const crearWalkin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!wNombre.trim()) { setWError('Ingresa el nombre del cliente.'); return; }
     if (!wHora) { setWError('Selecciona una franja libre.'); return; }
+    const cliente = await crearClientePresencial(wNombre, wTel);
+    if (!cliente.ok || !cliente.idCliente) { setWError(cliente.mensaje); return; }
     const r = await crearCita({
       servicio_id: Number(wServ), barbero_id: barbero.id_barbero, fecha: hoy, hora_inicio: wHora,
+      id_cliente: cliente.idCliente,
       extras: [], usar_puntos: false, puntos_a_usar: 0,
-      nombre: wNombre || 'Cliente presencial', correo: 'walkin@globde.com',
+      nombre: wNombre, correo: `presencial+${cliente.idCliente}@globde.com`,
       telefono: wTel || '+57 300 000 0000', observaciones: 'Cliente presencial (walk-in)',
     });
     if (!r.ok) { setWError(r.mensaje); return; }
@@ -113,7 +117,7 @@ export const PanelBarbero: React.FC = () => {
                 </button>
               </div>
             </div>
-            <button onClick={() => setModal(true)} className="btn-oro flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black sm:w-auto">
+            <button onClick={() => setModal(true)} className="btn-primario flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black sm:w-auto">
               <Plus className="h-4 w-4" /> Registrar cliente presencial
             </button>
           </div>
@@ -235,12 +239,12 @@ export const PanelBarbero: React.FC = () => {
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
           <div className="anim-zoom card max-h-[90vh] w-full max-w-md overflow-y-auto">
-            <div className="sticky top-0 flex items-start justify-between bg-gradient-to-r from-amber-300 to-amber-500 px-6 py-5">
+            <div className="sticky top-0 flex items-start justify-between bg-gradient-to-r from-cyan-300 to-cyan-500 px-6 py-5">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#2B1E04]/75">Walk-in</span>
-                <h3 className="font-heading text-2xl font-black text-[#2B1E04]">Cliente presencial</h3>
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#06232A]/75">Walk-in</span>
+                <h3 className="font-heading text-2xl font-black text-[#06232A]">Cliente presencial</h3>
               </div>
-              <button onClick={() => setModal(false)} className="rounded-full bg-[#2B1E04]/15 p-2"><X className="h-4 w-4 text-[#2B1E04]" /></button>
+              <button onClick={() => setModal(false)} className="rounded-full bg-[#06232A]/15 p-2"><X className="h-4 w-4 text-[#06232A]" /></button>
             </div>
 
             <form onSubmit={crearWalkin} className="space-y-3 p-6">
@@ -276,7 +280,7 @@ export const PanelBarbero: React.FC = () => {
                 </div>
               </div>
 
-              <button type="submit" className="btn-oro w-full rounded-2xl py-3 text-sm font-black">Registrar turno</button>
+              <button type="submit" className="btn-primario w-full rounded-2xl py-3 text-sm font-black">Registrar turno</button>
             </form>
           </div>
         </div>
