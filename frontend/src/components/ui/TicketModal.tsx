@@ -150,8 +150,8 @@ export const TicketModal: React.FC = () => {
 
           <div className="rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4 text-center">
             <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Tu franja reservada</span>
-            <p className="font-heading mt-1 text-2xl font-black text-[#EAF0F6]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
-            <p className="text-xs font-semibold text-[#93A1B1]">{fechaLarga(c.fecha)} · {duracionLegible(c.duracion_minutos)}</p>
+            <p className="font-heading mt-1 text-2xl font-black text-[#06232A]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
+            <p className="text-xs font-semibold text-[#24515A]">{fechaLarga(c.fecha)} · {duracionLegible(c.duracion_minutos)}</p>
           </div>
 
           <div className="flex items-center gap-4 rounded-2xl border border-white/8 p-3">

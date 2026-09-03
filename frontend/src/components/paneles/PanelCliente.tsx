@@ -109,13 +109,8 @@ export const PanelCliente: React.FC = () => {
             <div className="flex items-center gap-4">
       <div className="relative shrink-0">
       {usuario?.avatar_url
-<<<<<<< HEAD
-        ? <img src={usuario.avatar_url} alt="" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
-        : <span className="avatar-respaldo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl font-heading text-2xl font-black text-[#06232A] shadow-md ring-1 ring-cyan-300/60 sm:h-20 sm:w-20 sm:text-3xl">
-=======
         ? <img src={usuario.avatar_url} alt="Foto de perfil" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
-        : <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-amber-500 font-heading text-2xl font-black text-[#1A1400] shadow-md ring-1 ring-amber-400/50 sm:h-20 sm:w-20 sm:text-3xl">
->>>>>>> origin/feature/cambios-frontend
+        : <span className="avatar-respaldo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl font-heading text-2xl font-black text-[#06232A] shadow-md ring-1 ring-cyan-300/60 sm:h-20 sm:w-20 sm:text-3xl">
       {(usuario?.nombre.trim()[0] ?? '?').toUpperCase()}
     </span>}
         <label className="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-[#0B0F14] bg-amber-400 text-[#1A1400] shadow-lg transition hover:bg-amber-300" title="Cambiar foto de perfil">
