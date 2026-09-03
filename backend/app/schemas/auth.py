@@ -74,6 +74,11 @@ class PasswordForgotRequest(ModeloBase):
     correo: Correo = Field(validation_alias=AliasChoices("correo", "email"))
 
 
+class PasswordForgotResponse(ModeloBase):
+    mensaje: str
+    detalle: dict[str, str] | None = None
+
+
 class PasswordResetRequest(ModeloBase):
     token: str = Field(min_length=10, max_length=200)
     nueva_contrasena: str = Field(min_length=8, max_length=128)
@@ -99,6 +104,7 @@ __all__ = [
     "TokenRespuesta",
     "RefreshRequest",
     "PasswordForgotRequest",
+    "PasswordForgotResponse",
     "PasswordResetRequest",
     "CambioPasswordRequest",
     "ValidarTokenRequest",

@@ -99,14 +99,20 @@ const Contenido: React.FC = () => {
 };
 
 export default function App() {
+  const esRutaRecuperacion =
+    window.location.pathname === '/restablecer-password' &&
+    new URLSearchParams(window.location.search).has('token');
+
   return (
     <AppProvider>
       <div className="flex min-h-screen flex-col bg-[#FDFBF7]">
-        <Navbar />
-        <main className="flex-1">
-          <Contenido />
-        </main>
-        <Footer />
+        {!esRutaRecuperacion && <Navbar />}
+        {!esRutaRecuperacion && (
+          <main className="flex-1">
+            <Contenido />
+          </main>
+        )}
+        {!esRutaRecuperacion && <Footer />}
 
         {/* Capas superpuestas */}
         <AuthModal />

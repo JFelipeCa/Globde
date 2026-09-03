@@ -7,6 +7,7 @@ from app.schemas.auth import (
     CambioPasswordRequest,
     LoginRequest,
     PasswordForgotRequest,
+    PasswordForgotResponse,
     PasswordResetRequest,
     RefreshRequest,
     RegistroClienteRequest,
@@ -58,7 +59,7 @@ def logout(usuario: UsuarioAuth):
 
 @router.post(
     "/password/forgot",
-    response_model=MensajeRespuesta,
+    response_model=PasswordForgotResponse,
     summary="Solicitar enlace de recuperacion",
 )
 def password_forgot(datos: PasswordForgotRequest, contexto: DatosPeticion):

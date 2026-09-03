@@ -13,7 +13,7 @@ import {
   LISTA_ESPERA, FACTURAS, TESTIMONIOS, EXTRAS_SERVICIO,
 } from '../data/mockData';
 import {
-  sumarMinutos, haySolape, generarCodigoOTP,
+  sumarMinutos, haySolape,
   evaluarPassword, nivelPorPuntos, hoyISO, emojiDeIcono,
 } from '../utils/helpers';
 import { apiRequest } from '../utils/apiClient';
@@ -70,9 +70,9 @@ interface ContextoApp {
 
   codigoRecuperacion: string | null;
   correoRecuperacion: string | null;
-  solicitarCodigo: (correo: string) => Resultado;
-  verificarCodigo: (codigo: string) => Resultado;
-  restablecerPassword: (nueva: string, confirmar: string) => Resultado;
+  solicitarCodigo: (correo: string) => Promise<Resultado>;
+  verificarCodigo: (token: string) => Promise<Resultado>;
+  restablecerPassword: (token: string, nueva: string, confirmar: string) => Promise<Resultado>;
   limpiarRecuperacion: () => void;
 
   franjasOcupadas: (fecha: string, barberoId: number) => { inicio: string; fin: string }[];
@@ -244,7 +244,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
 
   const [vista, setVista] = useState<Vista>('inicio');
-  const [modalAuth, setModalAuth] = useState<false | 'login' | 'registro' | 'recuperar'>(false);
+  const [modalAuth, setModalAuth] = useState<false | 'login' | 'registro' | 'recuperar'>(() => {
+    const token = new URLSearchParams(window.location.search).get('token');
+    return token ? 'recuperar' : false;
+  });
   const [reservaAbierta, setReservaAbierta] = useState(false);
   const [configReserva, setConfigReserva] = useState<ConfigReserva>({});
   const [quizAbierto, setQuizAbierto] = useState(false);
@@ -497,26 +500,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 };
 
-  const solicitarCodigo = (correo: string): Resultado => {
-    const codigo = generarCodigoOTP();
-    setCodigoRecuperacion(codigo);
-    setCorreoRecuperacion(correo.trim().toLowerCase());
-    notificar('Código enviado 📧', `Enviamos un código de 6 dígitos a ${correo}.`, 'sistema');
-    return { ok: true, mensaje: codigo };
+  const solicitarCodigo = async (correo: string): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<{
+        mensaje: string;
+        detalle?: Record<string, string> | null;
+      }>('/auth/password/forgot', {
+        method: 'POST',
+        body: JSON.stringify({ correo }),
+      });
+      setCodigoRecuperacion(respuesta.detalle?.token_debug ?? null);
+      setCorreoRecuperacion(correo.trim().toLowerCase());
+      notificar('Enlace enviado', respuesta.mensaje, 'sistema');
+      return { ok: true, mensaje: respuesta.mensaje };
+    } catch (error) {
+      return { ok: false, mensaje: error instanceof Error ? error.message : 'No se pudo solicitar la recuperación.' };
+    }
   };
 
-  const verificarCodigo = (codigo: string): Resultado => {
-    if (codigo.trim() === codigoRecuperacion) return { ok: true, mensaje: 'Código verificado' };
-    return { ok: false, mensaje: 'El código ingresado no es válido o ya expiró.' };
+  const verificarCodigo = async (token: string): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<{ mensaje?: string }>('/auth/password/validar-token', {
+        method: 'POST',
+        body: JSON.stringify({ token: token.trim() }),
+      });
+      setCodigoRecuperacion(token.trim());
+      return { ok: true, mensaje: respuesta.mensaje ?? 'Token verificado correctamente.' };
+    } catch (error) {
+      return { ok: false, mensaje: error instanceof Error ? error.message : 'El token no es válido o ya expiró.' };
+    }
   };
 
-  const restablecerPassword = (nueva: string, confirmar: string): Resultado => {
+  const restablecerPassword = async (token: string, nueva: string, confirmar: string): Promise<Resultado> => {
     const fuerza = evaluarPassword(nueva);
     if (!fuerza.esSegura) return { ok: false, mensaje: 'La nueva contraseña no cumple los requisitos de seguridad.' };
     if (nueva !== confirmar) return { ok: false, mensaje: 'Las contraseñas no coinciden.' };
-    setCodigoRecuperacion(null);
-    notificar('Contraseña actualizada ✅', 'Ya puedes iniciar sesión con tu nueva contraseña.', 'sistema');
-    return { ok: true, mensaje: 'Contraseña restablecida correctamente' };
+    try {
+      const respuesta = await apiRequest<{ mensaje: string }>('/auth/password/reset', {
+        method: 'POST',
+        body: JSON.stringify({ token, nueva_contrasena: nueva }),
+      });
+      setCodigoRecuperacion(null);
+      notificar('Contraseña actualizada', 'Ya puedes iniciar sesión con tu nueva contraseña.', 'sistema');
+      return { ok: true, mensaje: respuesta.mensaje };
+    } catch (error) {
+      return { ok: false, mensaje: error instanceof Error ? error.message : 'No se pudo restablecer la contraseña.' };
+    }
   };
 
   const limpiarRecuperacion = () => {

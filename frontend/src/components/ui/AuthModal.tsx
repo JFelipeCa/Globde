@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   X, Mail, Lock, User, Phone, ArrowRight, ShieldCheck, Sparkles,
-  Eye, EyeOff, Check, KeyRound, CircleAlert, MailCheck, RotateCcw, ChevronDown,
+  Eye, EyeOff, Check, CircleAlert, MailCheck, RotateCcw, ChevronDown,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { evaluarPassword, validarCorreo, validarNombre, validarTelefono } from '../../utils/helpers';
@@ -66,7 +66,10 @@ export const AuthModal: React.FC = () => {
   const {
     modalAuth, abrirAuth, cerrarAuth, login, registrar,
     solicitarCodigo, verificarCodigo, restablecerPassword, limpiarRecuperacion,
+    codigoRecuperacion,
   } = useApp();
+  const verificarCodigoRef = useRef(verificarCodigo);
+  verificarCodigoRef.current = verificarCodigo;
 
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
@@ -80,19 +83,40 @@ export const AuthModal: React.FC = () => {
   const [rPwd2, setRPwd2] = useState('');
 
   /* Recuperación */
-  const [pasoRec, setPasoRec] = useState(1);
+  const [pasoRec, setPasoRec] = useState(() => (
+    new URLSearchParams(window.location.search).has('token') ? 2 : 1
+  ));
   const [recCorreo, setRecCorreo] = useState('');
-  const [codigoDemo, setCodigoDemo] = useState('');
-  const [codigoInput, setCodigoInput] = useState(['', '', '', '', '', '']);
+  const [tokenRecuperacion, setTokenRecuperacion] = useState(() => (
+    new URLSearchParams(window.location.search).get('token') ?? ''
+  ));
   const [nuevaPwd, setNuevaPwd] = useState('');
   const [nuevaPwd2, setNuevaPwd2] = useState('');
   const [exitoRec, setExitoRec] = useState('');
+  const enlaceValidado = useRef(false);
+  useEffect(() => {
+    const tokenDesdeUrl = new URLSearchParams(window.location.search).get('token');
+    if (codigoRecuperacion) setTokenRecuperacion(codigoRecuperacion);
+    if (!tokenDesdeUrl || modalAuth !== 'recuperar' || enlaceValidado.current) return;
+
+    enlaceValidado.current = true;
+    const validarEnlace = async () => {
+      const resultado = await verificarCodigoRef.current(tokenDesdeUrl);
+      if (resultado.ok) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        setPasoRec(3);
+      } else {
+        setError(resultado.mensaje);
+      }
+    };
+    void validarEnlace();
+  }, [codigoRecuperacion, modalAuth]);
 
   if (!modalAuth) return null;
 
   const cerrar = () => {
     cerrarAuth(); setError(''); setPasoRec(1); setExitoRec('');
-    setCodigoInput(['', '', '', '', '', '']); limpiarRecuperacion();
+    setTokenRecuperacion(''); limpiarRecuperacion();
   };
 
   const enviarLogin = async (e: React.FormEvent) => {
@@ -114,30 +138,17 @@ export const AuthModal: React.FC = () => {
     if (!r.ok) setError(r.mensaje);
   };
 
-  const pedirCodigo = (e: React.FormEvent) => {
+  const pedirCodigo = async (e: React.FormEvent) => {
     e.preventDefault(); setError('');
     if (!validarCorreo(recCorreo)) return setError('Ingresa el correo con el que te registraste.');
-    const r = solicitarCodigo(recCorreo);
-    setCodigoDemo(r.mensaje);
+    const r = await solicitarCodigo(recCorreo);
+    if (!r.ok) return setError(r.mensaje);
     setPasoRec(2);
   };
 
-  const cambiarDigito = (i: number, v: string) => {
-    if (!/^\d?$/.test(v)) return;
-    const copia = [...codigoInput]; copia[i] = v; setCodigoInput(copia);
-    if (v && i < 5) (document.getElementById(`otp-${i + 1}`) as HTMLInputElement | null)?.focus();
-  };
-
-  const validarOtp = (e: React.FormEvent) => {
+  const guardarNueva = async (e: React.FormEvent) => {
     e.preventDefault(); setError('');
-    const r = verificarCodigo(codigoInput.join(''));
-    if (!r.ok) return setError(r.mensaje);
-    setPasoRec(3);
-  };
-
-  const guardarNueva = (e: React.FormEvent) => {
-    e.preventDefault(); setError('');
-    const r = restablecerPassword(nuevaPwd, nuevaPwd2);
+    const r = await restablecerPassword(tokenRecuperacion, nuevaPwd, nuevaPwd2);
     if (!r.ok) return setError(r.mensaje);
     setExitoRec(r.mensaje); setPasoRec(4);
   };
@@ -160,7 +171,7 @@ export const AuthModal: React.FC = () => {
               </h3>
               <p className="mt-0.5 text-xs font-medium text-white/75">
                 {modalAuth === 'recuperar'
-                  ? 'Te enviaremos un código de verificación de 6 dígitos.'
+                  ? 'Te enviaremos un enlace seguro para crear una nueva contraseña.'
                   : 'Agenda, acumula puntos y gestiona tus citas en un solo lugar.'}
               </p>
             </div>
@@ -215,7 +226,7 @@ export const AuthModal: React.FC = () => {
 
               <button type="button" onClick={() => { abrirAuth('recuperar'); setError(''); }}
                 className="text-xs font-bold text-amber-700 hover:underline">
-                ¿Olvidaste tu contraseña? Recupérala con un código
+                ¿Olvidaste tu contraseña? Recupérala con un enlace
               </button>
 
               <button type="submit" className="btn-primario flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold">
@@ -306,9 +317,9 @@ export const AuthModal: React.FC = () => {
           {modalAuth === 'recuperar' && (
             <div className="anim-aparecer space-y-4">
               <div className="flex items-center gap-2">
-                {['Correo', 'Código', 'Nueva clave'].map((p, i) => (
+                {['Correo', 'Nueva clave'].map((p, i) => (
                   <div key={p} className="flex-1">
-                    <div className={`h-1.5 rounded-full transition-all ${pasoRec > i ? 'bg-amber-400' : 'bg-[#263140]'}`} />
+                    <div className={`h-1.5 rounded-full transition-all ${pasoRec > i + 1 ? 'bg-amber-400' : 'bg-[#263140]'}`} />
                     <span className={`mt-1 block text-[10px] font-bold ${pasoRec > i ? 'text-amber-700' : 'text-[#6B7A8C]'}`}>{p}</span>
                   </div>
                 ))}
@@ -321,7 +332,7 @@ export const AuthModal: React.FC = () => {
                       placeholder="tucorreo@ejemplo.com" className={inputCls} />
                   </Campo>
                   <button type="submit" className="btn-primario flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold">
-                    <MailCheck className="h-4 w-4" /> Enviarme el código
+                    <MailCheck className="h-4 w-4" /> Enviarme el enlace
                   </button>
                   <button type="button" onClick={() => abrirAuth('login')} className="w-full text-xs font-bold text-[#6B7A8C] hover:text-amber-600">
                     Volver a iniciar sesión
@@ -330,32 +341,15 @@ export const AuthModal: React.FC = () => {
               )}
 
               {pasoRec === 2 && (
-                <form onSubmit={validarOtp} className="space-y-4">
+                <div className="space-y-4">
                   <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-800">
-                    Enviamos un código de 6 dígitos a <strong className="text-[#EAF0F6]">{recCorreo}</strong>.
-                    <span className="mt-1 block rounded-lg bg-[#0B0F14]/80 px-2 py-1 text-center font-mono text-sm font-black tracking-[0.35em] text-amber-300">
-                      {codigoDemo}
-                    </span>
-                    <span className="mt-1 block text-[10px] opacity-70">(Modo demostración: el código se muestra aquí)</span>
+                    Enviamos un enlace de recuperación a <strong className="text-[#EAF0F6]">{recCorreo || 'tu correo registrado'}</strong>.
+                    <span className="mt-1 block text-[10px] opacity-70">Abre el enlace del correo para continuar.</span>
                   </div>
-
-                  <div className="flex justify-center gap-2">
-                    {codigoInput.map((d, i) => (
-                      <input
-                        key={i} id={`otp-${i}`} value={d} inputMode="numeric" maxLength={1}
-                        onChange={(e) => cambiarDigito(i, e.target.value)}
-                        className="h-14 w-11 rounded-2xl border border-white/10 bg-[#0F151C] text-center font-heading text-2xl font-black text-[#EAF0F6] outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-400/15"
-                      />
-                    ))}
-                  </div>
-
-                  <button type="submit" className="btn-primario flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold">
-                    <KeyRound className="h-4 w-4" /> Verificar código
-                  </button>
                   <button type="button" onClick={() => setPasoRec(1)} className="flex w-full items-center justify-center gap-1.5 text-xs font-bold text-[#6B7A8C] hover:text-amber-600">
                     <RotateCcw className="h-3.5 w-3.5" /> Reenviar a otro correo
                   </button>
-                </form>
+                </div>
               )}
 
               {pasoRec === 3 && (

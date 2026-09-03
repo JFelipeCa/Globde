@@ -36,11 +36,36 @@ set_secret() {
 set_secret "JWT_SECRET"
 set_secret "DB_PASSWORD"
 
-# 3) Levantar el stack.
+# 3) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
+#    La visibilidad publica requiere una sesion autenticada de GitHub CLI.
+if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then
+  PORT_FORWARDING_DOMAIN="${GITHUB_CODESPACE_PORT_FORWARDING_DOMAIN:-app.github.dev}"
+  CODESPACE_FRONTEND_URL="https://${CODESPACE_NAME}-5173.${PORT_FORWARDING_DOMAIN}"
+  if grep -qE '^FRONTEND_URL=' "$ENV_FILE"; then
+    sed -i.bak "s|^FRONTEND_URL=.*|FRONTEND_URL=${CODESPACE_FRONTEND_URL}|" "$ENV_FILE"
+    rm -f "$ENV_FILE.bak"
+  else
+    printf 'FRONTEND_URL=%s\n' "$CODESPACE_FRONTEND_URL" >> "$ENV_FILE"
+  fi
+  echo "→ URL de recuperacion: ${CODESPACE_FRONTEND_URL}"
+
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    if gh codespace ports visibility 5173:public -c "$CODESPACE_NAME" >/dev/null 2>&1; then
+      echo "→ Puerto 5173 configurado como publico."
+    else
+      echo "⚠️  No se pudo hacer publico el puerto 5173 automaticamente."
+      echo "    En VS Code, abre Ports y cambia 5173 a Public."
+    fi
+  else
+    echo "⚠️  GitHub CLI no esta autenticado; cambia 5173 a Public en VS Code > Ports."
+  fi
+fi
+
+# 4) Levantar el stack.
 echo "→ Levantando contenedores (docker compose up -d --build)..."
 docker compose --env-file backend/.env up -d --build
 
-# 4) Esperar a que la base de datos y la API estén listas.
+# 5) Esperar a que la base de datos y la API estén listas.
 echo "→ Esperando a que la API responda..."
 for i in $(seq 1 60); do
   if curl -s http://localhost:8000/api/health 2>/dev/null | grep -q '"estado":"ok"'; then

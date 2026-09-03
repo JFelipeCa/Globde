@@ -12,7 +12,7 @@ cd "$PROYECTO"
 MODE="${1:-stop}"
 
 echo "→ Deteniendo contenedores de GLOBDE..."
-docker compose down $([ "$MODE" = "--clean" ] && echo "-v")
+docker compose --env-file backend/.env down $([ "$MODE" = "--clean" ] && echo "-v")
 
 if [ "$MODE" = "--clean" ]; then
   echo "✅ Contenedores detenidos y base de datos eliminada (volúmenes removidos)."
