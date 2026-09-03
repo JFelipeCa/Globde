@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import type {
   Usuario, Barbero, Servicio, Cita, CatalogoCorte, PremioFidelidad,
   EntradaListaEspera, Factura, Testimonio, Notificacion, TipoRol,
-  EstadoCita, DatosReserva, Vista, ClienteBusqueda,
+  EstadoCita, DatosReserva, Vista, ClienteBusqueda, UsuarioInternoCreate,
 } from '../types';
 import {
   ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE,
@@ -103,6 +103,7 @@ interface ContextoApp {
   franjaDisponible: (fecha: string, barberoId: number, inicio: string, dur: number, ignorarId?: number) => boolean;
   crearCita: (d: DatosReserva) => Promise<Resultado>;
   crearClientePresencial: (nombre: string, telefono: string) => Promise<ResultadoCliente>;
+  crearUsuarioInterno: (datos: UsuarioInternoCreate) => Promise<Resultado>;
   buscarClientes: (texto: string) => Promise<ClienteBusqueda[]>;
   editarCita: (id: number, cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>) => Promise<Resultado>;
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void;
@@ -631,6 +632,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const crearUsuarioInterno = async (datos: UsuarioInternoCreate): Promise<Resultado> => {
+    try {
+      await apiRequest<Record<string, unknown>>('/usuarios/interno', {
+        method: 'POST',
+        body: JSON.stringify({ ...datos, telefono: datos.telefono.trim() || null }),
+      });
+      notificar(
+        datos.id_rol === ROL_BARBERO ? 'Barbero creado' : 'Administrador creado',
+        `${datos.nombre} ya puede ingresar al sistema.`,
+        'sistema',
+      );
+      return { ok: true, mensaje: 'Perfil creado correctamente.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo crear el perfil';
+      return { ok: false, mensaje };
+    }
+  };
+
   const crearCita = async (d: DatosReserva): Promise<Resultado> => {
     const servicio = servicios.find((s) => s.id_servicio === d.servicio_id) ?? servicios[0];
     const barbero = barberos.find((b) => b.id_barbero === d.barbero_id) ?? barberos[0];
@@ -1030,6 +1049,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         franjaDisponible,
         crearCita,
         crearClientePresencial,
+        crearUsuarioInterno,
         buscarClientes,
         editarCita,
         cambiarEstadoCita,
