@@ -363,6 +363,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     void cargarCitas();
   }, [usuario?.id_usuario]);
 
+  useEffect(() => {
+    const cargarNotificaciones = async () => {
+      if (!obtenerAccessToken()) {
+        setNotificaciones([]);
+        return;
+      }
+
+      try {
+        const data = await apiRequest<{
+          items?: Array<Record<string, unknown>>;
+        }>('/notificaciones?por_pagina=20');
+        const items = Array.isArray(data.items) ? data.items : [];
+        setNotificaciones(items.map((item) => ({
+          id: String(item.id_notificacion),
+          titulo: String(item.titulo ?? ''),
+          mensaje: String(item.mensaje ?? ''),
+          tipo: String(item.tipo ?? 'sistema') as Notificacion['tipo'],
+          fecha: String(item.creado_en ?? ''),
+        })));
+      } catch (error) {
+        console.warn('No se pudieron cargar las notificaciones.', error);
+      }
+    };
+
+    void cargarNotificaciones();
+  }, [usuario?.id_usuario]);
+
   const notificar = useCallback(
     (titulo: string, mensaje: string, tipo: Notificacion['tipo'] = 'sistema') => {
       const nueva: Notificacion = {
