@@ -374,15 +374,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const data = await apiRequest<{
           items?: Array<Record<string, unknown>>;
-        }>('/notificaciones?por_pagina=20');
+        }>('/notificaciones?solo_no_leidas=true&por_pagina=20');
         const items = Array.isArray(data.items) ? data.items : [];
-        setNotificaciones(items.map((item) => ({
-          id: String(item.id_notificacion),
-          titulo: String(item.titulo ?? ''),
-          mensaje: String(item.mensaje ?? ''),
-          tipo: String(item.tipo ?? 'sistema') as Notificacion['tipo'],
-          fecha: String(item.creado_en ?? ''),
-        })));
+        const persistidas: Notificacion[] = items.map((item) => ({
+            id: String(item.id_notificacion),
+            titulo: String(item.titulo ?? ''),
+            mensaje: String(item.mensaje ?? ''),
+            tipo: String(item.tipo ?? 'sistema') as Notificacion['tipo'],
+            fecha: String(item.creado_en ?? ''),
+          }));
+        setNotificaciones((actuales) => [
+          ...actuales.filter((notificacion) => notificacion.id.startsWith('n')),
+          ...persistidas,
+        ].slice(0, 4));
+        await Promise.all(
+          items.map((item) => apiRequest(`/notificaciones/${Number(item.id_notificacion)}/leida`, { method: 'PATCH' }))
+        );
       } catch (error) {
         console.warn('No se pudieron cargar las notificaciones.', error);
       }
