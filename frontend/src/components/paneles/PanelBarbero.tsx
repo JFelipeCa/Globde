@@ -6,7 +6,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  hoyISO, paginar, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape,
+  hoyISO, paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape,
 } from '../../utils/helpers';
 
 const POR_PAGINA = 4;
@@ -46,7 +46,7 @@ export const PanelBarbero: React.FC = () => {
   const servWalk = servicios.find((s) => s.id_servicio === Number(wServ)) ?? servicios[0];
   const ocupadasHoy = franjasOcupadas(hoy, barbero.id_barbero);
   const franjasLibres = franjasVigentes(
-    generarFranjas(barbero.hora_apertura, barbero.hora_cierre, servWalk.duracion_minutos, servWalk.duracion_minutos),
+    generarFranjasJornada(barbero, hoy, servWalk.duracion_minutos, servWalk.duracion_minutos),
     hoy,
   )
     .map((ini) => ({ ini, fin: sumarMinutos(ini, servWalk.duracion_minutos) }))

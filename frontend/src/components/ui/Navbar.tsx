@@ -9,13 +9,19 @@ import type { Vista } from '../../types';
 
 export const Navbar: React.FC = () => {
   const {
-    usuario, logout, abrirAuth, abrirReserva,
+    usuario, logout, abrirAuth, abrirReserva, actualizarAvatar,
     vista, irA, setQuizAbierto, setEsperaAbierta,
   } = useApp();
 
   const [menu, setMenu] = useState(false);
   const [perfil, setPerfil] = useState(false);
   const [modoOscuro, setModoOscuro] = useState(() => localStorage.getItem('globde_tema') === 'oscuro');
+
+  const seleccionarAvatar = async (evento: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = evento.target.files?.[0];
+    if (archivo) await actualizarAvatar(archivo);
+    evento.target.value = '';
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle('tema-oscuro', modoOscuro);
@@ -178,6 +184,10 @@ export const Navbar: React.FC = () => {
                     <button onClick={() => ir(panelDelRol)} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-[#C6D0DC] hover:bg-white/5">
                       <UserRound className="h-4 w-4 text-amber-600" /> Mi panel
                     </button>
+                    <label className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-[#C6D0DC] hover:bg-white/5">
+                      <UserRound className="h-4 w-4 text-amber-600" /> Cambiar foto
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={seleccionarAvatar} />
+                    </label>
                     <button onClick={() => ir('fidelizacion')} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-[#C6D0DC] hover:bg-white/5">
                       <Crown className="h-4 w-4 text-amber-600" /> Puntos y premios
                     </button>

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, Query, UploadFile, status
 
-from app.core.dependencies import DatosPeticion, SoloAdmin, SoloCliente, UsuarioAuth
+from app.core.dependencies import DatosPeticion, SoloAdmin, UsuarioAuth
 from app.core.exceptions import Prohibido
 from app.schemas.comunes import MensajeRespuesta, RespuestaPaginada
 from app.schemas.personas import PerfilUpdate, UsuarioInternoCreate, UsuarioOut
@@ -60,7 +60,7 @@ def actualizar_mi_perfil(datos: PerfilUpdate, usuario: UsuarioAuth, contexto: Da
 
 @router.post("/me/avatar", response_model=UsuarioOut, summary="Actualizar foto de perfil")
 async def actualizar_avatar(
-    usuario: SoloCliente,
+    usuario: UsuarioAuth,
     contexto: DatosPeticion = ...,
     archivo: UploadFile = File(...),
 ):

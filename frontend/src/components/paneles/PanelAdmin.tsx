@@ -7,7 +7,7 @@ import { useApp } from '../../context/AppContext';
 import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita, UsuarioInternoCreate } from '../../types';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  paginar, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
+  paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
 } from '../../utils/helpers';
 
 const POR_PAGINA = 6;
@@ -123,7 +123,7 @@ export const PanelAdmin: React.FC = () => {
   const ocupEdit = edit ? franjasOcupadas(eFecha, eBarbero) : [];
   const franjasEdit = edit
     ? franjasVigentes(
-        generarFranjas(barbEdit.hora_apertura, barbEdit.hora_cierre, servEdit.duracion_minutos, servEdit.duracion_minutos),
+        generarFranjasJornada(barbEdit, eFecha, servEdit.duracion_minutos, servEdit.duracion_minutos),
         eFecha,
       ).map((ini) => {
         const fin = sumarMinutos(ini, servEdit.duracion_minutos);
@@ -137,7 +137,7 @@ export const PanelAdmin: React.FC = () => {
   const ocupNueva = modalCita ? franjasOcupadas(nFecha, nBarbero) : [];
   const franjasNueva = modalCita
     ? franjasVigentes(
-        generarFranjas(barbNueva.hora_apertura, barbNueva.hora_cierre, servNueva.duracion_minutos, servNueva.duracion_minutos),
+        generarFranjasJornada(barbNueva, nFecha, servNueva.duracion_minutos, servNueva.duracion_minutos),
         nFecha,
       ).map((ini) => {
         const fin = sumarMinutos(ini, servNueva.duracion_minutos);
