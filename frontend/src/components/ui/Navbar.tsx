@@ -134,14 +134,16 @@ export const Navbar: React.FC = () => {
               </button>
             )}
 
-            <button
-              onClick={() => abrirReserva()}
-              className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold"
-            >
-              <CalendarDays className="h-4 w-4" />
-              <span className="hidden sm:inline">Reservar cita</span>
-              <span className="sm:hidden">Reservar</span>
-            </button>
+            {usuario?.id_rol !== ROL_ADMINISTRADOR && (
+              <button
+                onClick={() => abrirReserva()}
+                className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold"
+              >
+                <CalendarDays className="h-4 w-4" />
+                <span className="hidden sm:inline">Reservar cita</span>
+                <span className="sm:hidden">Reservar</span>
+              </button>
+            )}
 
             <button
               type="button"

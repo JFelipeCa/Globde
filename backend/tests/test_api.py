@@ -260,7 +260,7 @@ class TestDisponibilidad:
     def test_slots_de_disponibilidad(self, cliente_api, token_cliente, auth):
         import datetime
 
-        fecha = (datetime.date.today() + datetime.timedelta(days=10)).isoformat()
+        fecha = (datetime.date.today() + datetime.timedelta(days=7)).isoformat()
         r = cliente_api.get(
             f"/api/citas/disponibilidad?id_barbero=1&fecha={fecha}&id_servicio=1",
             headers=auth(token_cliente),
