@@ -3,7 +3,7 @@ import confetti from 'canvas-confetti';
 import type {
   Usuario, Barbero, Servicio, Cita, CatalogoCorte, PremioFidelidad,
   EntradaListaEspera, Factura, Testimonio, Notificacion, TipoRol,
-  EstadoCita, DatosReserva, Vista, ClienteBusqueda,
+  EstadoCita, DatosReserva, Vista, ClienteBusqueda, UsuarioInternoCreate,
 } from '../types';
 import {
   ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE,
@@ -106,6 +106,7 @@ interface ContextoApp {
   franjaDisponible: (fecha: string, barberoId: number, inicio: string, dur: number, ignorarId?: number) => boolean;
   crearCita: (d: DatosReserva) => Promise<Resultado>;
   crearClientePresencial: (nombre: string, telefono: string) => Promise<ResultadoCliente>;
+  crearUsuarioInterno: (datos: UsuarioInternoCreate) => Promise<Resultado>;
   buscarClientes: (texto: string) => Promise<ClienteBusqueda[]>;
   editarCita: (id: number, cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>) => Promise<Resultado>;
   cambiarEstadoCita: (id: number, estado: EstadoCita) => void;
@@ -367,6 +368,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     void cargarCitas();
   }, [usuario?.id_usuario]);
 
+  useEffect(() => {
+    const cargarNotificaciones = async () => {
+      if (!obtenerAccessToken()) {
+        setNotificaciones([]);
+        return;
+      }
+
+      try {
+        const data = await apiRequest<{
+          items?: Array<Record<string, unknown>>;
+        }>('/notificaciones?solo_no_leidas=true&por_pagina=20');
+        const items = Array.isArray(data.items) ? data.items : [];
+        const persistidas: Notificacion[] = items.map((item) => ({
+            id: String(item.id_notificacion),
+            titulo: String(item.titulo ?? ''),
+            mensaje: String(item.mensaje ?? ''),
+            tipo: String(item.tipo ?? 'sistema') as Notificacion['tipo'],
+            fecha: String(item.creado_en ?? ''),
+          }));
+        setNotificaciones((actuales) => [
+          ...actuales.filter((notificacion) => notificacion.id.startsWith('n')),
+          ...persistidas,
+        ].slice(0, 4));
+        await Promise.all(
+          items.map((item) => apiRequest(`/notificaciones/${Number(item.id_notificacion)}/leida`, { method: 'PATCH' }))
+        );
+      } catch (error) {
+        console.warn('No se pudieron cargar las notificaciones.', error);
+      }
+    };
+
+    void cargarNotificaciones();
+  }, [usuario?.id_usuario]);
+
   const notificar = useCallback(
     (titulo: string, mensaje: string, tipo: Notificacion['tipo'] = 'sistema') => {
       const nueva: Notificacion = {
@@ -606,6 +641,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ok: true, mensaje: 'Cliente creado', idCliente };
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No se pudo registrar el cliente';
+      return { ok: false, mensaje };
+    }
+  };
+
+  const crearUsuarioInterno = async (datos: UsuarioInternoCreate): Promise<Resultado> => {
+    try {
+      await apiRequest<Record<string, unknown>>('/usuarios/interno', {
+        method: 'POST',
+        body: JSON.stringify({ ...datos, telefono: datos.telefono.trim() || null }),
+      });
+      notificar(
+        datos.id_rol === ROL_BARBERO ? 'Barbero creado' : 'Administrador creado',
+        `${datos.nombre} ya puede ingresar al sistema.`,
+        'sistema',
+      );
+      return { ok: true, mensaje: 'Perfil creado correctamente.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo crear el perfil';
       return { ok: false, mensaje };
     }
   };
@@ -1009,6 +1062,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         franjaDisponible,
         crearCita,
         crearClientePresencial,
+        crearUsuarioInterno,
         buscarClientes,
         editarCita,
         cambiarEstadoCita,
