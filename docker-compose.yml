@@ -9,15 +9,26 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # datetime.now() del backend debe dar la hora de Colombia, no UTC
+      # Hora de Colombia (citas / datetime.now)
       TZ: ${TZ:-America/Bogota}
-      # Credenciales de TiDB Cloud (Base de datos compartida en la nube)
+
+      # --- Base de datos TiDB Cloud (compartida) ---
       DB_HOST: ${DB_HOST:-gateway01.us-east-1.prod.aws.tidbcloud.com}
       DB_PORT: ${DB_PORT:-4000}
       DB_USER: ${DB_USER:-2zMf9kVKhzVziZp.root}
       DB_PASSWORD: ${DB_PASSWORD:-6mOEy2qqs8V4HAzk}
       DB_NAME: ${DB_NAME:-globde}
       DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://2zMf9kVKhzVziZp.root:6mOEy2qqs8V4HAzk@gateway01.us-east-1.prod.aws.tidbcloud.com:4000/globde?ssl_verify_cert=true}
+
+      # --- Correo (Gmail del grupo) ---
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-globde.2026@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-oekdtgitgzzwuzrf}
+      SMTP_FROM: ${SMTP_FROM:-globde.2026@gmail.com}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-15}
     volumes:
       - avatars_data:/app/media
 
