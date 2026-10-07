@@ -36,6 +36,27 @@ set_secret() {
 set_secret "JWT_SECRET"
 set_secret "DB_PASSWORD"
 
+# SMTP: no sobrescribimos valores existentes. Si faltan, se completan con la
+# configuración de Gmail por defecto para evitar que el arranque falle al
+# intentar enviar correos de recuperación.
+ensure_smtp_var() {
+  local key="$1"
+  local value="$2"
+  if ! grep -qE "^${key}=" "$ENV_FILE"; then
+    printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
+    echo "→ Generado ${key}."
+  fi
+}
+
+ensure_smtp_var "EMAIL_ENABLED" "true"
+ensure_smtp_var "SMTP_HOST" "smtp.gmail.com"
+ensure_smtp_var "SMTP_PORT" "587"
+ensure_smtp_var "SMTP_USER" "globde.2026@gmail.com"
+ensure_smtp_var "SMTP_PASSWORD" ""
+ensure_smtp_var "SMTP_FROM" "globde.2026@gmail.com"
+ensure_smtp_var "SMTP_STARTTLS" "true"
+ensure_smtp_var "SMTP_TIMEOUT" "15"
+
 # 3) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
 #    La visibilidad publica requiere una sesion autenticada de GitHub CLI.
 if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then

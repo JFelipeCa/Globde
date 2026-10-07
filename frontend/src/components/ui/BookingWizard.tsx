@@ -162,26 +162,45 @@ export const BookingWizard: React.FC = () => {
           {paso === 1 && (
             <div className="anim-aparecer space-y-3">
               <h4 className="font-heading text-lg font-black text-[#EAF0F6]">¿Qué servicio deseas?</h4>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 {servicios.map((s) => (
                   <button
-                    key={s.id_servicio} onClick={() => { setIdServicio(s.id_servicio); setHoraInicio(''); }}
-                    className={`card card-hover flex gap-3 p-4 text-left ${idServicio === s.id_servicio ? 'seleccionada' : ''}`}
+                    key={s.id_servicio}
+                    onClick={() => { setIdServicio(s.id_servicio); setHoraInicio(''); }}
+                    className={`group card card-hover overflow-hidden text-left ${idServicio === s.id_servicio ? 'seleccionada' : ''}`}
                   >
-                    <span className="text-2xl">{s.icono}</span>
-                    <span className="flex-1">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-black text-[#EAF0F6]">{s.nombre}</span>
-                        {s.popular && <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-black text-amber-700">Popular</span>}
+                    <div className="relative h-28 overflow-hidden">
+                      <img src={s.imagen_url} alt={s.nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#141A21] via-[#141A21]/20 to-transparent" />
+                      <span className="absolute left-3 top-3 rounded-full border border-white/10 bg-[#0B0F14]/85 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-300 backdrop-blur">
+                        {s.categoria}
                       </span>
-                      <span className="mt-1 block text-[11px] leading-snug text-[#93A1B1] line-clamp-2">{s.descripcion}</span>
-                      <span className="mt-2 flex items-center justify-between border-t border-white/8 pt-2">
-                        <span className="text-sm font-black text-[#EAF0F6]">{formatoCOP(s.precio)}</span>
-                        <span className="flex items-center gap-1 text-[11px] font-semibold text-[#93A1B1]">
+                      {s.popular && (
+                        <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-[#2B1E04]">
+                          Popular
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <h5 className="font-heading text-lg font-black text-[#EAF0F6]">{s.icono} {s.nombre}</h5>
+                        <span className="rounded-full bg-amber-400/12 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                          +{s.puntos_otorga} pts
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[11px] leading-relaxed text-[#93A1B1] line-clamp-3">{s.descripcion}</p>
+
+                      <div className="mt-4 flex items-center justify-between border-t border-white/8 pt-3">
+                        <div>
+                          <span className="block text-[10px] font-bold uppercase text-[#6B7A8C]">Valor</span>
+                          <span className="font-heading text-xl font-black text-[#EAF0F6]">{formatoCOP(s.precio)}</span>
+                        </div>
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#93A1B1]">
                           <Timer className="h-3.5 w-3.5 text-amber-600" /> {duracionLegible(s.duracion_minutos)}
                         </span>
-                      </span>
-                    </span>
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>

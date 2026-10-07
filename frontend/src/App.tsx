@@ -52,6 +52,9 @@ const AccesoRestringido: React.FC<{ vista: string }> = ({ vista }) => {
 const Contenido: React.FC = () => {
   const { vista, usuario } = useApp();
 
+  const esBarbero = usuario?.id_rol === ROL_BARBERO;
+  const vistaPublicaDelBarbero = ['inicio', 'catalogo', 'fidelizacion'].includes(vista);
+
   // Si se intenta acceder a un panel sin sesión o con un rol que no corresponde
   // (p. ej. un cliente forzando 'panel-admin'), se muestra el guard en lugar del
   // panel. El rol proviene del backend vía /auth/me.
@@ -65,7 +68,9 @@ const Contenido: React.FC = () => {
 
   return (
     <>
-      {vista === 'inicio' && (
+      {esBarbero && vistaPublicaDelBarbero && renderizadorPanel(<PanelBarbero />)}
+
+      {!esBarbero && vista === 'inicio' && (
         <>
           <Hero />
           <Servicios />

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Scissors, CalendarDays, Play, Check, XCircle, Plus, Star, Timer, X,
-  ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Coins, Users, User,
+  Scissors, CalendarDays, Play, Check, XCircle, Star, Timer,
+  ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Coins, Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
@@ -14,7 +14,7 @@ const POR_PAGINA = 4;
 export const PanelBarbero: React.FC = () => {
   const {
     usuario, citas, barberos, servicios, cambiarEstadoCita,
-    crearCita, crearClientePresencial, alternarDisponibilidad, franjasOcupadas, verTicket,
+    alternarDisponibilidad, franjasOcupadas, verTicket,
   } = useApp();
 
   const barbero = barberos.find((b) => b.id_usuario === usuario?.id_usuario) ?? barberos[0];
@@ -23,12 +23,6 @@ export const PanelBarbero: React.FC = () => {
   const [pagHoy, setPagHoy] = useState(1);
   const [pagProx, setPagProx] = useState(1);
   const [filtro, setFiltro] = useState<'todas' | 'pendiente' | 'confirmada' | 'completada'>('todas');
-  const [modal, setModal] = useState(false);
-  const [wNombre, setWNombre] = useState('');
-  const [wTel, setWTel] = useState('');
-  const [wServ, setWServ] = useState(servicios[0]?.id_servicio ?? 1);
-  const [wHora, setWHora] = useState('');
-  const [wError, setWError] = useState('');
 
   const mias = citas.filter((c) => c.id_barbero === barbero.id_barbero);
   const deHoyTodas = mias.filter((c) => c.fecha === hoy).sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
@@ -43,33 +37,13 @@ export const PanelBarbero: React.FC = () => {
   const comision = Math.round(ingresos * (0.5 + barbero.porcentaje_incremento / 100));
   const minutosOcupados = deHoyTodas.filter((c) => c.estado !== 'cancelada').reduce((a, c) => a + c.duracion_minutos, 0);
 
-  const servWalk = servicios.find((s) => s.id_servicio === Number(wServ)) ?? servicios[0];
   const ocupadasHoy = franjasOcupadas(hoy, barbero.id_barbero);
   const franjasLibres = franjasVigentes(
-    generarFranjasJornada(barbero, hoy, servWalk.duracion_minutos, servWalk.duracion_minutos),
+    generarFranjasJornada(barbero, hoy, 30, 30),
     hoy,
   )
-    .map((ini) => ({ ini, fin: sumarMinutos(ini, servWalk.duracion_minutos) }))
+    .map((ini) => ({ ini, fin: sumarMinutos(ini, 30) }))
     .filter((f) => !ocupadasHoy.some((o) => haySolape(f.ini, f.fin, o.inicio, o.fin)));
-
-  const crearWalkin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!wNombre.trim()) { setWError('Ingresa el nombre del cliente.'); return; }
-    if (!wHora) { setWError('Selecciona una franja libre.'); return; }
-    const cliente = await crearClientePresencial(wNombre, wTel);
-    if (!cliente.ok || !cliente.idCliente) { setWError(cliente.mensaje); return; }
-    const r = await crearCita({
-      servicio_id: Number(wServ), barbero_id: barbero.id_barbero, fecha: hoy, hora_inicio: wHora,
-      id_cliente: cliente.idCliente,
-      extras: [], usar_puntos: false, puntos_a_usar: 0,
-      nombre: wNombre, correo: `presencial+${cliente.idCliente}@globde.com`,
-      telefono: wTel || '+57 300 000 0000', observaciones: 'Cliente presencial (walk-in)',
-    });
-    if (!r.ok) { setWError(r.mensaje); return; }
-    setModal(false); setWNombre(''); setWTel(''); setWHora(''); setWError('');
-  };
-
-  const inputCls = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-400/15';
 
   const Paginador: React.FC<{ p: ReturnType<typeof paginar>; set: (n: number) => void }> = ({ p, set }) => (
     <div className="flex items-center justify-between border-t border-white/8 px-4 py-3">
@@ -117,9 +91,6 @@ export const PanelBarbero: React.FC = () => {
                 </button>
               </div>
             </div>
-            <button onClick={() => setModal(true)} className="btn-primario flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black sm:w-auto">
-              <Plus className="h-4 w-4" /> Registrar cliente presencial
-            </button>
           </div>
         </div>
 
@@ -235,56 +206,6 @@ export const PanelBarbero: React.FC = () => {
         </div>
       </div>
 
-      {/* MODAL WALK-IN */}
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="anim-zoom card max-h-[90vh] w-full max-w-md overflow-y-auto">
-            <div className="sticky top-0 flex items-start justify-between bg-gradient-to-r from-cyan-300 to-cyan-500 px-6 py-5">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#06232A]/75">Walk-in</span>
-                <h3 className="font-heading text-2xl font-black text-[#06232A]">Cliente presencial</h3>
-              </div>
-              <button onClick={() => setModal(false)} className="rounded-full bg-[#06232A]/15 p-2"><X className="h-4 w-4 text-[#06232A]" /></button>
-            </div>
-
-            <form onSubmit={crearWalkin} className="space-y-3 p-6">
-              {wError && <p className="rounded-2xl bg-rose-400/10 p-3 text-xs font-bold text-rose-300">{wError}</p>}
-              <div>
-                <label className="mb-1 flex items-center gap-1.5 text-xs font-bold text-[#93A1B1]">
-                  <User className="h-3.5 w-3.5 text-amber-300" /> Nombre del cliente
-                </label>
-                <input value={wNombre} onChange={(e) => setWNombre(e.target.value)} required placeholder="Ej: Andrés Morales" className={inputCls} />
-              </div>
-              <input value={wTel} onChange={(e) => setWTel(e.target.value)} placeholder="Teléfono (opcional)" className={inputCls} />
-              <select value={wServ} onChange={(e) => { setWServ(Number(e.target.value)); setWHora(''); }} className={inputCls}>
-                {servicios.map((s) => (
-                  <option key={s.id_servicio} value={s.id_servicio}>
-                    {s.nombre} · {duracionLegible(s.duracion_minutos)} · {formatoCOP(s.precio)}
-                  </option>
-                ))}
-              </select>
-
-              <div>
-                <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-[#93A1B1]">
-                  <Scissors className="h-3.5 w-3.5 text-amber-300" /> Franjas libres hoy ({duracionLegible(servWalk.duracion_minutos)})
-                </p>
-                <div className="grid max-h-40 grid-cols-3 gap-2 overflow-y-auto">
-                  {franjasLibres.map((f) => (
-                    <button key={f.ini} type="button" onClick={() => setWHora(f.ini)}
-                      className={`rounded-xl border px-2 py-1.5 text-[11px] font-black transition ${
-                        wHora === f.ini ? 'border-amber-400 bg-amber-400 text-[#2B1E04]' : 'border-white/10 text-[#93A1B1] hover:border-amber-400/50'
-                      }`}>
-                      {hora12(f.ini)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button type="submit" className="btn-primario w-full rounded-2xl py-3 text-sm font-black">Registrar turno</button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
