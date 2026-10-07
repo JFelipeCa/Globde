@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# start.sh — Levanta GLOBDE (backend + frontend + MySQL) con Docker.
+# start.sh — Levanta GLOBDE (backend + frontend conectado a TiDB Cloud) con Docker.
 # Uso:  bash scripts/start.sh
 # El instructor solo ejecuta `bash scripts/start.sh` y el sistema queda arriba.
 set -euo pipefail
@@ -18,8 +18,7 @@ if [ ! -f "$ENV_FILE" ]; then
   cp "$ENV_EXAMPLE" "$ENV_FILE"
 fi
 
-# 2) Generar/asegurar secretos obligatorios (sin default en producción).
-#    Si están vacíos, se generan automáticamente para que arranque sin fricción.
+# 2) Generar secretos de autenticación si faltan (JWT_SECRET).
 set_secret() {
   local key="$1"
   if ! grep -qE "^${key}=.+" "$ENV_FILE"; then
@@ -34,10 +33,8 @@ set_secret() {
   fi
 }
 set_secret "JWT_SECRET"
-set_secret "DB_PASSWORD"
 
 # 3) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
-#    La visibilidad publica requiere una sesion autenticada de GitHub CLI.
 if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then
   PORT_FORWARDING_DOMAIN="${GITHUB_CODESPACE_PORT_FORWARDING_DOMAIN:-app.github.dev}"
   CODESPACE_FRONTEND_URL="https://${CODESPACE_NAME}-5173.${PORT_FORWARDING_DOMAIN}"
@@ -65,7 +62,7 @@ fi
 echo "→ Levantando contenedores (docker compose up -d --build)..."
 docker compose --env-file backend/.env up -d --build
 
-# 5) Esperar a que la base de datos y la API estén listas.
+# 5) Esperar a que la API esté lista.
 echo "→ Esperando a que la API responda..."
 for i in $(seq 1 60); do
   if curl -s http://localhost:8000/api/health 2>/dev/null | grep -q '"estado":"ok"'; then
