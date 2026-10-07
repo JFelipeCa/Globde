@@ -76,7 +76,6 @@ class PasswordForgotRequest(ModeloBase):
 
 class PasswordForgotResponse(ModeloBase):
     mensaje: str
-    detalle: dict[str, str] | None = None
 
 
 class PasswordResetRequest(ModeloBase):

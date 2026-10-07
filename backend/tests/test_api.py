@@ -139,6 +139,8 @@ class TestAutenticacion:
             "/api/auth/password/forgot", json={"correo": "fantasma@example.com"}
         )
         assert existente.status_code == inexistente.status_code == 200
+        assert existente.json() == inexistente.json()
+        assert "detalle" not in existente.json()
 
     def test_reset_con_token_invalido(self, cliente_api):
         r = cliente_api.post(

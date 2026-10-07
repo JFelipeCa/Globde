@@ -29,6 +29,8 @@ services:
     build: ./backend
     container_name: globde_backend
     restart: unless-stopped
+    # El bridge de Codespaces bloquea DNS/SMTP saliente; host permite Gmail.
+    network_mode: host
     env_file:
       
       - ./backend/.env
@@ -37,12 +39,10 @@ services:
       # datetime.now() del backend debe dar la hora de Colombia, no UTC:
       # si no, rechaza como "pasado" las citas de las proximas 5 horas.
       TZ: ${TZ:-America/Bogota}
-      DB_HOST: mysql
-      DB_PORT: 3306
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3307
       DB_PASSWORD: "${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}"
       DB_NAME: ${DB_NAME:-globde}
-    ports:
-      - "8000:8000"
     volumes:
       - avatars_data:/app/media
     depends_on:
@@ -58,7 +58,9 @@ services:
     environment:
       
       TZ: ${TZ:-America/Bogota}
-      VITE_PROXY_TARGET: http://backend:8000
+      VITE_PROXY_TARGET: http://host.docker.internal:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       
       - ./frontend/src:/app/src

@@ -95,12 +95,9 @@ interface ContextoApp {
   registrar: (n: string, c: string, t: string, p: string) => Promise<Resultado>;
   logout: () => void;
 
-  codigoRecuperacion: string | null;
-  correoRecuperacion: string | null;
   solicitarCodigo: (correo: string) => Promise<Resultado>;
   verificarCodigo: (token: string) => Promise<Resultado>;
   restablecerPassword: (token: string, nueva: string, confirmar: string) => Promise<Resultado>;
-  limpiarRecuperacion: () => void;
 
   franjasOcupadas: (fecha: string, barberoId: number) => { inicio: string; fin: string }[];
   franjaDisponible: (fecha: string, barberoId: number, inicio: string, dur: number, ignorarId?: number) => boolean;
@@ -287,9 +284,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [citaTicket, setCitaTicket] = useState<Cita | null>(null);
   const [esConfirmacionNueva, setEsConfirmacionNueva] = useState(false);
 
-  const [codigoRecuperacion, setCodigoRecuperacion] = useState<string | null>(null);
-  const [correoRecuperacion, setCorreoRecuperacion] = useState<string | null>(null);
-  
   useEffect(() => {
   const restaurarSesion = async () => {
     // Si no hay token, el visitante no tiene sesión iniciada.
@@ -571,16 +565,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const solicitarCodigo = async (correo: string): Promise<Resultado> => {
     try {
-      const respuesta = await apiRequest<{
-        mensaje: string;
-        detalle?: Record<string, string> | null;
-      }>('/auth/password/forgot', {
+      const respuesta = await apiRequest<{ mensaje: string }>('/auth/password/forgot', {
         method: 'POST',
         body: JSON.stringify({ correo }),
       });
-      setCodigoRecuperacion(respuesta.detalle?.token_debug ?? null);
-      setCorreoRecuperacion(correo.trim().toLowerCase());
-      notificar('Enlace enviado', respuesta.mensaje, 'sistema');
+      notificar('Solicitud recibida', respuesta.mensaje, 'sistema');
       return { ok: true, mensaje: respuesta.mensaje };
     } catch (error) {
       return { ok: false, mensaje: error instanceof Error ? error.message : 'No se pudo solicitar la recuperación.' };
@@ -593,7 +582,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         body: JSON.stringify({ token: token.trim() }),
       });
-      setCodigoRecuperacion(token.trim());
       return { ok: true, mensaje: respuesta.mensaje ?? 'Token verificado correctamente.' };
     } catch (error) {
       return { ok: false, mensaje: error instanceof Error ? error.message : 'El token no es válido o ya expiró.' };
@@ -609,17 +597,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         body: JSON.stringify({ token, nueva_contrasena: nueva }),
       });
-      setCodigoRecuperacion(null);
       notificar('Contraseña actualizada', 'Ya puedes iniciar sesión con tu nueva contraseña.', 'sistema');
       return { ok: true, mensaje: respuesta.mensaje };
     } catch (error) {
       return { ok: false, mensaje: error instanceof Error ? error.message : 'No se pudo restablecer la contraseña.' };
     }
-  };
-
-  const limpiarRecuperacion = () => {
-    setCodigoRecuperacion(null);
-    setCorreoRecuperacion(null);
   };
 
   const franjasOcupadas = useCallback(
@@ -1081,12 +1063,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         login,
         registrar,
         logout,
-        codigoRecuperacion,
-        correoRecuperacion,
         solicitarCodigo,
         verificarCodigo,
         restablecerPassword,
-        limpiarRecuperacion,
         franjasOcupadas,
         franjaDisponible,
         crearCita,

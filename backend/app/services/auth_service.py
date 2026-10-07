@@ -238,12 +238,6 @@ def solicitar_recuperacion(correo: str, contexto: dict | None = None) -> dict:
         contexto.get("ip"), contexto.get("user_agent"), {"correo_enviado": enviado},
     )
 
-    if settings.DEBUG and not enviado:
-        # En desarrollo, sin SMTP configurado, se devuelve el token para poder probar.
-        respuesta["detalle"] = {
-            "token_debug": token_plano,
-            "aviso": "Token expuesto solo porque DEBUG=true y el correo no pudo enviarse",
-        }
     return respuesta
 
 

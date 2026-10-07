@@ -62,8 +62,7 @@ const inputCls =
 export const AuthModal: React.FC = () => {
   const {
     modalAuth, abrirAuth, cerrarAuth, login, registrar,
-    solicitarCodigo, verificarCodigo, restablecerPassword, limpiarRecuperacion,
-    codigoRecuperacion,
+    solicitarCodigo, verificarCodigo, restablecerPassword,
   } = useApp();
   const verificarCodigoRef = useRef(verificarCodigo);
   verificarCodigoRef.current = verificarCodigo;
@@ -93,7 +92,6 @@ export const AuthModal: React.FC = () => {
   const enlaceValidado = useRef(false);
   useEffect(() => {
     const tokenDesdeUrl = new URLSearchParams(window.location.search).get('token');
-    if (codigoRecuperacion) setTokenRecuperacion(codigoRecuperacion);
     if (!tokenDesdeUrl || modalAuth !== 'recuperar' || enlaceValidado.current) return;
 
     enlaceValidado.current = true;
@@ -108,7 +106,7 @@ export const AuthModal: React.FC = () => {
       }
     };
     void validarEnlace();
-  }, [codigoRecuperacion, modalAuth]);
+  }, [modalAuth]);
 
   useEffect(() => {
     if (modalAuth) return;
@@ -134,7 +132,6 @@ export const AuthModal: React.FC = () => {
     cerrarAuth();
     setError(''); setPasoRec(1); setExitoRec('');
     setTokenRecuperacion('');
-    limpiarRecuperacion();
   };
 
   const enviarLogin = async (e: React.FormEvent) => {
@@ -333,8 +330,8 @@ export const AuthModal: React.FC = () => {
               {pasoRec === 2 && (
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-800">
-                    Enviamos un enlace de recuperación a <strong className="text-[#EAF0F6]">{recCorreo || 'tu correo registrado'}</strong>.
-                    <span className="mt-1 block text-[10px] opacity-70">Abre el enlace del correo para continuar.</span>
+                    Si el correo está registrado, enviaremos un enlace de recuperación a <strong className="text-[#EAF0F6]">{recCorreo || 'tu correo registrado'}</strong>.
+                    <span className="mt-1 block text-[10px] opacity-70">Revisa también la carpeta de correo no deseado.</span>
                   </div>
                   <button type="button" onClick={() => setPasoRec(1)} className="flex w-full items-center justify-center gap-1.5 text-xs font-bold text-[#6B7A8C] hover:text-amber-600">
                     <RotateCcw className="h-3.5 w-3.5" /> Reenviar a otro correo
