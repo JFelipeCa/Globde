@@ -5,7 +5,7 @@ import re
 import pytest
 
 from app.core import security
-from app.services import puntos_service
+from app.services import email_service, puntos_service
 from app.utils.paginacion import offset_de, paginar
 
 
@@ -179,3 +179,25 @@ class TestConfiguracion:
 
     def test_bcrypt_rounds_seguro(self, settings):
         assert settings.BCRYPT_ROUNDS >= 10
+
+
+# ----------------------------------------------------------------------
+# Plantilla de correo
+# ----------------------------------------------------------------------
+
+class TestPlantillaEmail:
+    def test_plantilla_usa_logo_incrustado_y_modo_oscuro(self):
+        html = email_service._plantilla_base(
+            "Seguridad de la cuenta", "<p>Restablecer contraseña</p>"
+        )
+        mensaje = email_service._crear_mensaje("cliente@example.com", "Prueba", html, "Texto")
+        partes = list(mensaje.walk())
+        logo = next(parte for parte in partes if parte.get_content_type() == "image/png")
+
+        assert 'src="cid:globde-logo"' in html
+        assert mensaje.get_content_type() == "multipart/related"
+        assert logo["Content-ID"] == "<globde-logo>"
+        assert logo["Content-Disposition"] == "inline"
+        assert '<meta name="color-scheme" content="light dark">' in html
+        assert "@media (prefers-color-scheme:dark)" in html
+        assert "Restablecer contraseña" in html
