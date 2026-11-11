@@ -121,42 +121,42 @@ export const CATALOGO_CORTES: CatalogoCorte[] = [
   {
     id_corte: 1, nombre: 'Mid Skin Fade + Crop Texturizado', categoria: 'Fade & Degradados',
     descripcion: 'Degradado medio limpio a navaja con parte superior desfilada para volumen y textura.',
-    imagen_url: 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=640&w=640&fm=webp',
+    imagen_url: '/images/cortes/mid-skin-fade-crop.jpg',
     tags: ['Tendencia 2026', 'Fácil de peinar', 'Urbano'], popularidad: 98,
     barbero_recomendado: 'Carlos Méndez', duracion_minutos: 40, precio_sugerido: 25000,
   },
   {
     id_corte: 2, nombre: 'Low Taper con Barba Integrada', categoria: 'Barbas & Perfilado',
     descripcion: 'Transición suave en patillas y nuca que se fusiona con una barba densa y perfilada.',
-    imagen_url: 'https://images.pexels.com/photos/12706272/pexels-photo-12706272.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=640&w=640&fm=webp',
+    imagen_url: '/images/cortes/low-taper-barba.jpg',
     tags: ['Elegante', 'Barba full', 'Ejecutivo'], popularidad: 96,
     barbero_recomendado: 'Andrés Salgado', duracion_minutos: 50, precio_sugerido: 35000,
   },
   {
     id_corte: 3, nombre: 'Pompadour Moderno con Drop Fade', categoria: 'Clásicos & Elegantes',
     descripcion: 'Inspiración clásica de los 50 reinventada con caída curva y fijación mate duradera.',
-    imagen_url: 'https://images.pexels.com/photos/14564834/pexels-photo-14564834.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=640&w=640&fm=webp',
+    imagen_url: '/images/cortes/pompadour-drop-fade.jpg',
     tags: ['Caballero', 'Volumen', 'Formal'], popularidad: 91,
     barbero_recomendado: 'Ricardo Peña', duracion_minutos: 45, precio_sugerido: 28000,
   },
   {
     id_corte: 4, nombre: 'Buzz Cut con Line-up a Navaja', categoria: 'Estilos Urbanos',
     descripcion: 'Corte rasurado al ras con contornos rectilíneos y diseño geométrico minimalista.',
-    imagen_url: 'https://images.pexels.com/photos/14781974/pexels-photo-14781974.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=640&w=640&fm=webp',
+    imagen_url: '/images/cortes/buzz-cut-lineup.jpg',
     tags: ['Minimalista', 'Cero mantenimiento'], popularidad: 89,
     barbero_recomendado: 'Carlos Méndez', duracion_minutos: 30, precio_sugerido: 22000,
   },
   {
     id_corte: 5, nombre: 'Modern Mullet con Fade Lateral', categoria: 'Color & Tendencia',
     descripcion: 'Estilo vanguardista con laterales despejados y parte trasera fluida, el más viral del año.',
-    imagen_url: 'https://images.pexels.com/photos/15418106/pexels-photo-15418106.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=640&w=640&fm=webp',
+    imagen_url: '/images/cortes/modern-mullet-fade.jpg',
     tags: ['Vanguardista', 'Viral'], popularidad: 94,
     barbero_recomendado: 'Andrés Salgado', duracion_minutos: 45, precio_sugerido: 27000,
   },
   {
     id_corte: 6, nombre: 'Platinado Polar con High Fade', categoria: 'Color & Tendencia',
     descripcion: 'Decoloración tono hielo con matizador anti-amarillo y degradado alto ultra pulido.',
-    imagen_url: 'https://images.pexels.com/photos/7045174/pexels-photo-7045174.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=640&w=640&fm=webp',
+    imagen_url: '/images/cortes/platinado-high-fade.jpg',
     tags: ['Color platinum', 'Alto impacto'], popularidad: 88,
     barbero_recomendado: 'Ricardo Peña', duracion_minutos: 90, precio_sugerido: 60000,
   },
@@ -289,8 +289,8 @@ export const TESTIMONIOS: Testimonio[] = [
 ];
 
 export const EXTRAS_SERVICIO = [
-  { id: 'Lavado premium', icono: '🫧', precio: 6000, minutos: 10 },
-  { id: 'Toalla caliente', icono: '🧖', precio: 6000, minutos: 10 },
-  { id: 'Mascarilla de carbón', icono: '✨', precio: 6000, minutos: 10 },
-  { id: 'Perfilado de cejas', icono: '🪒', precio: 6000, minutos: 5 },
+  { id: 'Lavado premium', precio: 6000, minutos: 10 },
+  { id: 'Toalla caliente', precio: 6000, minutos: 10 },
+  { id: 'Mascarilla de carbón', precio: 6000, minutos: 10 },
+  { id: 'Perfilado de cejas', precio: 6000, minutos: 5 },
 ];

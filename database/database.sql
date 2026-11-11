@@ -1154,6 +1154,28 @@ INSERT INTO barbero_servicio (
 (2, 4, NULL, TRUE),
 (2, 6, NULL, TRUE);
 
+UPDATE servicios
+SET imagen_url = CASE id_servicio
+  WHEN 1 THEN '/images/cortes/mid-skin-fade-crop.jpg'
+  WHEN 2 THEN '/images/cortes/low-taper-barba.jpg'
+  WHEN 3 THEN '/images/cortes/pompadour-drop-fade.jpg'
+  WHEN 4 THEN '/images/cortes/buzz-cut-lineup.jpg'
+  WHEN 5 THEN '/images/cortes/modern-mullet-fade.jpg'
+  WHEN 6 THEN '/images/cortes/platinado-high-fade.jpg'
+END
+WHERE id_servicio BETWEEN 1 AND 6;
+
+UPDATE catalogo_cortes
+SET imagen_url = CASE id_servicio
+  WHEN 1 THEN '/images/cortes/mid-skin-fade-crop.jpg'
+  WHEN 2 THEN '/images/cortes/low-taper-barba.jpg'
+  WHEN 3 THEN '/images/cortes/pompadour-drop-fade.jpg'
+  WHEN 4 THEN '/images/cortes/buzz-cut-lineup.jpg'
+  WHEN 5 THEN '/images/cortes/modern-mullet-fade.jpg'
+  WHEN 6 THEN '/images/cortes/platinado-high-fade.jpg'
+END
+WHERE id_servicio BETWEEN 1 AND 6;
+
 -- ------------------------------------------------------------
 -- HORARIOS DE BARBEROS
 -- ------------------------------------------------------------
