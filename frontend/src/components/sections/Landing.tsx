@@ -51,12 +51,12 @@ export const Hero: React.FC = () => {
 
           <div className="grid grid-cols-3 gap-3 border-t border-white/8 pt-6">
             {[
-              { i: Clock, t: '0 min', s: 'de espera en sala', c: 'text-[#EAF0F6] bg-white/8' },
-              { i: Crown, t: '+1.400', s: 'clientes con puntos', c: 'text-amber-700 bg-amber-400/12' },
-              { i: Star, t: '4.9/5', s: 'calificación media', c: 'text-[#EAF0F6] bg-white/8' },
+              { i: Clock, t: '0 min', s: 'de espera en sala' },
+              { i: Crown, t: '+1.400', s: 'clientes con puntos' },
+              { i: Star, t: '4.9/5', s: 'calificación media' },
             ].map((x) => (
               <div key={x.t} className="flex items-center gap-2.5">
-                <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${x.c}`}><x.i className="h-5 w-5" /></span>
+                <span className="icono-acento flex h-10 w-10 items-center justify-center rounded-2xl"><x.i className="h-5 w-5" /></span>
                 <span>
                   <span className="font-heading block text-lg font-black leading-none text-[#EAF0F6]">{x.t}</span>
                   <span className="text-[11px] text-[#6B7A8C]">{x.s}</span>
@@ -114,12 +114,12 @@ export const Hero: React.FC = () => {
 export const Beneficios: React.FC = () => {
   const { abrirReserva, setEsperaAbierta } = useApp();
   const items = [
-    { i: CalendarDays, t: 'Reserva por rangos horarios', d: 'Ves la hora exacta de inicio y fin de tu cita según la duración real del servicio.', c: 'bg-amber-400/12 text-amber-700' },
-    { i: QrCode, t: 'Pase digital con QR', d: 'Recibes un comprobante con código único para validar tu turno al llegar.', c: 'bg-neutral-900/8 text-neutral-900' },
-    { i: Bell, t: 'Lista de espera inteligente', d: 'Si se libera un turno antes, te avisamos de inmediato por WhatsApp.', c: 'bg-neutral-900/8 text-neutral-900' },
-    { i: Crown, t: 'Puntos que se canjean', d: 'Acumula en cada visita y cámbialos por servicios, productos o descuentos.', c: 'bg-amber-400/12 text-amber-700' },
-    { i: Award, t: 'Ranking de barberos', d: 'Nivel Master, Oro y Plata según desempeño, puntualidad y calificaciones.', c: 'bg-neutral-900/8 text-neutral-900' },
-    { i: ShieldCheck, t: 'Seguridad y bioseguridad', d: 'Contraseñas cifradas, navaja de un solo uso y esterilización UV certificada.', c: 'bg-neutral-900/8 text-neutral-900' },
+    { i: CalendarDays, t: 'Reserva por rangos horarios', d: 'Ves la hora exacta de inicio y fin de tu cita según la duración real del servicio.' },
+    { i: QrCode, t: 'Pase digital con QR', d: 'Recibes un comprobante con código único para validar tu turno al llegar.' },
+    { i: Bell, t: 'Lista de espera inteligente', d: 'Si se libera un turno antes, te avisamos de inmediato por WhatsApp.' },
+    { i: Crown, t: 'Puntos que se canjean', d: 'Acumula en cada visita y cámbialos por servicios, productos o descuentos.' },
+    { i: Award, t: 'Ranking de barberos', d: 'Nivel Master, Oro y Plata según desempeño, puntualidad y calificaciones.' },
+    { i: ShieldCheck, t: 'Seguridad y bioseguridad', d: 'Contraseñas cifradas, navaja de un solo uso y esterilización UV certificada.' },
   ];
 
   return (
@@ -140,7 +140,7 @@ export const Beneficios: React.FC = () => {
         <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {items.map((x, i) => (
             <div key={x.t} className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} p-6`}>
-              <span className={`beneficio-icono flex h-12 w-12 items-center justify-center rounded-2xl ${x.c}`}><x.i className="h-6 w-6" /></span>
+              <span className="icono-acento flex h-12 w-12 items-center justify-center rounded-2xl"><x.i className="h-6 w-6" /></span>
               <h3 className="font-heading mt-4 text-lg font-black text-[#EAF0F6]">{x.t}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-[#93A1B1]">{x.d}</p>
             </div>
@@ -482,7 +482,7 @@ export const Fidelizacion: React.FC = () => {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {niveles.map((n) => (
-                  <div key={n.n} className={`rounded-2xl border p-3 text-left ${nivel === n.n ? 'border-amber-400/50 bg-amber-400/8' : 'border-white/8 bg-[#141A21]/70'}`}>
+                  <div key={n.n} className={`rounded-2xl border p-3 text-left ${nivel === n.n ? 'border-neutral-900 bg-amber-400/8' : 'border-white/8 bg-[#141A21]/70'}`}>
                     <p className="flex items-center justify-between text-xs font-black text-[#EAF0F6]">{n.n}<span className="text-[10px] font-bold text-amber-300">{n.p}</span></p>
                     <ul className="mt-1 space-y-0.5">
                       {n.b.map((x) => <li key={x} className="flex items-start gap-1 text-[10px] text-[#93A1B1]"><Check className="mt-0.5 h-2.5 w-2.5 text-emerald-300" />{x}</li>)}

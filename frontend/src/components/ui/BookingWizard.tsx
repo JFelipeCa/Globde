@@ -311,7 +311,7 @@ export const BookingWizard: React.FC = () => {
                       <button
                         key={e.id} onClick={() => alternarExtra(e.id)}
                         className={`flex items-center justify-between rounded-2xl border p-3 text-left text-xs transition ${
-                          on ? 'border-amber-400/60 bg-amber-400/10 text-amber-700' : 'border-white/10 bg-[#141A21] text-[#93A1B1] hover:border-amber-400/30'
+                          on ? 'border-neutral-900 bg-amber-400/10 text-amber-700' : 'border-white/10 bg-[#141A21] text-[#93A1B1] hover:border-neutral-900'
                         }`}
                       >
                         <span className="flex items-center gap-2 font-semibold">

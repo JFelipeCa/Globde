@@ -74,8 +74,8 @@ export const QuizModal: React.FC = () => {
     <div className="grid grid-cols-2 gap-2.5">
       {items.map((o) => (
         <button key={o} onClick={() => { set(o); setPaso(next); }}
-          className={`rounded-2xl border p-3.5 text-left text-sm font-bold transition hover:-translate-y-0.5 hover:border-amber-400/60 ${
-            valor === o ? 'border-amber-400 bg-amber-400/10 text-amber-700' : 'border-white/10 bg-[#141A21] text-[#C6D0DC]'
+          className={`rounded-2xl border p-3.5 text-left text-sm font-bold transition hover:-translate-y-0.5 hover:border-neutral-900 ${
+            valor === o ? 'border-neutral-900 bg-amber-400/10 text-amber-700' : 'border-white/10 bg-[#141A21] text-[#C6D0DC]'
           }`}>
           {o}
         </button>
@@ -243,7 +243,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0F151C] ring-1 ring-amber-400/40">
+              <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0F151C] ring-1 ring-neutral-900/30">
                 <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
               </span>
               <span>

@@ -57,8 +57,8 @@
 .card-hover:hover {
   transform: translateY(-6px);
   background: #ffffff;
-  border-color: rgba(212, 175, 55, .45);
-  box-shadow: 0 28px 60px -30px rgba(212, 175, 55, .45);
+  border-color: rgba(10, 10, 10, .35);
+  box-shadow: 0 28px 60px -30px rgba(10, 10, 10, .25);
 }
 
 .glass {
@@ -66,6 +66,12 @@
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid rgba(255,255,255,.85);
+}
+
+.icono-acento {
+  background-color: #67E8F9;
+  border: 1px solid rgba(14,116,144,.45);
+  color: #06343D;
 }
 
 /* ---------- Textos con degradado ---------- */
@@ -88,7 +94,7 @@
   background: linear-gradient(120deg, #1A1A1A 0%, #0A0A0A 50%, #1A1A1A 100%);
   color: #F7F5F0;
   box-shadow: 0 14px 34px -14px rgba(10, 10, 10, .55);
-  border: 1px solid rgba(212, 175, 55, .35);
+  border: 1px solid rgba(10, 10, 10, .35);
   transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s, filter .25s;
 }
 .btn-primario:hover { transform: translateY(-2px) scale(1.015); filter: brightness(1.15); box-shadow: 0 20px 44px -16px rgba(212,175,55,.45); }
@@ -253,9 +259,9 @@ body { background: #FDFCFA; color: #0A0A0A; }
   background-image: linear-gradient(90deg, #67E8F9 0%, #22D3EE 55%, #34D399 100%) !important;
 }
 .tema-claro .card.seleccionada {
-  border-color: #22B8D1;
+  border-color: #111827;
   background: #ECFEFF;
-  box-shadow: 0 0 0 2px #67E8F9, 0 18px 40px -28px rgba(14,165,183,.4);
+  box-shadow: 0 0 0 2px #111827, 0 18px 40px -28px rgba(10,10,10,.35);
 }
 
 .card {
@@ -265,8 +271,8 @@ body { background: #FDFCFA; color: #0A0A0A; }
 }
 .card-hover:hover {
   background: #ffffff;
-  border-color: rgba(212, 175, 55, .45);
-  box-shadow: 0 28px 60px -30px rgba(212, 175, 55, .45);
+  border-color: rgba(10, 10, 10, .35);
+  box-shadow: 0 28px 60px -30px rgba(10, 10, 10, .25);
 }
 .glass {
   background: rgba(255,255,255,.82);
@@ -311,9 +317,9 @@ input[type=date] { color-scheme: light; }
 
 /* Tarjeta seleccionada (wizard de reservas) */
 .card.seleccionada {
-  border-color: #D4AF37;
+  border-color: #111827;
   background: #FFFBEB;
-  box-shadow: 0 0 0 2px #D4AF37, 0 18px 40px -28px rgba(10, 10, 10, .35);
+  box-shadow: 0 0 0 2px #111827, 0 18px 40px -28px rgba(10, 10, 10, .35);
 }
 
 /* ---------- Modo oscuro ---------- */
@@ -349,9 +355,9 @@ input[type=date] { color-scheme: light; }
 }
 .tema-oscuro .card-hover:hover { background: #1C2630; }
 .tema-oscuro .card.seleccionada {
-  border-color: #67E8F9;
+  border-color: #111827;
   background: #203B46;
-  box-shadow: 0 0 0 2px #67E8F9, 0 18px 40px -28px rgba(34,211,238,.65);
+  box-shadow: 0 0 0 2px #111827, 0 18px 40px -28px rgba(0,0,0,.65);
 }
 .tema-oscuro .text-aqua {
   background: linear-gradient(115deg, #F7F5F0 0%, #BFEFF2 50%, #F7F5F0 100%);
@@ -375,9 +381,10 @@ input[type=date] { color-scheme: light; }
 .tema-oscuro [class*="bg-amber-400"] { background-color: #67E8F9 !important; color: #06232A !important; }
 .tema-oscuro [class*="fill-amber-"] { fill: #67E8F9 !important; }
 .tema-oscuro [class*="text-neutral-900"] { color: #67E8F9 !important; }
-.tema-oscuro .beneficio-icono {
-  background-color: rgba(34,211,238,.12) !important;
-  color: #67E8F9 !important;
+.tema-oscuro .icono-acento {
+  background-color: #67E8F9;
+  border-color: rgba(14,116,144,.45);
+  color: #06343D;
 }
 .tema-oscuro .puntos-progreso {
   background: linear-gradient(90deg, #67E8F9 0%, #22D3EE 55%, #34D399 100%);
@@ -409,6 +416,11 @@ input[type=date] { color-scheme: light; }
 .tema-oscuro [class*="text-[#93A1B1]"] { color: #93A1B1 !important; }
 .tema-oscuro [class*="text-[#6B7A8C]"] { color: #6B7A8C !important; }
 .tema-oscuro [class*="border-white/"] { border-color: rgba(255,255,255,.12) !important; }
+.tema-oscuro .card-hover:hover {
+  border-color: rgba(255,255,255,.25);
+  box-shadow: 0 28px 60px -30px rgba(0,0,0,.8);
+}
+[class*="hover:border-amber-"]:hover { border-color: #111827 !important; }
 .tema-oscuro input[class*="bg-[#0F151C]"],
 .tema-oscuro select[class*="bg-[#0F151C]"],
 .tema-oscuro textarea[class*="bg-[#0F151C]"] {

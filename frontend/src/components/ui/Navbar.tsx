@@ -84,7 +84,7 @@ export const Navbar: React.FC = () => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           {/* Marca */}
           <button onClick={() => ir('inicio')} className="group flex items-center gap-3">
-            <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-amber-400/40">
+            <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-neutral-900/30">
               <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
             </span>
             <span className="text-left leading-none">
@@ -105,7 +105,7 @@ export const Navbar: React.FC = () => {
                 onClick={() => ir(e.v)}
                 className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
                   vista === e.v
-                    ? 'bg-amber-400/12 text-amber-700 ring-1 ring-amber-400/40'
+                    ? 'bg-amber-400/12 text-amber-700 ring-1 ring-neutral-900/30'
                     : 'text-[#93A1B1] hover:bg-black/5 hover:text-[#0A0A0A]'
                 }`}
               >
