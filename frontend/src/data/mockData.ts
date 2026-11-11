@@ -70,55 +70,50 @@ export const BARBEROS: Barbero[] = [
   },
 ];
 
+// Servicios agendables = los mismos 6 cortes del catálogo (mismo nombre, precio y
+// duración). El nombre es la llave con la que AppContext enlaza catálogo y agenda.
 export const SERVICIOS: Servicio[] = [
   {
-    id_servicio: 1, nombre: 'Mid Skin Fade + Crop Texturizado', categoria: 'Fade & Degradados',
+    id_servicio: 1, nombre: 'Mid Skin Fade + Crop Texturizado', categoria: 'Cortes',
     descripcion: 'Degradado medio limpio a navaja con parte superior desfilada para volumen y textura.',
     precio: 25000, duracion_minutos: 40, popular: true, icono: '💈',
     imagen_url: 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
     puntos_otorga: 25, activo: true,
   },
   {
-    id_servicio: 2, nombre: 'Low Taper con Barba Integrada', categoria: 'Barbas & Perfilado',
+    id_servicio: 2, nombre: 'Low Taper con Barba Integrada', categoria: 'Cortes',
     descripcion: 'Transición suave en patillas y nuca que se fusiona con una barba densa y perfilada.',
-    precio: 20000, duracion_minutos: 30, icono: '✂️',
-    imagen_url: 'https://images.pexels.com/photos/9971240/pexels-photo-9971240.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
-    puntos_otorga: 20, activo: true,
-  },
-  {
-    id_servicio: 3, nombre: 'Pompadour Moderno con Drop Fade', categoria: 'Clásicos & Elegantes',
-    descripcion: 'Inspiración clásica de los 50 reinventada con caída curva y fijación mate duradera.',
-    precio: 18000, duracion_minutos: 25, popular: true, icono: '🪒',
-    imagen_url: 'https://images.pexels.com/photos/12464837/pexels-photo-12464837.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
-    puntos_otorga: 20, activo: true,
-  },
-  {
-    id_servicio: 4, nombre: 'Buzz Cut con Line-up a Navaja', categoria: 'Estilos Urbanos',
-    descripcion: 'Corte rasurado al ras con contornos rectilíneos y diseño geométrico minimalista.',
-    precio: 42000, duracion_minutos: 60, popular: true, icono: '👑',
-    imagen_url: 'https://images.pexels.com/photos/34702982/pexels-photo-34702982.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
-    puntos_otorga: 45, activo: true,
-  },
-  {
-    id_servicio: 5, nombre: 'Modern Mullet con Fade Lateral', categoria: 'Color & Tendencia',
-    descripcion: 'Estilo vanguardista con laterales despejados y parte trasera fluida, el más viral del año.',
-    precio: 18000, duracion_minutos: 25, icono: '🧒',
-    imagen_url: 'https://images.pexels.com/photos/4625626/pexels-photo-4625626.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
-    puntos_otorga: 18, activo: true,
-  },
-  {
-    id_servicio: 6, nombre: 'Platinado Polar con High Fade', categoria: 'Color & Tendencia',
-    descripcion: 'Decoloración tono hielo con matizador anti-amarillo y degradado alto ultra pulido.',
-    precio: 55000, duracion_minutos: 80, icono: '🎨',
-    imagen_url: 'https://images.pexels.com/photos/14781974/pexels-photo-14781974.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
-    puntos_otorga: 50, activo: true,
-  },
-  {
-    id_servicio: 7, nombre: 'Spa Capilar & Mascarilla', categoria: 'Tratamientos',
-    descripcion: 'Exfoliación del cuero cabelludo con sales minerales, tónico anticaída y masaje relajante.',
-    precio: 22000, duracion_minutos: 25, icono: '💆',
+    precio: 35000, duracion_minutos: 50, icono: '🧔',
     imagen_url: 'https://images.pexels.com/photos/12706272/pexels-photo-12706272.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    puntos_otorga: 35, activo: true,
+  },
+  {
+    id_servicio: 3, nombre: 'Pompadour Moderno con Drop Fade', categoria: 'Cortes',
+    descripcion: 'Inspiración clásica de los 50 reinventada con caída curva y fijación mate duradera.',
+    precio: 28000, duracion_minutos: 45, popular: true, icono: '🪒',
+    imagen_url: 'https://images.pexels.com/photos/14564834/pexels-photo-14564834.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    puntos_otorga: 28, activo: true,
+  },
+  {
+    id_servicio: 4, nombre: 'Buzz Cut con Line-up a Navaja', categoria: 'Cortes',
+    descripcion: 'Corte rasurado al ras con contornos rectilíneos y diseño geométrico minimalista.',
+    precio: 22000, duracion_minutos: 30, popular: true, icono: '✂️',
+    imagen_url: 'https://images.pexels.com/photos/14781974/pexels-photo-14781974.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
     puntos_otorga: 22, activo: true,
+  },
+  {
+    id_servicio: 5, nombre: 'Modern Mullet con Fade Lateral', categoria: 'Cortes',
+    descripcion: 'Estilo vanguardista con laterales despejados y parte trasera fluida, el más viral del año.',
+    precio: 27000, duracion_minutos: 45, icono: '💇',
+    imagen_url: 'https://images.pexels.com/photos/15418106/pexels-photo-15418106.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    puntos_otorga: 27, activo: true,
+  },
+  {
+    id_servicio: 6, nombre: 'Platinado Polar con High Fade', categoria: 'Cortes',
+    descripcion: 'Decoloración tono hielo con matizador anti-amarillo y degradado alto ultra pulido.',
+    precio: 60000, duracion_minutos: 90, icono: '🎨',
+    imagen_url: 'https://images.pexels.com/photos/7045174/pexels-photo-7045174.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    puntos_otorga: 60, activo: true,
   },
 ];
 

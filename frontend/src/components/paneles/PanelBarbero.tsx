@@ -1,20 +1,20 @@
 import React, { useState } from 'react';
 import {
-  Scissors, CalendarDays, Play, Check, XCircle, Star, Timer,
+  CalendarDays, Play, Check, XCircle, Star, Timer,
   ChevronLeft, ChevronRight, ToggleLeft, ToggleRight, Coins, Users,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  hoyISO, paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape,
+  hoyISO, paginar, hora12,
 } from '../../utils/helpers';
 
 const POR_PAGINA = 4;
 
 export const PanelBarbero: React.FC = () => {
   const {
-    usuario, citas, barberos, servicios, cambiarEstadoCita,
-    alternarDisponibilidad, franjasOcupadas, verTicket,
+    usuario, citas, barberos, cambiarEstadoCita,
+    alternarDisponibilidad, verTicket,
   } = useApp();
 
   const barbero = barberos.find((b) => b.id_usuario === usuario?.id_usuario) ?? barberos[0];
@@ -36,14 +36,6 @@ export const PanelBarbero: React.FC = () => {
   const ingresos = deHoyTodas.filter((c) => ['completada', 'en_atencion'].includes(c.estado)).reduce((a, c) => a + c.precio_total, 0);
   const comision = Math.round(ingresos * (0.5 + barbero.porcentaje_incremento / 100));
   const minutosOcupados = deHoyTodas.filter((c) => c.estado !== 'cancelada').reduce((a, c) => a + c.duracion_minutos, 0);
-
-  const ocupadasHoy = franjasOcupadas(hoy, barbero.id_barbero);
-  const franjasLibres = franjasVigentes(
-    generarFranjasJornada(barbero, hoy, 30, 30),
-    hoy,
-  )
-    .map((ini) => ({ ini, fin: sumarMinutos(ini, 30) }))
-    .filter((f) => !ocupadasHoy.some((o) => haySolape(f.ini, f.fin, o.inicio, o.fin)));
 
   const Paginador: React.FC<{ p: ReturnType<typeof paginar>; set: (n: number) => void }> = ({ p, set }) => (
     <div className="flex items-center justify-between border-t border-white/8 px-4 py-3">

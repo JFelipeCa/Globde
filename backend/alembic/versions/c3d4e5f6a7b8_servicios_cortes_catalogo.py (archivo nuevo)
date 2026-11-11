@@ -1,0 +1,108 @@
+"""servicios = cortes del catalogo
+
+Revision ID: c3d4e5f6a7b8
+Revises: b2c3d4e5f6a7
+Create Date: 2026-11-11
+
+Deja como servicios agendables solo los 6 cortes que se muestran en el
+catalogo de la web (mismo nombre, descripcion, precio y duracion).
+
+Reutiliza los ids 1 a 6 (en vez de crear ids nuevos) para no romper
+barbero_servicio, las citas de ejemplo ni las pruebas del backend, que
+agendan con id_servicio=1. Cualquier otro servicio (id > 6, por ejemplo uno
+creado desde el panel de administracion) se desactiva: GET /servicios solo
+devuelve los activos, asi que deja de aparecer en el catalogo y al agendar.
+
+El frontend enlaza catalogo y agenda por NOMBRE. Si se cambia un nombre aqui,
+hay que cambiarlo igual en frontend/src/data/mockData.ts.
+"""
+
+import sqlalchemy as sa
+from alembic import op
+
+revision = 'c3d4e5f6a7b8'
+down_revision = 'b2c3d4e5f6a7'
+branch_labels = None
+depends_on = None
+
+_FOTO = (
+    "https://images.pexels.com/photos/{0}/pexels-photo-{0}.jpeg"
+    "?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp"
+)
+
+# (id, nombre, descripcion, precio, duracion_min, icono, foto, puntos, popular)
+CORTES = [
+    (1, 'Mid Skin Fade + Crop Texturizado',
+     'Degradado medio limpio a navaja con parte superior desfilada para volumen y textura.',
+     25000, 40, 'barber', _FOTO.format(12464840), 25, True),
+    (2, 'Low Taper con Barba Integrada',
+     'Transición suave en patillas y nuca que se fusiona con una barba densa y perfilada.',
+     35000, 50, 'beard', _FOTO.format(12706272), 35, False),
+    (3, 'Pompadour Moderno con Drop Fade',
+     'Inspiración clásica de los 50 reinventada con caída curva y fijación mate duradera.',
+     28000, 45, 'razor', _FOTO.format(14564834), 28, True),
+    (4, 'Buzz Cut con Line-up a Navaja',
+     'Corte rasurado al ras con contornos rectilíneos y diseño geométrico minimalista.',
+     22000, 30, 'scissors', _FOTO.format(14781974), 22, True),
+    (5, 'Modern Mullet con Fade Lateral',
+     'Estilo vanguardista con laterales despejados y parte trasera fluida, el más viral del año.',
+     27000, 45, 'hair', _FOTO.format(15418106), 27, False),
+    (6, 'Platinado Polar con High Fade',
+     'Decoloración tono hielo con matizador anti-amarillo y degradado alto ultra pulido.',
+     60000, 90, 'color', _FOTO.format(7045174), 60, False),
+]
+
+# Valores de la semilla original (b2c3d4e5f6a7), para el downgrade.
+# (id, nombre, categoria, descripcion, precio, duracion_min, icono, puntos, popular)
+ORIGINALES = [
+    (1, 'Corte Clásico', 'Cortes', 'Corte tradicional con máquina y tijera.', 25000, 30, 'scissors', 25, True),
+    (2, 'Corte Degradado', 'Cortes', 'Corte moderno con degradado personalizado.', 30000, 40, 'razor', 30, True),
+    (3, 'Arreglo de Barba', 'Barba', 'Perfilado, arreglo y definición de barba.', 18000, 25, 'beard', 18, False),
+    (4, 'Corte + Barba', 'Combos', 'Servicio completo de corte y arreglo de barba.', 42000, 60, 'combo', 45, True),
+    (5, 'Tratamiento Capilar', 'Tratamientos', 'Tratamiento básico para cuidado del cabello.', 35000, 45, 'sparkles', 35, False),
+    (6, 'Corte Infantil', 'Infantil', 'Corte para niños con atención personalizada.', 22000, 30, 'child', 20, False),
+]
+
+
+def upgrade() -> None:
+    bind = op.get_bind()
+    for (id_, nombre, descripcion, precio, duracion, icono, foto, puntos, popular) in CORTES:
+        bind.execute(
+            sa.text(
+                "UPDATE servicios SET nombre = :nombre, categoria = 'Cortes', "
+                "descripcion = :descripcion, precio = :precio, "
+                "duracion_minutos = :duracion, icono = :icono, "
+                "imagen_url = :foto, puntos_otorga = :puntos, "
+                "popular = :popular, activo = 1 "
+                "WHERE id_servicio = :id"
+            ),
+            {
+                'id': id_, 'nombre': nombre, 'descripcion': descripcion,
+                'precio': precio, 'duracion': duracion, 'icono': icono,
+                'foto': foto, 'puntos': puntos, 'popular': popular,
+            },
+        )
+    # Todo lo que no sea uno de los 6 cortes sale del catalogo y de agendar.
+    bind.execute(sa.text("UPDATE servicios SET activo = 0 WHERE id_servicio > 6"))
+
+
+def downgrade() -> None:
+    bind = op.get_bind()
+    for (id_, nombre, categoria, descripcion, precio, duracion, icono, puntos, popular) in ORIGINALES:
+        bind.execute(
+            sa.text(
+                "UPDATE servicios SET nombre = :nombre, categoria = :categoria, "
+                "descripcion = :descripcion, precio = :precio, "
+                "duracion_minutos = :duracion, icono = :icono, "
+                "imagen_url = NULL, puntos_otorga = :puntos, "
+                "popular = :popular, activo = 1 "
+                "WHERE id_servicio = :id"
+            ),
+            {
+                'id': id_, 'nombre': nombre, 'categoria': categoria,
+                'descripcion': descripcion, 'precio': precio, 'duracion': duracion,
+                'icono': icono, 'puntos': puntos, 'popular': popular,
+            },
+        )
+    # Los servicios con id > 6 que se desactivaron NO se reactivan aqui: no hay
+    # forma de saber cuales estaban activos antes de esta migracion.

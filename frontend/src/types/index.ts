@@ -158,6 +158,9 @@ export interface Factura {
 
 export interface CatalogoCorte {
   id_corte: number;
+  // Servicio que hace agendable este corte. Lo resuelve AppContext contra los
+  // servicios activos; si es null, el corte solo existe en el catálogo.
+  id_servicio?: number | null;
   nombre: string;
   categoria: string;
   descripcion: string;

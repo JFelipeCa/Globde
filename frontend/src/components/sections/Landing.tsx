@@ -415,9 +415,15 @@ export const Catalogo: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase text-[#6B7A8C]">Desde</span>
                   <p className="font-heading text-2xl font-black text-[#EAF0F6]">{formatoCOP(detalle.precio_sugerido)}</p>
                 </div>
-                <button onClick={() => { setDetalle(null); abrirReserva({ servicioId: 1 }); }} className="btn-primario flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black">
-                  Quiero este corte <ArrowRight className="h-4 w-4" />
-                </button>
+                {detalle.id_servicio ? (
+                  <button onClick={() => { setDetalle(null); abrirReserva({ servicioId: detalle.id_servicio ?? undefined }); }} className="btn-primario flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black">
+                    Quiero este corte <ArrowRight className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <span className="rounded-2xl border border-white/10 bg-[#0F151C] px-4 py-3 text-xs font-bold text-[#93A1B1]">
+                    Aún no disponible para agendar
+                  </span>
+                )}
               </div>
             </div>
           </div>
