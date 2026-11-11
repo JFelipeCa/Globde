@@ -51,11 +51,15 @@ export const Navbar: React.FC = () => {
     : usuario?.id_rol === ROL_BARBERO ? 'panel-barbero'
     : 'panel-cliente';
 
-  const enlaces: { v: Vista; texto: string; icono: React.ElementType }[] = [
-    { v: 'inicio', texto: 'Inicio', icono: MapPin },
-    { v: 'catalogo', texto: 'Catálogo de cortes', icono: Scissors },
-    { v: 'fidelizacion', texto: 'Club de puntos', icono: Crown },
-  ];
+  const esBarbero = usuario?.id_rol === ROL_BARBERO;
+  const esCliente = usuario?.id_rol === ROL_CLIENTE;
+
+  const enlaces: { v: Vista; texto: string; icono: React.ElementType }[] =
+    (!usuario || esCliente) ? [
+      { v: 'inicio', texto: 'Inicio', icono: MapPin },
+      { v: 'catalogo', texto: 'Catálogo de cortes', icono: Scissors },
+      { v: 'fidelizacion', texto: 'Club de puntos', icono: Crown },
+    ] : [];
 
   return (
     <header className="sticky top-0 z-40 w-full">
@@ -88,13 +92,13 @@ export const Navbar: React.FC = () => {
                 GLOB<span className="text-amber-500">DE</span>
               </span>
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-600">
-                Barber Studio
+                BARBER GESTOR
               </span>
             </span>
           </button>
 
           {/* Navegación escritorio */}
-          <nav className="hidden items-center gap-1 lg:flex">
+          <nav className="hidden items-center gap-1 lg:flex lg:flex-1 lg:justify-end">
             {enlaces.map((e) => (
               <button
                 key={e.v}
@@ -108,12 +112,14 @@ export const Navbar: React.FC = () => {
                 {e.texto}
               </button>
             ))}
-            <button
-              onClick={() => setQuizAbierto(true)}
-              className="ml-1 flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-400/20"
-            >
-              <Sparkles className="h-4 w-4" /> Asesor de estilo
-            </button>
+            {esCliente && (
+              <button
+                onClick={() => setQuizAbierto(true)}
+                className="ml-1 flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-400/20"
+              >
+                <Sparkles className="h-4 w-4" /> Asesor de estilo
+              </button>
+            )}
             {usuario && (
               <button
                 onClick={() => ir(panelDelRol)}
@@ -131,7 +137,7 @@ export const Navbar: React.FC = () => {
 
           {/* Acciones */}
           <div className="flex items-center gap-2">
-            {usuario?.id_rol === ROL_CLIENTE && (
+            {esCliente && (
               <button
                 onClick={() => ir('fidelizacion')}
                 className="hidden items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-400/20 sm:flex"
@@ -140,7 +146,7 @@ export const Navbar: React.FC = () => {
               </button>
             )}
 
-            {(!usuario || usuario.id_rol === ROL_CLIENTE) && (
+            {(!usuario || esCliente) && (
               <button
                 onClick={() => abrirReserva()}
                 className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold"
@@ -191,9 +197,11 @@ export const Navbar: React.FC = () => {
                     <button onClick={() => ir('fidelizacion')} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-[#C6D0DC] hover:bg-white/5">
                       <Crown className="h-4 w-4 text-amber-600" /> Puntos y premios
                     </button>
-                    <button onClick={() => { setEsperaAbierta(true); setPerfil(false); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-[#C6D0DC] hover:bg-white/5">
-                      <Clock className="h-4 w-4 text-[#9A9A9A]" /> Lista de espera
-                    </button>
+                    {!esBarbero && (
+                      <button onClick={() => { setEsperaAbierta(true); setPerfil(false); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-[#C6D0DC] hover:bg-white/5">
+                        <Clock className="h-4 w-4 text-[#9A9A9A]" /> Lista de espera
+                      </button>
+                    )}
                     <button onClick={() => { logout(); setPerfil(false); }} className="mt-1 flex w-full items-center gap-2.5 rounded-xl border-t border-white/8 px-3 py-2 pt-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-400/10">
                       <LogOut className="h-4 w-4" /> Cerrar sesión
                     </button>
@@ -222,17 +230,21 @@ export const Navbar: React.FC = () => {
         {/* Menú móvil */}
         {menu && (
           <div className="anim-aparecer border-t border-white/8 bg-[#141A21] px-4 py-3 lg:hidden">
-            {enlaces.map((e) => (
+            {esCliente && enlaces.map((e) => (
               <button key={e.v} onClick={() => ir(e.v)} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#C6D0DC] hover:bg-white/5">
                 <e.icono className="h-4 w-4 text-amber-600" /> {e.texto}
               </button>
             ))}
-            <button onClick={() => { setQuizAbierto(true); setMenu(false); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-400/10">
-              <Sparkles className="h-4 w-4" /> Asesor de estilo
-            </button>
-            <button onClick={() => { setEsperaAbierta(true); setMenu(false); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#6B7A8C] hover:bg-black/5">
-              <Clock className="h-4 w-4" /> Lista de espera
-            </button>
+            {esCliente && (
+              <button onClick={() => { setQuizAbierto(true); setMenu(false); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-400/10">
+                <Sparkles className="h-4 w-4" /> Asesor de estilo
+              </button>
+            )}
+            {esCliente && (
+              <button onClick={() => { setEsperaAbierta(true); setMenu(false); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-[#6B7A8C] hover:bg-black/5">
+                <Clock className="h-4 w-4" /> Lista de espera
+              </button>
+            )}
             {usuario && (
               <button onClick={() => ir(panelDelRol)} className="mt-1 flex w-full items-center gap-2.5 rounded-xl bg-neutral-900 px-3 py-2.5 text-sm font-bold text-white">
                 <LayoutDashboard className="h-4 w-4" /> Ir a mi panel

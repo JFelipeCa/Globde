@@ -72,43 +72,43 @@ export const BARBEROS: Barbero[] = [
 
 export const SERVICIOS: Servicio[] = [
   {
-    id_servicio: 1, nombre: 'Corte Degradado (Skin Fade)', categoria: 'Cortes',
-    descripcion: 'Degradado milimétrico a piel con definición a navaja, lavado revitalizante y peinado texturizado.',
+    id_servicio: 1, nombre: 'Mid Skin Fade + Crop Texturizado', categoria: 'Fade & Degradados',
+    descripcion: 'Degradado medio limpio a navaja con parte superior desfilada para volumen y textura.',
     precio: 25000, duracion_minutos: 40, popular: true, icono: '💈',
     imagen_url: 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
     puntos_otorga: 25, activo: true,
   },
   {
-    id_servicio: 2, nombre: 'Corte Clásico Tijera & Máquina', categoria: 'Cortes',
-    descripcion: 'Corte tradicional elegante pulido con tijera japonesa, contornos limpios y fijación natural.',
+    id_servicio: 2, nombre: 'Low Taper con Barba Integrada', categoria: 'Barbas & Perfilado',
+    descripcion: 'Transición suave en patillas y nuca que se fusiona con una barba densa y perfilada.',
     precio: 20000, duracion_minutos: 30, icono: '✂️',
     imagen_url: 'https://images.pexels.com/photos/9971240/pexels-photo-9971240.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
     puntos_otorga: 20, activo: true,
   },
   {
-    id_servicio: 3, nombre: 'Ritual de Barba & Afeitado Spa', categoria: 'Barba',
-    descripcion: 'Perfilado a navaja esterilizada, doble toalla caliente aromática, aceites y bálsamo revitalizante.',
+    id_servicio: 3, nombre: 'Pompadour Moderno con Drop Fade', categoria: 'Clásicos & Elegantes',
+    descripcion: 'Inspiración clásica de los 50 reinventada con caída curva y fijación mate duradera.',
     precio: 18000, duracion_minutos: 25, popular: true, icono: '🪒',
     imagen_url: 'https://images.pexels.com/photos/12464837/pexels-photo-12464837.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
     puntos_otorga: 20, activo: true,
   },
   {
-    id_servicio: 4, nombre: 'Combo Master Globde', categoria: 'Combos',
-    descripcion: 'Corte degradado + perfilado de barba + toalla caliente con aromaterapia + mascarilla de carbón.',
+    id_servicio: 4, nombre: 'Buzz Cut con Line-up a Navaja', categoria: 'Estilos Urbanos',
+    descripcion: 'Corte rasurado al ras con contornos rectilíneos y diseño geométrico minimalista.',
     precio: 42000, duracion_minutos: 60, popular: true, icono: '👑',
     imagen_url: 'https://images.pexels.com/photos/34702982/pexels-photo-34702982.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
     puntos_otorga: 45, activo: true,
   },
   {
-    id_servicio: 5, nombre: 'Corte Infantil Globde Kids', categoria: 'Infantil',
-    descripcion: 'Corte paciente para niños menores de 12 años, con líneas de diseño opcionales y golosina.',
+    id_servicio: 5, nombre: 'Modern Mullet con Fade Lateral', categoria: 'Color & Tendencia',
+    descripcion: 'Estilo vanguardista con laterales despejados y parte trasera fluida, el más viral del año.',
     precio: 18000, duracion_minutos: 25, icono: '🧒',
     imagen_url: 'https://images.pexels.com/photos/4625626/pexels-photo-4625626.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
     puntos_otorga: 18, activo: true,
   },
   {
-    id_servicio: 6, nombre: 'Colorimetría & Platinado', categoria: 'Tratamientos',
-    descripcion: 'Tintes premium sin amoniaco, decoloración platinada o camuflaje discreto de canas.',
+    id_servicio: 6, nombre: 'Platinado Polar con High Fade', categoria: 'Color & Tendencia',
+    descripcion: 'Decoloración tono hielo con matizador anti-amarillo y degradado alto ultra pulido.',
     precio: 55000, duracion_minutos: 80, icono: '🎨',
     imagen_url: 'https://images.pexels.com/photos/14781974/pexels-photo-14781974.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
     puntos_otorga: 50, activo: true,
@@ -184,7 +184,7 @@ export const CITAS: Cita[] = [
   {
     id_cita: 101, codigo_reserva: 'GLB-8942', id_cliente: 4,
     cliente_nombre: 'Diego Castillo', cliente_telefono: '+57 310 888 9911', cliente_correo: 'diego@gmail.com',
-    id_barbero: 1, barbero_nombre: 'Carlos Méndez', id_servicio: 1, servicio_nombre: 'Corte Degradado (Skin Fade)',
+    id_barbero: 1, barbero_nombre: 'Carlos Méndez', id_servicio: 1, servicio_nombre: 'Mid Skin Fade + Crop Texturizado',
     precio_total: 25000, descuento_aplicado: 0, puntos_canjeados: 0,
     fecha: HOY, hora_inicio: '11:00', hora_fin: '11:40', duracion_minutos: 40,
     estado: 'confirmada', observaciones: 'Fade medio bien comprimido, por favor.',
@@ -224,7 +224,7 @@ export const CITAS: Cita[] = [
   {
     id_cita: 105, codigo_reserva: 'GLB-8946', id_cliente: 8,
     cliente_nombre: 'Laura Cepeda', cliente_telefono: '+57 305 111 2233', cliente_correo: 'laura@gmail.com',
-    id_barbero: 1, barbero_nombre: 'Carlos Méndez', id_servicio: 2, servicio_nombre: 'Corte Clásico Tijera & Máquina',
+    id_barbero: 1, barbero_nombre: 'Carlos Méndez', id_servicio: 2, servicio_nombre: 'Low Taper con Barba Integrada',
     precio_total: 20000, descuento_aplicado: 0, puntos_canjeados: 0,
     fecha: HOY, hora_inicio: '13:30', hora_fin: '14:00', duracion_minutos: 30,
     estado: 'pendiente', observaciones: '', extras: [], creado_en: '2026-03-03 08:05',
@@ -242,7 +242,7 @@ export const CITAS: Cita[] = [
 export const LISTA_ESPERA: EntradaListaEspera[] = [
   {
     id_espera: 1, id_cliente: 4, nombre_cliente: 'Mateo Gómez', telefono: '+57 301 222 3344',
-    id_servicio: 1, servicio_nombre: 'Corte Degradado (Skin Fade)', id_barbero: 1,
+    id_servicio: 1, servicio_nombre: 'Mid Skin Fade + Crop Texturizado', id_barbero: 1,
     barbero_nombre: 'Carlos Méndez', fecha_deseada: HOY, franja_horaria: 'tarde',
     estado: 'en_espera', creado_en: '2026-03-03 08:30',
     observaciones: 'Disponible si se cancela algún turno entre 2 y 6 p.m.',

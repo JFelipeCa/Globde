@@ -4,13 +4,15 @@ import {
   MapPin, QrCode, Timer, UserRound, Ban,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { ROL_BARBERO } from '../../types';
 import { formatoCOP, fechaLarga, rangoHorario, duracionLegible } from '../../utils/helpers';
 
 export const TicketModal: React.FC = () => {
-  const { citaTicket, esConfirmacionNueva, cerrarTicket, cancelarCita, usuario } = useApp();
+  const { citaTicket, esConfirmacionNueva, cerrarTicket, cancelarCita, usuario, catalogoCortes } = useApp();
   const [modoPase, setModoPase] = React.useState(false);
+  const [mostrarComoBarbero, setMostrarComoBarbero] = React.useState(false);
 
-  React.useEffect(() => { setModoPase(false); }, [citaTicket]);
+  React.useEffect(() => { setModoPase(false); setMostrarComoBarbero(false); }, [citaTicket]);
 
   if (!citaTicket) return null;
   const c = citaTicket;
@@ -24,6 +26,42 @@ export const TicketModal: React.FC = () => {
     const fin = dia + 'T' + c.hora_fin.replace(':', '') + '00';
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${t}&dates=${ini}/${fin}&details=${d}&location=${loc}`;
   };
+
+  const corteRelacionado = catalogoCortes.find((corte) => {
+    const nombreServicio = c.servicio_nombre.trim().toLowerCase();
+    const nombreCorte = corte.nombre.trim().toLowerCase();
+    return nombreServicio === nombreCorte || nombreServicio.includes(nombreCorte) || nombreCorte.includes(nombreServicio);
+  }) ?? catalogoCortes[0];
+
+  const MiniVistaCorte: React.FC = () => (
+    <div className="mt-5 overflow-hidden rounded-3xl border border-amber-400/30 bg-[#0F151C] shadow-[0_18px_45px_-25px_rgba(212,175,55,0.6)]">
+      <div className="flex items-center justify-between gap-3 border-b border-white/8 bg-[#101821] px-4 py-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6B7A8C]">Como barbero</p>
+          <h4 className="font-heading text-lg font-black text-[#EAF0F6]">{corteRelacionado?.nombre ?? c.servicio_nombre}</h4>
+        </div>
+        <span className="rounded-full bg-amber-400/12 px-2.5 py-1 text-[10px] font-black text-amber-700">Vista previa</span>
+      </div>
+
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <div className="relative h-24 w-full overflow-hidden rounded-2xl border border-amber-400/30 sm:w-28">
+          <img
+            src={corteRelacionado?.imagen_url ?? 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=640&w=640&fm=webp'}
+            alt={corteRelacionado?.nombre ?? c.servicio_nombre}
+            className="h-full w-full object-cover"
+          />
+        </div>
+        <div className="flex-1 text-sm">
+          <p className="font-black text-[#EAF0F6]">{c.barbero_nombre}</p>
+          <p className="text-[11px] text-[#93A1B1]">{corteRelacionado?.descripcion ?? `Diseño recomendado para ${c.servicio_nombre}.`}</p>
+          <div className="mt-2 flex items-center justify-between text-[10px] font-bold uppercase text-[#6B7A8C]">
+            <span>{duracionLegible(c.duracion_minutos)}</span>
+            <span>{formatoCOP(c.precio_total)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const compartir = () => {
     const txt = encodeURIComponent(
@@ -147,6 +185,22 @@ export const TicketModal: React.FC = () => {
               <p className="truncate text-[11px] text-amber-700">{c.servicio_nombre}</p>
             </div>
           </div>
+
+          {usuario?.id_rol === ROL_BARBERO && !esConfirmacionNueva && (
+            <div className="rounded-2xl border border-white/8 bg-[#0F151C] p-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6B7A8C]">Detalle visual</p>
+                <button
+                  type="button"
+                  onClick={() => setMostrarComoBarbero((actual) => !actual)}
+                  className="rounded-full bg-amber-400/12 px-2.5 py-1 text-[10px] font-black text-amber-700"
+                >
+                  {mostrarComoBarbero ? 'Ocultar' : 'Como barbero'}
+                </button>
+              </div>
+              {mostrarComoBarbero && <MiniVistaCorte />}
+            </div>
+          )}
 
           {c.estado === 'completada' ? (
             <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-center">
