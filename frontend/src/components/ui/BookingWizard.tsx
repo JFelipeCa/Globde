@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   X, Check, ArrowRight, ArrowLeft, Clock, Star, Crown, Timer,
-  CalendarDays, Sparkles, CircleAlert, Plus,
+  CalendarDays, Sparkles, CircleAlert, Plus, Scissors,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { EXTRAS_SERVICIO, SERVICIOS, BARBEROS } from '../../data/mockData';
@@ -234,7 +234,11 @@ export const BookingWizard: React.FC = () => {
                   key={b.id_barbero} onClick={() => { setIdBarbero(b.id_barbero); setHoraInicio(''); }}
                   className={`card card-hover flex w-full items-center gap-4 p-4 text-left ${idBarbero === b.id_barbero ? 'seleccionada' : ''}`}
                 >
-                  <img src={b.foto_url} alt={b.nombre} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+                  <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
+                    {b.foto_url
+                      ? <img src={b.foto_url} alt={b.nombre} className="h-full w-full object-cover" />
+                      : <Scissors className="h-7 w-7" aria-hidden="true" />}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2 text-sm font-black text-[#EAF0F6]">

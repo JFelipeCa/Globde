@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   CalendarDays, Plus, QrCode, Star, Timer, Ban, Check,
-  RotateCcw, CircleAlert, History, Hourglass, X, Eye, Sparkles, Camera, Heart,
+  RotateCcw, CircleAlert, History, Hourglass, X, Eye, Sparkles, Camera, UserRound, Scissors,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Cita, Servicio, PremioFidelidad, NivelFidelizacion } from '../../types';
@@ -189,8 +189,8 @@ export const PanelCliente: React.FC = () => {
             <div className="relative shrink-0">
               {usuario?.avatar_url
                 ? <img src={usuario.avatar_url} alt="Foto de perfil" className="h-11 w-11 rounded-full object-cover" />
-                : <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#55d7e5] text-lg font-black text-[#12383c]">
-                    {(usuario?.nombre.trim()[0] ?? '?').toUpperCase()}
+                : <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#55d7e5] text-[#12383c]">
+                    <UserRound className="h-6 w-6" aria-hidden="true" />
                   </span>}
               <label className="absolute -bottom-1 -right-1 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#172124] text-white" title="Cambiar foto de perfil">
                 <Camera className="h-3 w-3" />
@@ -366,7 +366,7 @@ export const PanelCliente: React.FC = () => {
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#74563f] text-sm font-black text-white">
                   {barberoTarjeta?.foto_url
                     ? <img src={barberoTarjeta.foto_url} alt="" className="h-full w-full object-cover" />
-                    : barberoTarjeta?.nombre.trim()[0]?.toUpperCase() ?? <Heart className="h-4 w-4" />}
+                    : <Scissors className="h-4 w-4" aria-hidden="true" />}
                 </span>
               </div>
               <div className="flex gap-2">

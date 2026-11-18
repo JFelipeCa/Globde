@@ -207,7 +207,7 @@ export const Navbar: React.FC = () => {
                   {usuario.avatar_url
                     ? <img src={usuario.avatar_url} alt={usuario.nombre} className="h-8 w-8 rounded-xl object-cover" />
                     : esPanelDashboard
-                      ? <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#55d7e5] text-[10px] font-black text-[#101719]">{usuario.nombre.trim()[0]?.toUpperCase() ?? 'M'}</span>
+                      ? <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#55d7e5] text-[#101719]"><UserRound className="h-4 w-4" aria-hidden="true" /></span>
                       : <span className="avatar-respaldo flex h-8 w-8 items-center justify-center rounded-xl text-[#06232A]"><UserRound className="h-4 w-4" strokeWidth={2.5} /></span>}
               {!esPanelDashboard && <ChevronDown className="h-3.5 w-3.5 text-[#6B7A8C]" />}
                 </button>

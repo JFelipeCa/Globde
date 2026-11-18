@@ -4,6 +4,7 @@ services:
     build: ./backend
     container_name: globde_backend
     restart: unless-stopped
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio"]
     # El bridge de Codespaces bloquea DNS/SMTP saliente; host permite Gmail.
     network_mode: host
     env_file:

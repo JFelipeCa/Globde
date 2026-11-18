@@ -46,7 +46,7 @@ export interface Barbero {
   rating: number;
   total_resenas: number;
   especialidades: string[];
-  foto_url: string;
+  foto_url: string | null;
   disponible_hoy: boolean;
   hora_apertura: string; // HH:MM 24h
   hora_cierre: string;   // HH:MM 24h
@@ -180,7 +180,7 @@ export interface Testimonio {
   texto: string;
   rating: number;
   barbero_favorito: string;
-  avatar_url: string;
+  avatar_url?: string | null;
   corte: string;
   fecha: string;
 }

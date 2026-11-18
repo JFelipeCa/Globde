@@ -1,7 +1,7 @@
 """servicios = cortes del catalogo
 
-Revision ID: c3d4e5f6a7b8
-Revises: b2c3d4e5f6a7
+Revision ID: d4e5f6a7b8c9
+Revises: c3d4e5f6a7b8
 Create Date: 2026-11-11
 
 Deja como servicios agendables solo los 6 cortes que se muestran en el
@@ -17,11 +17,13 @@ El frontend enlaza catalogo y agenda por NOMBRE. Si se cambia un nombre aqui,
 hay que cambiarlo igual en frontend/src/data/mockData.ts.
 """
 
+from uuid import uuid4
+
 import sqlalchemy as sa
 from alembic import op
 
-revision = 'c3d4e5f6a7b8'
-down_revision = 'b2c3d4e5f6a7'
+revision = 'd4e5f6a7b8c9'
+down_revision = 'c3d4e5f6a7b8'
 branch_labels = None
 depends_on = None
 
@@ -52,20 +54,25 @@ CORTES = [
      60000, 90, 'color', _FOTO.format(7045174), 60, False),
 ]
 
-# Valores de la semilla original (b2c3d4e5f6a7), para el downgrade.
-# (id, nombre, categoria, descripcion, precio, duracion_min, icono, puntos, popular)
-ORIGINALES = [
-    (1, 'Corte Clásico', 'Cortes', 'Corte tradicional con máquina y tijera.', 25000, 30, 'scissors', 25, True),
-    (2, 'Corte Degradado', 'Cortes', 'Corte moderno con degradado personalizado.', 30000, 40, 'razor', 30, True),
-    (3, 'Arreglo de Barba', 'Barba', 'Perfilado, arreglo y definición de barba.', 18000, 25, 'beard', 18, False),
-    (4, 'Corte + Barba', 'Combos', 'Servicio completo de corte y arreglo de barba.', 42000, 60, 'combo', 45, True),
-    (5, 'Tratamiento Capilar', 'Tratamientos', 'Tratamiento básico para cuidado del cabello.', 35000, 45, 'sparkles', 35, False),
-    (6, 'Corte Infantil', 'Infantil', 'Corte para niños con atención personalizada.', 22000, 30, 'child', 20, False),
-]
+_RESPALDO = "globde_servicios_cortes_prev"
 
 
 def upgrade() -> None:
     bind = op.get_bind()
+    op.execute(sa.text(f"CREATE TABLE IF NOT EXISTS {_RESPALDO} LIKE servicios"))
+    op.execute(sa.text(f"INSERT IGNORE INTO {_RESPALDO} SELECT * FROM servicios"))
+
+    identificador = uuid4().hex
+    for corte in CORTES:
+        bind.execute(
+            sa.text(
+                "UPDATE servicios "
+                "SET nombre = CONCAT(LEFT(nombre, 90), ' [archivado #', id_servicio, ']') "
+                "WHERE id_servicio > 6 AND nombre = :nombre"
+            ),
+            {"nombre": corte[1]},
+        )
+
     for (id_, nombre, descripcion, precio, duracion, icono, foto, puntos, popular) in CORTES:
         bind.execute(
             sa.text(
@@ -88,21 +95,43 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     bind = op.get_bind()
-    for (id_, nombre, categoria, descripcion, precio, duracion, icono, puntos, popular) in ORIGINALES:
-        bind.execute(
-            sa.text(
-                "UPDATE servicios SET nombre = :nombre, categoria = :categoria, "
-                "descripcion = :descripcion, precio = :precio, "
-                "duracion_minutos = :duracion, icono = :icono, "
-                "imagen_url = NULL, puntos_otorga = :puntos, "
-                "popular = :popular, activo = 1 "
-                "WHERE id_servicio = :id"
-            ),
-            {
-                'id': id_, 'nombre': nombre, 'categoria': categoria,
-                'descripcion': descripcion, 'precio': precio, 'duracion': duracion,
-                'icono': icono, 'puntos': puntos, 'popular': popular,
-            },
+    identificador = uuid4().hex
+    bind.execute(
+        sa.text(
+            "UPDATE servicios "
+            "SET nombre = CONCAT('__globde_restore_', :identificador, '_', id_servicio) "
+            "WHERE id_servicio BETWEEN 1 AND 6"
+        ),
+        {"identificador": identificador},
+    )
+    bind.execute(
+        sa.text(
+            f"""UPDATE servicios AS actual
+                JOIN {_RESPALDO} AS anterior
+                  ON anterior.id_servicio = actual.id_servicio
+                SET actual.nombre = anterior.nombre,
+                    actual.categoria = anterior.categoria,
+                    actual.descripcion = anterior.descripcion,
+                    actual.precio = anterior.precio,
+                    actual.duracion_minutos = anterior.duracion_minutos,
+                    actual.icono = anterior.icono,
+                    actual.imagen_url = anterior.imagen_url,
+                    actual.puntos_otorga = anterior.puntos_otorga,
+                    actual.popular = anterior.popular,
+                    actual.activo = anterior.activo,
+                    actual.actualizado_en = anterior.actualizado_en
+                WHERE actual.id_servicio BETWEEN 1 AND 6"""
         )
-    # Los servicios con id > 6 que se desactivaron NO se reactivan aqui: no hay
-    # forma de saber cuales estaban activos antes de esta migracion.
+    )
+    bind.execute(
+        sa.text(
+            f"""UPDATE servicios AS actual
+                JOIN {_RESPALDO} AS anterior
+                  ON anterior.id_servicio = actual.id_servicio
+                SET actual.nombre = anterior.nombre,
+                    actual.activo = anterior.activo,
+                    actual.actualizado_en = anterior.actualizado_en
+                WHERE actual.id_servicio > 6"""
+        )
+    )
+    op.drop_table(_RESPALDO)

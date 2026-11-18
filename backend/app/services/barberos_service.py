@@ -19,7 +19,8 @@ DIAS_SEMANA = {
 
 SQL_BARBERO = """
     SELECT b.id_barbero, b.id_usuario, u.nombre, u.correo, u.telefono, u.activo,
-           b.titulo, b.experiencia_anios, b.bio, b.foto_url, b.rating,
+           b.titulo, b.experiencia_anios, b.bio,
+           COALESCE(b.foto_url, u.avatar_url) AS foto_url, b.rating,
            b.total_resenas, b.citas_completadas, b.disponible, b.color
     FROM barberos b
     JOIN usuarios u ON u.id_usuario = b.id_usuario
@@ -69,7 +70,8 @@ def listar(
     where = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
     return fetch_all(
         f"""SELECT b.id_barbero, b.id_usuario, u.nombre, u.correo, u.telefono, u.activo,
-                   b.titulo, b.experiencia_anios, b.bio, b.foto_url, b.rating,
+                   b.titulo, b.experiencia_anios, b.bio,
+                   COALESCE(b.foto_url, u.avatar_url) AS foto_url, b.rating,
                    b.total_resenas, b.citas_completadas, b.disponible, b.color
             FROM barberos b
             JOIN usuarios u ON u.id_usuario = b.id_usuario

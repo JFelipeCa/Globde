@@ -57,6 +57,7 @@ interface ConstructorDetectorQR {
 export const PanelBarbero: React.FC = () => {
   const {
     usuario, citas, barberos, cambiarEstadoCita, alternarDisponibilidad, verTicket,
+    actualizarAvatar,
   } = useApp();
 
   const barbero = barberos.find((b) => b.id_usuario === usuario?.id_usuario) ?? barberos[0];
@@ -76,6 +77,7 @@ export const PanelBarbero: React.FC = () => {
   const [errorBloqueo, setErrorBloqueo] = useState('');
   const [aviso, setAviso] = useState('');
   const [errorAgenda, setErrorAgenda] = useState('');
+  const [subiendoAvatar, setSubiendoAvatar] = useState(false);
   const [modalQR, setModalQR] = useState(false);
   const [escanerAbierto, setEscanerAbierto] = useState(false);
   const [codigoQR, setCodigoQR] = useState('');
@@ -83,6 +85,30 @@ export const PanelBarbero: React.FC = () => {
   const [errorQR, setErrorQR] = useState('');
   const [validandoQR, setValidandoQR] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  const seleccionarAvatar = async (evento: React.ChangeEvent<HTMLInputElement>) => {
+    const archivo = evento.target.files?.[0];
+    evento.target.value = '';
+    if (!archivo) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(archivo.type)) {
+      setErrorAgenda('La foto debe estar en formato JPG, PNG o WebP.');
+      return;
+    }
+    if (archivo.size > 2 * 1024 * 1024) {
+      setErrorAgenda('La foto no puede superar los 2 MB.');
+      return;
+    }
+
+    setSubiendoAvatar(true);
+    setErrorAgenda('');
+    const resultado = await actualizarAvatar(archivo);
+    setSubiendoAvatar(false);
+    if (resultado.ok) {
+      setAviso('Foto de perfil actualizada.');
+    } else {
+      setErrorAgenda(resultado.mensaje);
+    }
+  };
 
   const mias = barbero ? citas.filter((c) => c.id_barbero === barbero.id_barbero) : [];
   const deHoyTodas = mias.filter((c) => c.fecha === hoy).sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
@@ -329,9 +355,25 @@ export const PanelBarbero: React.FC = () => {
       <div className="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6e9e3] bg-gradient-to-r from-[#f7f2e7] to-[#e2f5f4] px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#3d2c22]">
-              {barbero.foto_url ? <img src={barbero.foto_url} alt="" className="h-full w-full object-cover" /> : <Scissors className="h-5 w-5 text-white" />}
-            </span>
+            <div className="relative shrink-0">
+              <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg bg-[#3d2c22]">
+                {barbero.foto_url ? <img src={barbero.foto_url} alt="" className="h-full w-full object-cover" /> : <Scissors className="h-5 w-5 text-white" />}
+              </span>
+              <label
+                title="Subir foto de perfil"
+                aria-label="Subir foto de perfil"
+                className="absolute -bottom-1 -right-1 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#172124] text-white"
+              >
+                <Camera className="h-4 w-4" aria-hidden="true" />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={seleccionarAvatar}
+                  disabled={subiendoAvatar}
+                />
+              </label>
+            </div>
             <div className="min-w-0">
               <h1 className="flex flex-wrap items-center gap-2 font-heading text-base font-black leading-tight text-[#172124] sm:text-lg">
                 {barbero.nombre}

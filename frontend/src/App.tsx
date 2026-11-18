@@ -5,7 +5,7 @@ import { AuthModal } from './components/ui/AuthModal';
 import { TicketModal } from './components/ui/TicketModal';
 import { BookingWizard } from './components/ui/BookingWizard';
 import { Toasts, QuizModal, EsperaModal, Footer } from './components/ui/Extras';
-import { Hero, Beneficios, Servicios, Barberos, Catalogo, Fidelizacion, Resenas } from './components/sections/Landing';
+import { Hero, Beneficios, Barberos, Catalogo, Fidelizacion, Resenas } from './components/sections/Landing';
 import { PanelCliente } from './components/paneles/PanelCliente';
 import { PanelBarbero } from './components/paneles/PanelBarbero';
 import { PanelAdmin } from './components/paneles/PanelAdmin';
@@ -73,7 +73,6 @@ const Contenido: React.FC = () => {
       {!esBarbero && vista === 'inicio' && (
         <>
           <Hero />
-          <Servicios />
           <Beneficios />
           <Barberos />
           <Catalogo />
@@ -84,7 +83,6 @@ const Contenido: React.FC = () => {
       {vista === 'catalogo' && (
         <>
           <Catalogo />
-          <Servicios />
           <Barberos />
         </>
       )}

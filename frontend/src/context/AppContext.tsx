@@ -258,7 +258,7 @@ function mapBarberoApi(u: Record<string, unknown>, detalle: Record<string, unkno
     rating: Number(u.rating ?? 4.8),
     total_resenas: Number(u.total_resenas ?? 120),
     especialidades,
-    foto_url: String(u.foto_url ?? 'https://images.pexels.com/photos/12304510/pexels-photo-12304510.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=700&w=600&fm=webp'),
+    foto_url: typeof u.foto_url === 'string' && u.foto_url.trim() ? u.foto_url : null,
     disponible_hoy: Boolean(u.disponible ?? true),
     hora_apertura: aperturas[0] ?? '08:00',
     hora_cierre: cierres[cierres.length - 1] ?? '20:00',
@@ -901,7 +901,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         body: formulario,
       });
-      setUsuario((actual) => actual ? { ...actual, avatar_url: String(respuesta.avatar_url ?? '') } : actual);
+      const avatarUrl = typeof respuesta.avatar_url === 'string' ? respuesta.avatar_url : '';
+      setUsuario((actual) => actual ? { ...actual, avatar_url: avatarUrl } : actual);
+      setBarberos((actual) => actual.map((barbero) => (
+        barbero.id_usuario === usuario?.id_usuario
+          ? { ...barbero, foto_url: avatarUrl || null }
+          : barbero
+      )));
       notificar('Foto actualizada', 'Tu foto de perfil se guardó correctamente.', 'sistema');
       return { ok: true, mensaje: 'Foto actualizada' };
     } catch (error) {

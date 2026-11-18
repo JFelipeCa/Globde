@@ -11,9 +11,9 @@ import { CodigoQRReserva } from './CodigoQRReserva';
 export const TicketModal: React.FC = () => {
   const { citaTicket, esConfirmacionNueva, cerrarTicket, cancelarCita, usuario, catalogoCortes } = useApp();
   const [modoPase, setModoPase] = React.useState(false);
-  const [mostrarComoBarbero, setMostrarComoBarbero] = React.useState(false);
+  const [vistaBarbero, setVistaBarbero] = React.useState<'pase' | 'corte'>('pase');
 
-  React.useEffect(() => { setModoPase(false); setMostrarComoBarbero(false); }, [citaTicket]);
+  React.useEffect(() => { setModoPase(false); setVistaBarbero('pase'); }, [citaTicket]);
 
   if (!citaTicket) return null;
   const c = citaTicket;
@@ -28,41 +28,15 @@ export const TicketModal: React.FC = () => {
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${t}&dates=${ini}/${fin}&details=${d}&location=${loc}`;
   };
 
-  const corteRelacionado = catalogoCortes.find((corte) => {
+  const corteRelacionado = catalogoCortes.find((corte) => corte.id_servicio === c.id_servicio)
+    ?? catalogoCortes.find((corte) => {
     const nombreServicio = c.servicio_nombre.trim().toLowerCase();
     const nombreCorte = corte.nombre.trim().toLowerCase();
     return nombreServicio === nombreCorte || nombreServicio.includes(nombreCorte) || nombreCorte.includes(nombreServicio);
-  }) ?? catalogoCortes[0];
-
-  const MiniVistaCorte: React.FC = () => (
-    <div className="mt-5 overflow-hidden rounded-3xl border border-amber-400/30 bg-[#0F151C] shadow-[0_18px_45px_-25px_rgba(212,175,55,0.6)]">
-      <div className="flex items-center justify-between gap-3 border-b border-white/8 bg-[#101821] px-4 py-3">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6B7A8C]">Como barbero</p>
-          <h4 className="font-heading text-lg font-black text-[#EAF0F6]">{corteRelacionado?.nombre ?? c.servicio_nombre}</h4>
-        </div>
-        <span className="rounded-full bg-amber-400/12 px-2.5 py-1 text-[10px] font-black text-amber-700">Vista previa</span>
-      </div>
-
-      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-        <div className="relative h-24 w-full overflow-hidden rounded-2xl border border-amber-400/30 sm:w-28">
-          <img
-            src={corteRelacionado?.imagen_url ?? 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=640&w=640&fm=webp'}
-            alt={corteRelacionado?.nombre ?? c.servicio_nombre}
-            className="h-full w-full object-cover"
-          />
-        </div>
-        <div className="flex-1 text-sm">
-          <p className="font-black text-[#EAF0F6]">{c.barbero_nombre}</p>
-          <p className="text-[11px] text-[#93A1B1]">{corteRelacionado?.descripcion ?? `Diseño recomendado para ${c.servicio_nombre}.`}</p>
-          <div className="mt-2 flex items-center justify-between text-[10px] font-bold uppercase text-[#6B7A8C]">
-            <span>{duracionLegible(c.duracion_minutos)}</span>
-            <span>{formatoCOP(c.precio_total)}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  });
+  const esVistaBarbero = usuario?.id_rol === ROL_BARBERO && !esConfirmacionNueva;
+  const imagenCorte = corteRelacionado?.imagen_url
+    || 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1200&fm=webp';
 
   const compartir = () => {
     const txt = encodeURIComponent(
@@ -153,7 +127,7 @@ export const TicketModal: React.FC = () => {
   /* ---------- Vista 2: PASE DIGITAL ---------- */
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm">
-      <div className="anim-zoom card w-full max-w-md overflow-hidden">
+      <div className={`anim-zoom card w-full ${esVistaBarbero && vistaBarbero === 'corte' ? 'max-w-2xl' : 'max-w-md'} overflow-hidden`}>
         <div className="relative bg-gradient-to-r from-neutral-900 to-neutral-800 px-6 py-5 text-white">
           <button onClick={cerrarTicket} className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 transition hover:bg-white/20">
             <X className="h-4 w-4" />
@@ -174,6 +148,89 @@ export const TicketModal: React.FC = () => {
         </div>
 
         <div className="space-y-4 p-6">
+          {esVistaBarbero && (
+            <div className="grid grid-cols-2 rounded-xl bg-[#0F151C] p-1" role="tablist" aria-label="Vistas de la reserva">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={vistaBarbero === 'pase'}
+                onClick={() => setVistaBarbero('pase')}
+                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${vistaBarbero === 'pase' ? 'bg-cyan-300 text-[#06232A]' : 'text-[#93A1B1] hover:text-white'}`}
+              >
+                Pase digital
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={vistaBarbero === 'corte'}
+                onClick={() => setVistaBarbero('corte')}
+                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${vistaBarbero === 'corte' ? 'bg-cyan-300 text-[#06232A]' : 'text-[#93A1B1] hover:text-white'}`}
+              >
+                Detalles del corte
+              </button>
+            </div>
+          )}
+
+          {esVistaBarbero && vistaBarbero === 'corte' ? (
+            <section role="tabpanel" aria-label="Detalles del corte" className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F151C]">
+              <div className="h-56 overflow-hidden bg-[#141A21] sm:h-80">
+                <img
+                  src={imagenCorte}
+                  alt={corteRelacionado?.nombre ?? c.servicio_nombre}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="space-y-4 p-5 sm:p-7">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Detalle del servicio</p>
+                  <h2 className="mt-1 font-heading text-2xl font-black leading-tight text-[#EAF0F6] sm:text-3xl">
+                    {corteRelacionado?.nombre ?? c.servicio_nombre}
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-[#93A1B1]">
+                    {corteRelacionado?.categoria ?? 'Servicio de barbería'}
+                  </p>
+                </div>
+
+                <p className="text-sm leading-relaxed text-[#C6D0DC]">
+                  {corteRelacionado?.descripcion ?? `Servicio reservado: ${c.servicio_nombre}.`}
+                </p>
+
+                {Boolean(corteRelacionado?.tags.length) && (
+                  <div className="flex flex-wrap gap-2">
+                    {corteRelacionado?.tags.map((tag) => (
+                      <span key={tag} className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold text-cyan-100">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-white/8 bg-[#141A21] p-3">
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">
+                      <Timer className="h-3.5 w-3.5 text-cyan-300" /> Duración
+                    </span>
+                    <p className="mt-1 text-sm font-black text-[#EAF0F6]">
+                      {duracionLegible(corteRelacionado?.duracion_minutos ?? c.duracion_minutos)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white/8 bg-[#141A21] p-3">
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">
+                      <Scissors className="h-3.5 w-3.5 text-cyan-300" /> Precio
+                    </span>
+                    <p className="mt-1 text-sm font-black text-[#EAF0F6]">
+                      {formatoCOP(corteRelacionado?.precio_sugerido ?? c.precio_total)}
+                    </p>
+                  </div>
+                  <div className="col-span-2 rounded-xl border border-white/8 bg-[#141A21] p-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">Barbero asignado</span>
+                    <p className="mt-1 text-sm font-black text-[#EAF0F6]">{c.barbero_nombre}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : (
+          <>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-[#0F151C] p-3">
               <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-[#6B7A8C]"><UserRound className="h-3 w-3" /> Cliente</span>
@@ -187,22 +244,6 @@ export const TicketModal: React.FC = () => {
             </div>
           </div>
 
-          {usuario?.id_rol === ROL_BARBERO && !esConfirmacionNueva && (
-            <div className="rounded-2xl border border-white/8 bg-[#0F151C] p-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6B7A8C]">Detalle visual</p>
-                <button
-                  type="button"
-                  onClick={() => setMostrarComoBarbero((actual) => !actual)}
-                  className="rounded-full bg-amber-400/12 px-2.5 py-1 text-[10px] font-black text-amber-700"
-                >
-                  {mostrarComoBarbero ? 'Ocultar' : 'Como barbero'}
-                </button>
-              </div>
-              {mostrarComoBarbero && <MiniVistaCorte />}
-            </div>
-          )}
-
           {c.estado === 'completada' ? (
             <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-center">
               <Check className="mx-auto h-7 w-7 text-emerald-300" />
@@ -210,25 +251,29 @@ export const TicketModal: React.FC = () => {
               <p className="text-xs text-[#93A1B1]">Esta cita ya fue atendida. Los puntos correspondientes fueron acreditados.</p>
             </div>
           ) : (
-            <>
-              <div className="rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4 text-center">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Tu franja reservada</span>
-                <p className="font-heading mt-1 text-2xl font-black text-[#06232A]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
-                <p className="text-xs font-semibold text-[#24515A]">{fechaLarga(c.fecha)} · {duracionLegible(c.duracion_minutos)}</p>
-              </div>
-
-              <div className="flex items-center gap-4 rounded-2xl border border-white/8 p-3">
-                <div className="rounded-xl bg-[#EAF0F6] p-2">
-                  <CodigoQRReserva codigo={c.codigo_reserva} tamano={88} />
-                </div>
-                <div className="text-xs text-[#93A1B1]">
-                  <p className="font-bold text-[#EAF0F6]">Muestra este código al llegar</p>
-                  <p className="mt-0.5">Con él validamos tu turno y acreditamos tus puntos automáticamente.</p>
-                  <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700"><MapPin className="h-3 w-3" /> Calle 85 #14-20, Bogotá</p>
-                </div>
-              </div>
-            </>
+            <div className="rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4 text-center">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Tu franja reservada</span>
+              <p className="font-heading mt-1 text-2xl font-black text-[#06232A]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
+              <p className="text-xs font-semibold text-[#24515A]">{fechaLarga(c.fecha)} · {duracionLegible(c.duracion_minutos)}</p>
+            </div>
           )}
+
+          <div className="flex items-center gap-4 rounded-2xl border border-white/8 p-3">
+            <div className="shrink-0 rounded-xl bg-[#EAF0F6] p-2">
+              <CodigoQRReserva codigo={c.codigo_reserva} tamano={88} />
+            </div>
+            <div className="text-xs text-[#93A1B1]">
+              <p className="font-bold text-[#EAF0F6]">
+                {c.estado === 'completada' ? 'Código QR de tu reserva' : 'Muestra este código al llegar'}
+              </p>
+              <p className="mt-0.5">
+                {c.estado === 'completada'
+                  ? 'El servicio ya fue atendido; conserva este pase como comprobante.'
+                  : 'Con él validamos tu turno y acreditamos tus puntos automáticamente.'}
+              </p>
+              <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700"><MapPin className="h-3 w-3" /> Calle 85 #14-20, Bogotá</p>
+            </div>
+          </div>
 
           {c.extras.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -262,6 +307,8 @@ export const TicketModal: React.FC = () => {
             >
               <Ban className="h-3.5 w-3.5" /> Cancelar esta reserva
             </button>
+          )}
+          </>
           )}
         </div>
       </div>

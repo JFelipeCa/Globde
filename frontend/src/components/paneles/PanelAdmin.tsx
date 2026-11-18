@@ -655,8 +655,8 @@ export const PanelAdmin: React.FC = () => {
             <div className="flex min-w-0 items-center gap-2">
               {usuario?.avatar_url
                 ? <img src={usuario.avatar_url} alt="" className="h-9 w-9 rounded-lg object-cover" />
-                : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-400 text-xs font-black text-[#06232A]">
-                    {(usuario?.nombre[0] ?? 'A').toUpperCase()}
+                : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-400 text-[#06232A]">
+                    <UserRound className="h-5 w-5" aria-hidden="true" />
                   </span>}
               <div className="min-w-0">
                 <p className="truncate text-xs font-bold text-white">{usuario?.nombre ?? 'Administrador'}</p>
@@ -1028,7 +1028,11 @@ export const PanelAdmin: React.FC = () => {
             {barberos.map((b) => (
               <div key={b.id_barbero} className="card p-6">
                 <div className="flex items-center gap-3">
-                  <img src={b.foto_url} alt="" className="h-14 w-14 rounded-2xl object-cover" />
+                  <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
+                    {b.foto_url
+                      ? <img src={b.foto_url} alt="" className="h-full w-full object-cover" />
+                      : <Scissors className="h-6 w-6" aria-hidden="true" />}
+                  </span>
                   <div>
                     <h4 className="font-heading text-base font-black text-[#EAF0F6]">{b.nombre}</h4>
                     <p className="text-xs font-semibold text-teal-300">{b.rol_titulo}</p>
