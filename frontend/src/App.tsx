@@ -103,7 +103,8 @@ const Contenido: React.FC = () => {
   );
 };
 
-export default function App() {
+const Aplicacion: React.FC = () => {
+  const { vista } = useApp();
   const [esRutaRecuperacion, setEsRutaRecuperacion] = useState(() => (
     window.location.pathname === '/restablecer-password' &&
     new URLSearchParams(window.location.search).has('token')
@@ -119,24 +120,31 @@ export default function App() {
   }, []);
 
   return (
-    <AppProvider>
-      <div className="flex min-h-screen flex-col bg-[#FDFBF7]">
-        {!esRutaRecuperacion && <Navbar />}
-        {!esRutaRecuperacion && (
-          <main className="flex-1">
-            <Contenido />
-          </main>
-        )}
-        {!esRutaRecuperacion && <Footer />}
+    <div className="flex min-h-screen flex-col bg-[#FDFBF7]">
+      {!esRutaRecuperacion && vista !== 'panel-admin' && <Navbar />}
+      {!esRutaRecuperacion && vista === 'panel-admin' && <Contenido />}
+      {!esRutaRecuperacion && vista !== 'panel-admin' && (
+        <main className="flex-1">
+          <Contenido />
+        </main>
+      )}
+      {!esRutaRecuperacion && vista !== 'panel-admin' && <Footer />}
 
-        {/* Capas superpuestas */}
-        <AuthModal />
-        <BookingWizard />
-        <TicketModal />
-        <QuizModal />
-        <EsperaModal />
-        <Toasts />
-      </div>
+      {/* Capas superpuestas */}
+      <AuthModal />
+      <BookingWizard />
+      <TicketModal />
+      <QuizModal />
+      <EsperaModal />
+      <Toasts />
+    </div>
+  );
+};
+
+export default function App() {
+  return (
+    <AppProvider>
+      <Aplicacion />
     </AppProvider>
   );
 }

@@ -235,7 +235,30 @@ export const EsperaModal: React.FC = () => {
    PIE DE PÁGINA
    ========================================================= */
 export const Footer: React.FC = () => {
-  const { irA, abrirReserva, setEsperaAbierta } = useApp();
+  const { irA, abrirReserva, setEsperaAbierta, vista } = useApp();
+
+  if (vista === 'panel-cliente') {
+    return (
+      <footer className="panel-cliente-footer border-t border-[#e6e9e3] bg-white text-[#172124]">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:grid-cols-3 sm:px-6 lg:px-8">
+          <div>
+            <p className="font-heading text-sm font-black leading-none">GLOBDE</p>
+            <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.2em] text-[#18899a]">Barber Gestor</p>
+            <p className="mt-2 text-[9px] leading-relaxed text-[#65716d]">Estilo y cuidado personal en Bogotá.</p>
+          </div>
+          <div>
+            <h2 className="text-[9px] font-black uppercase tracking-wider text-[#394642]">Horarios</h2>
+            <p className="mt-2 text-[9px] leading-relaxed text-[#65716d]">Lun–Vie 8:00 a. m.–8:00 p. m.<br />Sábados 8:00 a. m.–3:00 p. m.</p>
+          </div>
+          <div>
+            <h2 className="text-[9px] font-black uppercase tracking-wider text-[#394642]">Contacto</h2>
+            <p className="mt-2 text-[9px] leading-relaxed text-[#65716d]">Calle 85 #14-20, Bogotá<br />+57 312 456 7890</p>
+          </div>
+        </div>
+        <p className="border-t border-[#edf0ec] py-2 text-center text-[8px] text-[#87918c]">© 2026 Globde Barber Studio</p>
+      </footer>
+    );
+  }
 
   return (
     <footer className="border-t border-white/8 bg-[#141A21]">

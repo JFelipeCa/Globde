@@ -111,6 +111,7 @@ interface ContextoApp {
   cancelarCita: (id: number, motivo: string) => Promise<Resultado>;
   calificarCita: (id: number, rating: number, comentario: string, etiquetas: string[]) => Promise<Resultado>;
   actualizarAvatar: (archivo: File) => Promise<Resultado>;
+  actualizarBarberoFavorito: (idBarbero: number | null) => Promise<Resultado>;
   descargarReporte: (tipo: TipoReporte) => Promise<Resultado>;
 
   canjearPremio: (p: PremioFidelidad) => Promise<Resultado>;
@@ -155,7 +156,11 @@ function mapUsuarioBackend(payload: Record<string, unknown>): Usuario {
     fecha_creacion: String(payload.fecha_creacion ?? hoyISO()),
     avatar_url: typeof payload.avatar_url === 'string' ? payload.avatar_url : undefined,
     puntos,
-    nivel_fidelizacion: nivelPorPuntos(puntos),
+    nivel_fidelizacion:
+      typeof payload.nivel_fidelizacion === 'string' &&
+      ['Bronce', 'Plata', 'Oro', 'Diamante'].includes(payload.nivel_fidelizacion)
+        ? payload.nivel_fidelizacion as Usuario['nivel_fidelizacion']
+        : nivelPorPuntos(puntos),
     id_cliente:
       payload.id_cliente != null
         ? Number(payload.id_cliente)
@@ -164,6 +169,10 @@ function mapUsuarioBackend(payload: Record<string, unknown>): Usuario {
       payload.id_barbero != null
         ? Number(payload.id_barbero)
         : undefined,
+    id_barbero_favorito:
+      payload.id_barbero_favorito == null
+        ? null
+        : Number(payload.id_barbero_favorito),
   };
 }
 
@@ -901,6 +910,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const actualizarBarberoFavorito = async (idBarbero: number | null): Promise<Resultado> => {
+    if (!usuario || usuario.id_rol !== ROL_CLIENTE) {
+      return { ok: false, mensaje: 'Inicia sesión con una cuenta de cliente para guardar tu barbero favorito.' };
+    }
+
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>('/usuarios/me/barbero-favorito', {
+        method: 'PUT',
+        body: JSON.stringify({ id_barbero: idBarbero }),
+      });
+      setUsuario((actual) => actual ? {
+        ...actual,
+        id_barbero_favorito: respuesta.id_barbero_favorito == null
+          ? null
+          : Number(respuesta.id_barbero_favorito),
+      } : actual);
+      return { ok: true, mensaje: 'Barbero favorito actualizado.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo actualizar el barbero favorito.';
+      return { ok: false, mensaje };
+    }
+  };
+
   const canjearPremio = async (p: PremioFidelidad): Promise<Resultado> => {
     if (!usuario) {
       setModalAuth('login');
@@ -1078,6 +1110,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cancelarCita,
         calificarCita,
         actualizarAvatar,
+        actualizarBarberoFavorito,
         descargarReporte,
         canjearPremio,
         unirseListaEspera,

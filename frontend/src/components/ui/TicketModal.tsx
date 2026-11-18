@@ -6,6 +6,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { ROL_BARBERO } from '../../types';
 import { formatoCOP, fechaLarga, rangoHorario, duracionLegible } from '../../utils/helpers';
+import { CodigoQRReserva } from './CodigoQRReserva';
 
 export const TicketModal: React.FC = () => {
   const { citaTicket, esConfirmacionNueva, cerrarTicket, cancelarCita, usuario, catalogoCortes } = useApp();
@@ -218,7 +219,7 @@ export const TicketModal: React.FC = () => {
 
               <div className="flex items-center gap-4 rounded-2xl border border-white/8 p-3">
                 <div className="rounded-xl bg-[#EAF0F6] p-2">
-                  <QrCode className="h-14 w-14 text-[#0B0F14]" />
+                  <CodigoQRReserva codigo={c.codigo_reserva} tamano={88} />
                 </div>
                 <div className="text-xs text-[#93A1B1]">
                   <p className="font-bold text-[#EAF0F6]">Muestra este código al llegar</p>

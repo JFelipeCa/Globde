@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Scissors, CalendarDays, Crown, Sparkles, Menu, X, LogOut,
   LayoutDashboard, ChevronDown, Clock, UserRound, MapPin, Sun, Moon,
@@ -6,6 +6,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE } from '../../types';
 import type { Vista } from '../../types';
+import { useTheme } from '../../hooks/useTheme';
 
 export const Navbar: React.FC = () => {
   const {
@@ -15,19 +16,13 @@ export const Navbar: React.FC = () => {
 
   const [menu, setMenu] = useState(false);
   const [perfil, setPerfil] = useState(false);
-  const [modoOscuro, setModoOscuro] = useState(() => localStorage.getItem('globde_tema') === 'oscuro');
+  const { modoOscuro, alternarModo } = useTheme();
 
   const seleccionarAvatar = async (evento: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = evento.target.files?.[0];
     if (archivo) await actualizarAvatar(archivo);
     evento.target.value = '';
   };
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('tema-oscuro', modoOscuro);
-    document.documentElement.classList.toggle('tema-claro', !modoOscuro);
-    localStorage.setItem('globde_tema', modoOscuro ? 'oscuro' : 'claro');
-  }, [modoOscuro]);
 
   // La cinta decia "Abierto hoy" a cualquier hora y cualquier dia. Ahora
   // refleja el reloj real: el domingo la barberia no abre.
@@ -53,6 +48,9 @@ export const Navbar: React.FC = () => {
 
   const esBarbero = usuario?.id_rol === ROL_BARBERO;
   const esCliente = usuario?.id_rol === ROL_CLIENTE;
+  const esPanelCliente = esCliente && vista === 'panel-cliente';
+  const esPanelBarbero = esBarbero && vista === 'panel-barbero';
+  const esPanelDashboard = esPanelCliente || esPanelBarbero;
 
   const enlaces: { v: Vista; texto: string; icono: React.ElementType }[] =
     (!usuario || esCliente) ? [
@@ -62,10 +60,10 @@ export const Navbar: React.FC = () => {
     ] : [];
 
   return (
-    <header className="sticky top-0 z-40 w-full">
+    <header className={`sticky top-0 z-40 w-full ${esPanelDashboard ? 'panel-dashboard-navbar' : ''}`}>
       {/* Cinta superior */}
-      <div className="bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 text-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-1.5 text-[11px] sm:text-xs sm:px-6 lg:px-8">
+      <div className={`${esPanelDashboard ? 'bg-[#111111]' : 'bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950'} text-white`}>
+        <div className={`mx-auto flex items-center justify-between gap-3 ${esPanelDashboard ? 'max-w-7xl px-4 py-2 text-sm sm:px-6 lg:px-8' : 'max-w-7xl px-4 py-1.5 text-[11px] sm:px-6 lg:px-8 sm:text-xs'}`}>
           <span className="flex items-center gap-2 font-bold">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
@@ -80,39 +78,64 @@ export const Navbar: React.FC = () => {
       </div>
 
       {/* Barra principal */}
-      <div className="glass border-b border-white/8 shadow-[0_16px_40px_-30px_rgba(0,0,0,1)]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+      <div className={`${esPanelDashboard ? 'border-b border-[#e6e8e4] bg-white' : 'glass border-b border-white/8 shadow-[0_16px_40px_-30px_rgba(0,0,0,1)]'}`}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           {/* Marca */}
           <button onClick={() => ir('inicio')} className="group flex items-center gap-3">
-            <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-neutral-900/30">
-              <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
-            </span>
-            <span className="text-left leading-none">
-              <span className="font-heading block text-xl font-black tracking-tight text-[#EAF0F6]">
-                GLOB<span className="text-amber-500">DE</span>
+            {esPanelDashboard ? (
+              <span className="text-left leading-none">
+                <span className="font-heading block text-lg font-black tracking-tight text-[#111111]">
+                  GLOBDE
+                </span>
+                <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.22em] text-[#1189a5]">
+                  BARBER GESTOR
+                </span>
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-600">
-                BARBER GESTOR
-              </span>
-            </span>
+            ) : (
+              <>
+                <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-neutral-900/30">
+                  <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
+                </span>
+                <span className="text-left leading-none">
+                  <span className="font-heading block text-xl font-black tracking-tight text-[#EAF0F6]">
+                    GLOB<span className="text-amber-500">DE</span>
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-600">
+                    BARBER GESTOR
+                  </span>
+                </span>
+              </>
+            )}
           </button>
 
           {/* Navegación escritorio */}
-          <nav className="hidden items-center gap-1 lg:flex lg:flex-1 lg:justify-end">
+          <nav className={`hidden items-center lg:flex ${esPanelDashboard ? 'gap-1' : 'flex-1 justify-end gap-1'}`}>
             {enlaces.map((e) => (
               <button
                 key={e.v}
                 onClick={() => ir(e.v)}
-                className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
-                  vista === e.v
-                    ? 'bg-amber-400/12 text-amber-700 ring-1 ring-neutral-900/30'
-                    : 'text-[#93A1B1] hover:bg-black/5 hover:text-[#0A0A0A]'
+                className={`rounded-lg px-2 py-2 text-[10px] font-medium transition ${
+                  esPanelDashboard
+                    ? 'px-3 text-sm text-[#111111] hover:bg-[#f1f5f4]'
+                    : `rounded-xl px-3.5 text-sm font-semibold ${vista === e.v
+                      ? 'bg-amber-400/12 text-amber-700 ring-1 ring-neutral-900/30'
+                      : 'text-[#93A1B1] hover:bg-black/5 hover:text-[#0A0A0A]'}`
                 }`}
               >
                 {e.texto}
               </button>
             ))}
-            {esCliente && (
+            {esPanelCliente && (
+              <>
+                <button onClick={() => setQuizAbierto(true)} className="rounded-lg bg-[#55d7e5] px-4 py-2.5 text-sm font-bold text-[#101719] transition hover:bg-[#42c8d8]">
+                  Asesor de estilo
+                </button>
+                <button onClick={() => ir('panel-cliente')} className="rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-bold text-white">
+                  Mis citas
+                </button>
+              </>
+            )}
+            {!esPanelCliente && esCliente && (
               <button
                 onClick={() => setQuizAbierto(true)}
                 className="ml-1 flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-400/20"
@@ -120,16 +143,18 @@ export const Navbar: React.FC = () => {
                 <Sparkles className="h-4 w-4" /> Asesor de estilo
               </button>
             )}
-            {usuario && (
+            {!esPanelCliente && usuario && (
               <button
                 onClick={() => ir(panelDelRol)}
-                className={`ml-1 flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                  vista.startsWith('panel')
-                    ? 'bg-neutral-900 text-white'
-                    : 'text-[#93A1B1] hover:bg-black/5 hover:text-[#0A0A0A]'
-                }`}
+                className={esPanelBarbero
+                  ? 'rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-bold text-white'
+                  : `ml-1 flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    vista.startsWith('panel')
+                      ? 'bg-neutral-900 text-white'
+                      : 'text-[#93A1B1] hover:bg-black/5 hover:text-[#0A0A0A]'
+                  }`}
               >
-                <LayoutDashboard className="h-4 w-4" />
+                {!esPanelBarbero && <LayoutDashboard className="h-4 w-4" />}
                 {usuario.id_rol === ROL_ADMINISTRADOR ? 'Panel admin' : usuario.id_rol === ROL_BARBERO ? 'Mi agenda' : 'Mis citas'}
               </button>
             )}
@@ -137,7 +162,7 @@ export const Navbar: React.FC = () => {
 
           {/* Acciones */}
           <div className="flex items-center gap-2">
-            {esCliente && (
+            {esCliente && !esPanelCliente && (
               <button
                 onClick={() => ir('fidelizacion')}
                 className="hidden items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-400/20 sm:flex"
@@ -149,9 +174,11 @@ export const Navbar: React.FC = () => {
             {(!usuario || esCliente) && (
               <button
                 onClick={() => abrirReserva()}
-                className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold"
+                className={esPanelDashboard
+                  ? 'rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#303030]'
+                  : 'btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold'}
               >
-                <CalendarDays className="h-4 w-4" />
+                {!esPanelCliente && <CalendarDays className="h-4 w-4" />}
                 <span className="hidden sm:inline">Reservar cita</span>
                 <span className="sm:hidden">Reservar</span>
               </button>
@@ -159,10 +186,12 @@ export const Navbar: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setModoOscuro((actual) => !actual)}
+              onClick={alternarModo}
               aria-label={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
               title={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-              className="rounded-2xl border border-white/12 bg-[#141A21] p-2.5 text-[#C6D0DC] transition hover:border-amber-400/50 hover:text-amber-600"
+              className={esPanelDashboard
+                ? 'rounded-full border border-[#b8e9ed] bg-white p-2 text-[#16879a] transition hover:bg-[#e9fbfc]'
+                : 'rounded-2xl border border-white/12 bg-[#141A21] p-2.5 text-[#C6D0DC] transition hover:border-amber-400/50 hover:text-amber-600'}
             >
               {modoOscuro ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -171,11 +200,16 @@ export const Navbar: React.FC = () => {
               <div className="relative">
                 <button
                   onClick={() => setPerfil(!perfil)}
-                  className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#141A21] p-1.5 pr-2.5 transition hover:border-amber-400/50"
+                  className={esPanelDashboard
+                    ? 'flex items-center rounded-lg border border-[#d9e2e0] bg-white p-1 transition hover:border-[#55d7e5]'
+                    : 'flex items-center gap-2 rounded-2xl border border-white/10 bg-[#141A21] p-1.5 pr-2.5 transition hover:border-amber-400/50'}
                 >
-            {usuario.avatar_url
-                 ? <img src={usuario.avatar_url} alt={usuario.nombre} className="h-8 w-8 rounded-xl object-cover" />
-                : <span className="avatar-respaldo flex h-8 w-8 items-center justify-center rounded-xl text-[#06232A]"><UserRound className="h-4 w-4" strokeWidth={2.5} /></span>}                  <ChevronDown className="h-3.5 w-3.5 text-[#6B7A8C]" />
+                  {usuario.avatar_url
+                    ? <img src={usuario.avatar_url} alt={usuario.nombre} className="h-8 w-8 rounded-xl object-cover" />
+                    : esPanelDashboard
+                      ? <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#55d7e5] text-[10px] font-black text-[#101719]">{usuario.nombre.trim()[0]?.toUpperCase() ?? 'M'}</span>
+                      : <span className="avatar-respaldo flex h-8 w-8 items-center justify-center rounded-xl text-[#06232A]"><UserRound className="h-4 w-4" strokeWidth={2.5} /></span>}
+              {!esPanelDashboard && <ChevronDown className="h-3.5 w-3.5 text-[#6B7A8C]" />}
                 </button>
 
                 {perfil && (
