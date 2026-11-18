@@ -29,6 +29,25 @@ def _proximo_nivel(saldo: int) -> tuple[str | None, int | None]:
     return None, None
 
 
+def _progreso_nivel(saldo: int) -> int:
+    nivel = nivel_por_puntos(saldo)
+    if nivel == "Diamante":
+        return 100
+
+    umbrales = {
+        "Bronce": 0,
+        "Plata": settings.NIVEL_PLATA_DESDE,
+        "Oro": settings.NIVEL_ORO_DESDE,
+        "Diamante": settings.NIVEL_DIAMANTE_DESDE,
+    }
+    siguiente = NIVELES[NIVELES.index(nivel) + 1]
+    inicio = umbrales[nivel]
+    fin = umbrales[siguiente]
+    if fin <= inicio:
+        return 100
+    return max(0, min(100, round((saldo - inicio) * 100 / (fin - inicio))))
+
+
 # ----------------------------------------------------------------------
 # Movimientos
 # ----------------------------------------------------------------------
@@ -155,6 +174,7 @@ def obtener_saldo(id_cliente: int) -> dict:
         "puntos_canjeados": int(totales["canjeados"] or 0),
         "proximo_nivel": proximo,
         "puntos_para_proximo_nivel": faltantes,
+        "progreso_nivel": _progreso_nivel(saldo),
     }
 
 

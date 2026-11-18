@@ -244,6 +244,7 @@ class SaldoPuntosOut(ModeloBase):
     puntos_canjeados: int = 0
     proximo_nivel: str | None = None
     puntos_para_proximo_nivel: int | None = None
+    progreso_nivel: int = Field(ge=0, le=100)
 
 
 class AjustePuntosIn(ModeloBase):

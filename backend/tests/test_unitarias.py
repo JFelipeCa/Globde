@@ -76,6 +76,16 @@ class TestTokens:
             security.decodificar_token("esto.no.es.un.jwt", "access")
 
 
+class TestProgresoNivel:
+    def test_progreso_se_calcula_en_el_intervalo_del_nivel_actual(self, monkeypatch):
+        monkeypatch.setattr(puntos_service.settings, "NIVEL_PLATA_DESDE", 100)
+        monkeypatch.setattr(puntos_service.settings, "NIVEL_ORO_DESDE", 250)
+        monkeypatch.setattr(puntos_service.settings, "NIVEL_DIAMANTE_DESDE", 500)
+
+        assert puntos_service._progreso_nivel(175) == 50
+        assert puntos_service._progreso_nivel(500) == 100
+
+
 # ----------------------------------------------------------------------
 # Tokens de recuperacion
 # ----------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import logging
 from contextlib import contextmanager
+from threading import Lock
 from typing import Any, Iterator, Sequence
 
 import mysql.connector
@@ -12,32 +13,35 @@ from app.db.serializers import serializar_fila, serializar_filas
 logger = logging.getLogger("globde.db")
 
 _pool: pooling.MySQLConnectionPool | None = None
+_pool_lock = Lock()
 
 
 def get_pool() -> pooling.MySQLConnectionPool:
     """Crea (una sola vez) el pool de conexiones."""
     global _pool
-    if _pool is None:
-        _pool = pooling.MySQLConnectionPool(
-            pool_name="globde_pool",
-            pool_size=max(1, min(settings.DB_POOL_SIZE, 32)),
-            pool_reset_session=True,
-            **settings.db_config,
-        )
-        logger.info(
-            "Pool MySQL creado (%s@%s:%s/%s)",
-            settings.DB_USER,
-            settings.DB_HOST,
-            settings.DB_PORT,
-            settings.DB_NAME,
-        )
-    return _pool
+    with _pool_lock:
+        if _pool is None:
+            _pool = pooling.MySQLConnectionPool(
+                pool_name="globde_pool",
+                pool_size=max(1, min(settings.DB_POOL_SIZE, 32)),
+                pool_reset_session=True,
+                **settings.db_config,
+            )
+            logger.info(
+                "Pool MySQL creado (%s@%s:%s/%s)",
+                settings.DB_USER,
+                settings.DB_HOST,
+                settings.DB_PORT,
+                settings.DB_NAME,
+            )
+        return _pool
 
 
 def cerrar_pool() -> None:
     
     global _pool
-    _pool = None
+    with _pool_lock:
+        _pool = None
 
 
 @contextmanager

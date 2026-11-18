@@ -3,7 +3,7 @@
 from typing import Any
 
 from app.core.config import settings
-from app.core.exceptions import Conflicto, DatosInvalidos, NoEncontrado
+from app.core.exceptions import Conflicto, DatosInvalidos, NoEncontrado, Prohibido
 from app.core.security import hash_password, validar_fortaleza_password, verificar_password
 from app.db.database import execute, fetch_all, fetch_one, fetch_value, transaction
 
@@ -11,6 +11,7 @@ SQL_USUARIO = """
     SELECT u.id_usuario, u.id_rol, r.nombre AS rol, u.nombre, u.correo, u.telefono,
            u.avatar_url, u.activo, u.email_verificado_at, u.ultimo_login_at, u.creado_en,
            c.id_cliente, c.puntos_saldo, c.nivel_fidelizacion,
+           c.id_barbero_favorito,
            b.id_barbero
     FROM usuarios u
     JOIN roles r ON r.id_rol = u.id_rol
@@ -177,6 +178,32 @@ def actualizar(id_usuario: int, datos: dict) -> dict:
 
     params.append(id_usuario)
     execute(f"UPDATE usuarios SET {', '.join(campos)} WHERE id_usuario = %s", params)
+    return obtener(id_usuario)
+
+
+def actualizar_barbero_favorito(id_usuario: int, id_barbero: int | None) -> dict:
+    usuario = obtener(id_usuario)
+    if usuario["id_rol"] != 3:
+        raise Prohibido("Solo los clientes pueden elegir un barbero favorito")
+
+    if id_barbero is not None:
+        barbero = fetch_one(
+            """SELECT b.id_barbero
+               FROM barberos b
+               JOIN usuarios u ON u.id_usuario = b.id_usuario
+               WHERE b.id_barbero = %s AND u.activo = 1""",
+            (id_barbero,),
+        )
+        if not barbero:
+            raise NoEncontrado("El barbero no existe o no está activo")
+
+    if usuario.get("id_cliente") is None:
+        raise DatosInvalidos("El perfil de cliente no está disponible")
+
+    execute(
+        "UPDATE clientes SET id_barbero_favorito = %s WHERE id_usuario = %s",
+        (id_barbero, id_usuario),
+    )
     return obtener(id_usuario)
 
 

@@ -53,6 +53,7 @@ class UsuarioAutenticado(ModeloBase):
     activo: bool = True
     id_cliente: int | None = None
     id_barbero: int | None = None
+    id_barbero_favorito: int | None = None
     puntos_saldo: int | None = None
     nivel_fidelizacion: NivelFidelizacion | None = None
     ultimo_login_at: str | None = None

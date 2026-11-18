@@ -51,6 +51,11 @@ def _usuario_publico(fila: dict) -> dict:
         "activo": bool(fila.get("activo", True)),
         "id_cliente": int(fila["id_cliente"]) if fila.get("id_cliente") is not None else None,
         "id_barbero": int(fila["id_barbero"]) if fila.get("id_barbero") is not None else None,
+        "id_barbero_favorito": (
+            int(fila["id_barbero_favorito"])
+            if fila.get("id_barbero_favorito") is not None
+            else None
+        ),
         "puntos_saldo": int(fila["puntos_saldo"]) if fila.get("puntos_saldo") is not None else None,
         "nivel_fidelizacion": fila.get("nivel_fidelizacion"),
         "ultimo_login_at": fila.get("ultimo_login_at"),
