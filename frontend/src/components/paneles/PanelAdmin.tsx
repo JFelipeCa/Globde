@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Coins, CalendarDays, Scissors, Award, Send, Download, Search, Check, X,
   Pencil, Eye, Ban, ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, Users,
+  Gift, Receipt, UserRound, XCircle, LogOut,
+  Sun, Moon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita, UsuarioInternoCreate } from '../../types';
@@ -9,24 +11,126 @@ import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
   paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
 } from '../../utils/helpers';
+import { apiRequest } from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
 
 const POR_PAGINA = 6;
+const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia', 'nequi', 'daviplata', 'otro'] as const;
+
+type EstadoFacturaAdmin = 'pendiente' | 'pagada' | 'anulada' | 'reembolsada';
+type MetodoPagoAdmin = (typeof METODOS_PAGO)[number];
+
+interface FacturaAdmin {
+  id_factura: number;
+  numero_factura: string;
+  id_cita: number;
+  cliente_nombre: string | null;
+  barbero_nombre: string | null;
+  servicio_nombre: string | null;
+  subtotal: number;
+  descuento: number;
+  total: number;
+  metodo_pago: MetodoPagoAdmin;
+  estado_pago: EstadoFacturaAdmin;
+  fecha_emision: string | null;
+  pagado_en: string | null;
+}
+
+interface ClienteFidelizacion {
+  id_cliente: number;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  puntos_saldo: number;
+  nivel_fidelizacion: string;
+  total_citas: number;
+  total_pagado: number;
+}
+
+interface SaldoPuntos {
+  id_cliente: number;
+  puntos_saldo: number;
+  nivel_fidelizacion: string;
+}
+
+interface DashboardAdmin {
+  total_citas: number;
+  citas_completadas: number;
+  citas_pendientes: number;
+  total_barberos_disponibles: number;
+  ingresos_pagados: number;
+}
+
+interface IngresoDia {
+  periodo: string;
+  total_pagado: number;
+}
+
+interface ServicioPopular {
+  id_servicio: number;
+  nombre: string;
+  total_citas: number;
+}
+
+interface RespuestaPaginada<T> {
+  items: T[];
+  total: number;
+}
 
 export const PanelAdmin: React.FC = () => {
+  const { modoOscuro, alternarModo } = useTheme();
   const {
-    citas, servicios, barberos, facturas, confirmarCita, cambiarEstadoCita,
+    usuario, irA, logout, citas, servicios, barberos, confirmarCita, cambiarEstadoCita,
     cancelarCita, editarCita, agregarServicio, eliminarServicio,
     actualizarNivelBarbero, difusionMasiva, verTicket, franjasOcupadas,
     crearCita, buscarClientes, descargarReporte, crearUsuarioInterno,
   } = useApp();
 
-  const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'avisos'>('resumen');
+  const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'avisos' | 'puntos' | 'facturacion'>('resumen');
   const [pagina, setPagina] = useState(1);
   const [busqueda, setBusqueda] = useState('');
   const [fBarbero, setFBarbero] = useState('todos');
   const [fEstado, setFEstado] = useState('todos');
   const [aviso, setAviso] = useState('');
   const [reporteDescargando, setReporteDescargando] = useState<string | null>(null);
+  const [facturas, setFacturas] = useState<FacturaAdmin[]>([]);
+  const [facturasResumen, setFacturasResumen] = useState<FacturaAdmin[]>([]);
+  const [totalFacturas, setTotalFacturas] = useState(0);
+  const [facturasCargando, setFacturasCargando] = useState(false);
+  const [errorFacturas, setErrorFacturas] = useState('');
+  const [revisionFacturas, setRevisionFacturas] = useState(0);
+  const [busquedaFacturas, setBusquedaFacturas] = useState('');
+  const [estadoFacturas, setEstadoFacturas] = useState<'todas' | EstadoFacturaAdmin>('todas');
+  const [paginaFacturas, setPaginaFacturas] = useState(1);
+  const [facturaPago, setFacturaPago] = useState<FacturaAdmin | null>(null);
+  const [metodoPago, setMetodoPago] = useState<MetodoPagoAdmin>('efectivo');
+  const [citaFacturar, setCitaFacturar] = useState<Cita | null>(null);
+  const [metodoNuevaFactura, setMetodoNuevaFactura] = useState<MetodoPagoAdmin>('efectivo');
+  const [facturaAnular, setFacturaAnular] = useState<FacturaAdmin | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [errorAccionFactura, setErrorAccionFactura] = useState('');
+  const [guardandoFactura, setGuardandoFactura] = useState(false);
+  const [clientesPuntos, setClientesPuntos] = useState<ClienteFidelizacion[]>([]);
+  const [clientesPuntosTotal, setClientesPuntosTotal] = useState(0);
+  const [paginaClientesPuntos, setPaginaClientesPuntos] = useState(1);
+  const [clientesPuntosCargando, setClientesPuntosCargando] = useState(false);
+  const [busquedaPuntos, setBusquedaPuntos] = useState('');
+  const [errorPuntos, setErrorPuntos] = useState('');
+  const [clientePuntosSeleccionado, setClientePuntosSeleccionado] = useState<ClienteFidelizacion | null>(null);
+  const [ajustePuntos, setAjustePuntos] = useState('');
+  const [motivoAjustePuntos, setMotivoAjustePuntos] = useState('');
+  const [guardandoAjustePuntos, setGuardandoAjustePuntos] = useState(false);
+  const [errorAjustePuntos, setErrorAjustePuntos] = useState('');
+  const [dashboard, setDashboard] = useState<DashboardAdmin | null>(null);
+  const [errorDashboard, setErrorDashboard] = useState('');
+  const [dashboardCargando, setDashboardCargando] = useState(true);
+  const [ingresosSemanaApi, setIngresosSemanaApi] = useState<IngresoDia[]>([]);
+  const [errorIngresos, setErrorIngresos] = useState('');
+  const [ingresosCargando, setIngresosCargando] = useState(true);
+  const [ingresosDesdeFacturas, setIngresosDesdeFacturas] = useState(false);
+  const [serviciosPopulares, setServiciosPopulares] = useState<ServicioPopular[]>([]);
+  const [errorServiciosPopulares, setErrorServiciosPopulares] = useState('');
+  const [serviciosPopularesCargando, setServiciosPopularesCargando] = useState(true);
 
   /* edición */
   const [edit, setEdit] = useState<Cita | null>(null);
@@ -78,10 +182,129 @@ export const PanelAdmin: React.FC = () => {
   const [uError, setUError] = useState('');
   const [uGuardando, setUGuardando] = useState(false);
 
-  const ingresos = facturas.reduce((a, f) => a + f.total, 0);
-  const completadas = citas.filter((c) => c.estado === 'completada').length;
+  const ingresos = dashboard?.ingresos_pagados ?? 0;
+  const completadas = dashboard?.citas_completadas ?? citas.filter((c) => c.estado === 'completada').length;
+  const totalCitasDashboard = dashboard?.total_citas ?? citas.length;
   const pendientes = citas.filter((c) => c.estado === 'pendiente');
-  const efectividad = citas.length ? Math.round((completadas / citas.length) * 100) : 100;
+  const efectividad = totalCitasDashboard ? Math.round((completadas / totalCitasDashboard) * 100) : 100;
+
+  const cargarFacturas = useCallback(async () => {
+    setFacturasCargando(true);
+    setErrorFacturas('');
+    try {
+      const resultado = await apiRequest<RespuestaPaginada<FacturaAdmin>>('/facturas?pagina=1&por_pagina=100');
+      setFacturasResumen(resultado.items);
+      setTotalFacturas(resultado.total);
+    } catch (error) {
+      setErrorFacturas(error instanceof Error ? error.message : 'No se pudieron cargar las facturas.');
+    } finally {
+      setFacturasCargando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void cargarFacturas();
+  }, [cargarFacturas]);
+
+  useEffect(() => {
+    let vigente = true;
+    const ahora = new Date();
+    const inicio = new Date(ahora);
+    inicio.setDate(ahora.getDate() - 6);
+    const fechaIso = (fecha: Date) => (
+      `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+    );
+    const consultas = [
+      apiRequest<DashboardAdmin>('/reportes/dashboard/admin')
+        .then((resultado) => { if (vigente) setDashboard(resultado); })
+        .catch((error: unknown) => { if (vigente) setErrorDashboard(error instanceof Error ? error.message : 'No se pudo cargar el resumen.'); })
+        .finally(() => { if (vigente) setDashboardCargando(false); }),
+      apiRequest<{ periodos: IngresoDia[] }>(
+        `/reportes/ingresos?desde=${fechaIso(inicio)}&hasta=${fechaIso(ahora)}&agrupar_por=dia`,
+      ).then((resultado) => {
+        if (vigente) setIngresosSemanaApi(resultado.periodos);
+      }).catch(async (error: unknown) => {
+        try {
+          const parametros = new URLSearchParams({
+            desde: fechaIso(inicio),
+            hasta: fechaIso(ahora),
+            estado_pago: 'pagada',
+            pagina: '1',
+            por_pagina: '100',
+          });
+          const resultado = await apiRequest<RespuestaPaginada<FacturaAdmin>>(`/facturas?${parametros.toString()}`);
+          if (!vigente) return;
+          const porDia = resultado.items.reduce<Record<string, number>>((totales, factura) => {
+            const fecha = factura.fecha_emision?.slice(0, 10);
+            if (fecha) totales[fecha] = (totales[fecha] ?? 0) + factura.total;
+            return totales;
+          }, {});
+          setIngresosSemanaApi(Object.entries(porDia).map(([periodo, total_pagado]) => ({ periodo, total_pagado })));
+          setIngresosDesdeFacturas(true);
+        } catch (errorRespaldo) {
+          if (vigente) {
+            const detalleReporte = error instanceof Error ? error.message : 'Reporte no disponible.';
+            const detalleFacturas = errorRespaldo instanceof Error ? errorRespaldo.message : 'No se pudieron consultar facturas.';
+            setErrorIngresos(`${detalleReporte} ${detalleFacturas}`);
+          }
+        }
+      }).finally(() => { if (vigente) setIngresosCargando(false); }),
+      apiRequest<ServicioPopular[]>('/reportes/servicios-populares?limite=4')
+        .then((resultado) => { if (vigente) setServiciosPopulares(resultado); })
+        .catch((error: unknown) => { if (vigente) setErrorServiciosPopulares(error instanceof Error ? error.message : 'No se pudieron cargar los servicios más vendidos.'); })
+        .finally(() => { if (vigente) setServiciosPopularesCargando(false); }),
+    ];
+    void Promise.all(consultas);
+    return () => { vigente = false; };
+  }, []);
+
+  useEffect(() => {
+    if (seccion !== 'puntos') return;
+    let vigente = true;
+    setClientesPuntosCargando(true);
+    setErrorPuntos('');
+    const temporizador = setTimeout(() => {
+      const consulta = busquedaPuntos.trim();
+      const query = consulta ? `&buscar=${encodeURIComponent(consulta)}` : '';
+      apiRequest<RespuestaPaginada<ClienteFidelizacion>>(`/clientes?pagina=${paginaClientesPuntos}&por_pagina=20${query}`)
+        .then((resultado) => {
+          if (!vigente) return;
+          setClientesPuntos(resultado.items);
+          setClientesPuntosTotal(resultado.total);
+        })
+        .catch((error: unknown) => {
+          if (vigente) setErrorPuntos(error instanceof Error ? error.message : 'No se pudieron cargar los clientes.');
+        })
+        .finally(() => { if (vigente) setClientesPuntosCargando(false); });
+    }, 250);
+    return () => { vigente = false; clearTimeout(temporizador); };
+  }, [seccion, busquedaPuntos, paginaClientesPuntos]);
+
+  useEffect(() => {
+    if (seccion !== 'facturacion') return;
+    let vigente = true;
+    setFacturasCargando(true);
+    setErrorFacturas('');
+    const temporizador = setTimeout(() => {
+      const parametros = new URLSearchParams({
+        pagina: String(paginaFacturas),
+        por_pagina: String(POR_PAGINA),
+      });
+      if (estadoFacturas !== 'todas') parametros.set('estado_pago', estadoFacturas);
+      if (busquedaFacturas.trim()) parametros.set('buscar', busquedaFacturas.trim());
+      apiRequest<RespuestaPaginada<FacturaAdmin>>(`/facturas?${parametros.toString()}`)
+        .then((resultado) => {
+          if (!vigente) return;
+          setFacturas(resultado.items);
+          setTotalFacturas(resultado.total);
+        })
+        .catch((error: unknown) => {
+          if (vigente) setErrorFacturas(error instanceof Error ? error.message : 'No se pudieron cargar las facturas.');
+        })
+        .finally(() => { if (vigente) setFacturasCargando(false); });
+    }, 200);
+    return () => { vigente = false; clearTimeout(temporizador); };
+  }, [seccion, paginaFacturas, estadoFacturas, busquedaFacturas, revisionFacturas]);
 
   const filtradas = citas.filter((c) => {
     const t = busqueda.toLowerCase();
@@ -93,6 +316,186 @@ export const PanelAdmin: React.FC = () => {
   const pag = paginar(filtradas, pagina, POR_PAGINA);
 
   const mostrar = (t: string) => { setAviso(t); setTimeout(() => setAviso(''), 4000); };
+
+  const guardarAjustePuntos = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientePuntosSeleccionado) return;
+    const puntos = Number(ajustePuntos);
+    if (!Number.isInteger(puntos) || puntos === 0) {
+      setErrorAjustePuntos('Ingresa una cantidad entera distinta de cero.');
+      return;
+    }
+    if (motivoAjustePuntos.trim().length < 3) {
+      setErrorAjustePuntos('Escribe un motivo de al menos 3 caracteres.');
+      return;
+    }
+    setGuardandoAjustePuntos(true);
+    setErrorAjustePuntos('');
+    try {
+      const saldo = await apiRequest<SaldoPuntos>(
+        `/puntos/clientes/${clientePuntosSeleccionado.id_cliente}/ajuste`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ puntos, descripcion: motivoAjustePuntos.trim() }),
+        },
+      );
+      const actualizado = {
+        ...clientePuntosSeleccionado,
+        puntos_saldo: saldo.puntos_saldo,
+        nivel_fidelizacion: saldo.nivel_fidelizacion,
+      };
+      setClientePuntosSeleccionado(actualizado);
+      setClientesPuntos((clientes) => clientes.map((cliente) => (
+        cliente.id_cliente === actualizado.id_cliente ? actualizado : cliente
+      )));
+      setAjustePuntos('');
+      setMotivoAjustePuntos('');
+      mostrar('El saldo de puntos fue actualizado.');
+    } catch (error) {
+      setErrorAjustePuntos(error instanceof Error ? error.message : 'No se pudo ajustar el saldo.');
+    } finally {
+      setGuardandoAjustePuntos(false);
+    }
+  };
+
+  const registrarPagoFactura = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!facturaPago) return;
+    setGuardandoFactura(true);
+    setErrorAccionFactura('');
+    try {
+      const actualizada = await apiRequest<FacturaAdmin>(`/facturas/${facturaPago.id_factura}/pago`, {
+        method: 'PATCH',
+        body: JSON.stringify({ metodo_pago: metodoPago }),
+      });
+      setFacturas((actuales) => actuales.map((factura) => (
+        factura.id_factura === actualizada.id_factura ? actualizada : factura
+      )));
+      setFacturasResumen((actuales) => actuales.map((factura) => (
+        factura.id_factura === actualizada.id_factura ? actualizada : factura
+      )));
+      setFacturaPago(null);
+      mostrar(`Pago de ${actualizada.numero_factura} registrado.`);
+    } catch (error) {
+      setErrorAccionFactura(error instanceof Error ? error.message : 'No se pudo registrar el pago.');
+    } finally {
+      setGuardandoFactura(false);
+    }
+  };
+
+  const emitirFactura = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!citaFacturar) return;
+    setGuardandoFactura(true);
+    setErrorAccionFactura('');
+    try {
+      const emitida = await apiRequest<FacturaAdmin>('/facturas', {
+        method: 'POST',
+        body: JSON.stringify({
+          id_cita: citaFacturar.id_cita,
+          metodo_pago: metodoNuevaFactura,
+          estado_pago: 'pendiente',
+        }),
+      });
+      setFacturas((actuales) => [emitida, ...actuales]);
+      setFacturasResumen((actuales) => [emitida, ...actuales].slice(0, 100));
+      setTotalFacturas((actual) => actual + 1);
+      setCitaFacturar(null);
+      setBusquedaFacturas('');
+      setEstadoFacturas('todas');
+      setPaginaFacturas(1);
+      mostrar(`Factura ${emitida.numero_factura} emitida.`);
+    } catch (error) {
+      setErrorAccionFactura(error instanceof Error ? error.message : 'No se pudo emitir la factura.');
+    } finally {
+      setGuardandoFactura(false);
+    }
+  };
+
+  const anularFactura = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!facturaAnular) return;
+    if (motivoAnulacion.trim().length < 3) {
+      setErrorAccionFactura('El motivo debe tener al menos 3 caracteres.');
+      return;
+    }
+    setGuardandoFactura(true);
+    setErrorAccionFactura('');
+    try {
+      const anulada = await apiRequest<FacturaAdmin>(`/facturas/${facturaAnular.id_factura}/anular`, {
+        method: 'POST',
+        body: JSON.stringify({ motivo: motivoAnulacion.trim() }),
+      });
+      setFacturas((actuales) => actuales.map((factura) => (
+        factura.id_factura === anulada.id_factura ? anulada : factura
+      )));
+      setFacturasResumen((actuales) => actuales.map((factura) => (
+        factura.id_factura === anulada.id_factura ? anulada : factura
+      )));
+      setFacturaAnular(null);
+      setMotivoAnulacion('');
+      mostrar(`Factura ${anulada.numero_factura} anulada.`);
+    } catch (error) {
+      setErrorAccionFactura(error instanceof Error ? error.message : 'No se pudo anular la factura.');
+    } finally {
+      setGuardandoFactura(false);
+    }
+  };
+
+  const hoy = new Date();
+  const isoLocal = (fecha: Date) => (
+    `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+  );
+  const fechaEncabezado = new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long', day: 'numeric', month: 'short',
+  }).format(hoy);
+  const diasSemana = Array.from({ length: 7 }, (_, indice) => {
+    const fecha = new Date(hoy);
+    fecha.setDate(hoy.getDate() - 6 + indice);
+    return {
+      iso: isoLocal(fecha),
+      etiqueta: new Intl.DateTimeFormat('es-CO', { weekday: 'short' }).format(fecha).replace('.', ''),
+      esHoy: indice === 6,
+    };
+  });
+  const ventasSemana = diasSemana.map((dia) => ({
+    ...dia,
+    total: ingresosSemanaApi.find((ingreso) => ingreso.periodo.slice(0, 10) === dia.iso)?.total_pagado ?? 0,
+  }));
+  const maxVenta = Math.max(...ventasSemana.map((dia) => dia.total), 1);
+  const serviciosRanking = serviciosPopulares;
+  const totalServiciosRanking = serviciosRanking.reduce((total, servicio) => total + servicio.total_citas, 0);
+  const coloresDonut = ['#00BCD4', '#2C8298', '#F3D853', '#B6E9EE'];
+  let limiteDonut = 0;
+  const donut = totalServiciosRanking
+    ? `conic-gradient(${serviciosRanking.map((servicio, indice) => {
+        const inicio = limiteDonut;
+        limiteDonut += (servicio.total_citas / totalServiciosRanking) * 100;
+        return `${coloresDonut[indice % coloresDonut.length]} ${inicio}% ${limiteDonut}%`;
+      }).join(', ')})`
+    : 'conic-gradient(#DCE7E8 0% 100%)';
+  const diasAgenda = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const horasAgenda = [9, 11, 13, 15, 17];
+  const celdasAgenda = diasAgenda.flatMap((_, dia) => horasAgenda.map((hora) => {
+    const citasEnFranja = citas.filter((cita) => {
+      const fecha = new Date(`${cita.fecha}T00:00:00`);
+      const diaSemana = (fecha.getDay() + 6) % 7;
+      return diaSemana === dia && Number(cita.hora_inicio.slice(0, 2)) >= hora &&
+        Number(cita.hora_inicio.slice(0, 2)) < hora + 2 &&
+        !['cancelada', 'no_asistio'].includes(cita.estado);
+    }).length;
+    return { dia, hora, citas: citasEnFranja };
+  }));
+  const maxCitasFranja = Math.max(...celdasAgenda.map((celda) => celda.citas), 1);
+  const citasPorBarbero = barberos.map((barbero) => ({
+    ...barbero,
+    citas: barbero.citas_completadas,
+  }));
+  const maxCitasBarbero = Math.max(...citasPorBarbero.map((barbero) => barbero.citas), 1);
+  const totalPaginasFacturas = Math.max(1, Math.ceil(totalFacturas / POR_PAGINA));
+  const citasFacturables = citas.filter((cita) => (
+    cita.estado === 'completada' && !facturasResumen.some((factura) => factura.id_cita === cita.id_cita)
+  ));
 
   const abrirNuevoUsuario = () => {
     setModalUsuario(true); setUNombre(''); setUCorreo(''); setUTelefono(''); setUContrasena('');
@@ -209,113 +612,253 @@ export const PanelAdmin: React.FC = () => {
 
   const tabs = [
     { id: 'resumen', t: 'Resumen', i: TrendingUp },
-    { id: 'citas', t: `Citas (${citas.length})`, i: CalendarDays },
+    { id: 'citas', t: `Citas (${dashboard?.total_citas ?? citas.length})`, i: CalendarDays },
     { id: 'servicios', t: 'Servicios', i: Scissors },
     { id: 'equipo', t: 'Equipo', i: Award },
     { id: 'avisos', t: 'Avisos y reportes', i: Send },
+    { id: 'puntos', t: 'Club de puntos', i: Gift },
+    { id: 'facturacion', t: 'Facturación', i: Receipt },
   ] as const;
 
-  const input = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-400/15';
+  const titulos: Record<typeof seccion, string> = {
+    resumen: 'Control total del negocio',
+    citas: 'Gestión de citas',
+    servicios: 'Catálogo de servicios',
+    equipo: 'Equipo interno',
+    avisos: 'Avisos y reportes',
+    puntos: 'Club de puntos',
+    facturacion: 'Facturación',
+  };
+  const input = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-400/15';
 
   return (
-    <div className="min-h-[70vh] bg-[#0B0F14] py-10">
-      <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#141A21] px-3.5 py-1.5 text-xs font-bold text-teal-300 ring-1 ring-white/8">
-              <Award className="h-3.5 w-3.5" /> Panel administrativo
-            </span>
-            <h1 className="font-heading mt-2 text-3xl font-black text-[#EAF0F6]">Control total del negocio</h1>
-          </div>
-          {pendientes.length > 0 && (
-            <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5">
-              <span className="text-xs font-bold text-amber-200">{pendientes.length} cita(s) por confirmar</span>
-              <button onClick={() => { pendientes.forEach((c) => confirmarCita(c.id_cita)); mostrar('Todas las citas pendientes fueron confirmadas.'); }}
-                className="rounded-xl bg-amber-400 px-3 py-1.5 text-[11px] font-black text-[#2B1E04] transition hover:bg-amber-300">
-                Confirmar todas
+    <div className="panel-dashboard panel-admin min-h-screen bg-[#0B0F14]">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="admin-sidebar flex flex-col bg-[#0B0B0B] p-4 text-white lg:sticky lg:top-0 lg:h-screen lg:min-h-[520px]">
+          <button onClick={() => irA('inicio')} className="mb-5 flex items-center gap-3 px-2 text-left">
+            <div className="min-w-0">
+              <p className="font-heading text-sm font-black tracking-wide">GLOBDE</p>
+              <p className="mt-1 border border-cyan-400/60 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-cyan-300">Panel admin</p>
+            </div>
+          </button>
+          <nav aria-label="Secciones administrativas" className="flex gap-1.5 overflow-x-auto lg:flex-col">
+            {tabs.map((t) => (
+              <button key={t.id} onClick={() => { setSeccion(t.id); setPaginaFacturas(1); }}
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${
+                  seccion === t.id ? 'bg-cyan-400 text-[#06232A]' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`}>
+                <t.i className="h-4 w-4 shrink-0" /> {t.t}
               </button>
+            ))}
+          </nav>
+          <div className="mt-5 flex items-center justify-between gap-2 rounded-xl bg-[#1B2024] p-2.5 lg:mt-auto">
+            <div className="flex min-w-0 items-center gap-2">
+              {usuario?.avatar_url
+                ? <img src={usuario.avatar_url} alt="" className="h-9 w-9 rounded-lg object-cover" />
+                : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-400 text-xs font-black text-[#06232A]">
+                    {(usuario?.nombre[0] ?? 'A').toUpperCase()}
+                  </span>}
+              <div className="min-w-0">
+                <p className="truncate text-xs font-bold text-white">{usuario?.nombre ?? 'Administrador'}</p>
+                <p className="text-[10px] text-slate-400">Administrador</p>
+              </div>
+            </div>
+            <button onClick={logout} aria-label="Cerrar sesión" title="Cerrar sesión"
+              className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </aside>
+
+        <main className="min-w-0 space-y-5 bg-[#F5F6F2] p-5 sm:p-7 lg:p-9">
+          <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-500">Panel administrativo · {fechaEncabezado}</p>
+              <h1 className="font-heading mt-1 text-2xl font-black text-slate-950 sm:text-3xl">{titulos[seccion]}</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={alternarModo}
+                aria-label={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                title={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 transition hover:border-cyan-400"
+              >
+                {modoOscuro ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+              {pendientes.length > 0 && (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+                  <span className="text-[10px] font-bold text-slate-700">{pendientes.length} cita(s) por confirmar</span>
+                  <button onClick={() => { pendientes.forEach((c) => confirmarCita(c.id_cita)); mostrar('Todas las citas pendientes fueron confirmadas.'); }}
+                    className="text-[10px] font-black text-slate-950 hover:text-cyan-800">
+                    Confirmar todas
+                  </button>
+                </div>
+              )}
+              {seccion === 'resumen' && (
+                <button onClick={async () => {
+                  setReporteDescargando('ingresos');
+                  const resultado = await descargarReporte('ingresos');
+                  setReporteDescargando(null);
+                  mostrar(resultado.mensaje);
+                }} disabled={reporteDescargando !== null}
+                  className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-black text-white transition hover:bg-slate-800 disabled:opacity-50">
+                  {reporteDescargando === 'ingresos' ? 'Generando…' : 'Exportar reporte'}
+                </button>
+              )}
+            </div>
+          </header>
+
+          {aviso && (
+            <div className="anim-aparecer flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-xs font-bold text-emerald-800">
+              <Check className="h-4 w-4" /> {aviso}
             </div>
           )}
-        </div>
 
-        {aviso && (
-          <div className="anim-aparecer flex items-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3.5 text-sm font-bold text-emerald-300">
-            <Check className="h-4 w-4" /> {aviso}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => setSeccion(t.id)}
-              className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition ${
-                seccion === t.id ? 'bg-teal-400 text-[#04211F] shadow-lg' : 'border border-white/10 bg-[#141A21] text-[#93A1B1] hover:border-teal-400/40'
-              }`}>
-              <t.i className="h-4 w-4" /> {t.t}
-            </button>
-          ))}
-        </div>
-
-        {/* RESUMEN */}
-        {seccion === 'resumen' && (
-          <div className="anim-aparecer space-y-6">
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              {[
-                { t: 'Ingresos totales', v: formatoCOP(ingresos), s: 'Facturación acumulada', i: Coins, c: 'text-emerald-300 bg-emerald-400/12' },
-                { t: 'Citas registradas', v: String(citas.length), s: `${completadas} completadas`, i: CalendarDays, c: 'text-teal-300 bg-teal-400/12' },
-                { t: 'Efectividad', v: `${efectividad}%`, s: 'Asistencia de clientes', i: TrendingUp, c: 'text-amber-300 bg-amber-400/12' },
-                { t: 'Equipo activo', v: String(barberos.length), s: 'Barberos certificados', i: Users, c: 'text-sky-300 bg-sky-400/12' },
-              ].map((k) => (
-                <div key={k.t} className="card p-5">
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${k.c}`}><k.i className="h-5 w-5" /></span>
-                  <p className="mt-3 text-[11px] font-bold uppercase text-[#6B7A8C]">{k.t}</p>
-                  <p className="font-heading text-2xl font-black text-[#EAF0F6]">{k.v}</p>
-                  <p className="text-[11px] text-[#93A1B1]">{k.s}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <div className="card p-6">
-                <h3 className="font-heading text-lg font-black text-[#EAF0F6]">Servicios más vendidos</h3>
-                <div className="mt-4 space-y-3">
-                  {servicios.slice(0, 5).map((s) => {
-                    const n = citas.filter((c) => c.id_servicio === s.id_servicio).length;
-                    const pct = Math.min(100, n * 25 + 20);
-                    return (
-                      <div key={s.id_servicio}>
-                        <div className="flex justify-between text-xs font-semibold">
-                          <span className="text-[#93A1B1]">{s.icono} {s.nombre}</span>
-                          <span className="text-[#EAF0F6]">{n} citas</span>
-                        </div>
-                        <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/6">
-                          <div className="h-full rounded-full bg-gradient-to-r from-teal-400 to-amber-300 transition-all duration-700" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+          {/* RESUMEN */}
+          {seccion === 'resumen' && (
+            <div className="anim-aparecer space-y-4">
+              <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+                {[
+                  { t: 'Ingresos totales', v: dashboard ? formatoCOP(ingresos) : dashboardCargando ? '…' : '—', s: 'Facturas pagadas', i: Coins, color: 'bg-emerald-100 text-emerald-600' },
+                  { t: 'Citas registradas', v: dashboard ? String(totalCitasDashboard) : dashboardCargando ? '…' : String(citas.length), s: `${completadas} completadas`, i: CalendarDays, color: 'bg-emerald-100 text-emerald-600' },
+                  { t: 'Efectividad', v: dashboardCargando ? '…' : `${efectividad}%`, s: 'Citas completadas', i: TrendingUp, color: 'bg-cyan-100 text-cyan-600' },
+                  { t: 'Equipo activo', v: dashboard ? String(dashboard.total_barberos_disponibles) : dashboardCargando ? '…' : String(barberos.filter((b) => b.disponible_hoy).length), s: 'Barberos disponibles', i: Users, color: 'bg-cyan-50 text-cyan-600' },
+                ].map((k) => (
+                  <div key={k.t} className="card min-h-28 p-5">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">{k.t}</p>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-md ${k.color}`}><k.i className="h-3 w-3" /></span>
+                    </div>
+                    <p className="font-heading mt-2 text-xl font-black text-slate-950">{k.v}</p>
+                    <p className="text-[9px] text-slate-500">{k.s}</p>
+                  </div>
+                ))}
               </div>
+              {errorDashboard && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-[10px] font-semibold text-rose-800">{errorDashboard}</div>
+              )}
 
-              <div className="card p-6">
-                <h3 className="font-heading text-lg font-black text-[#EAF0F6]">Últimas facturas</h3>
-                <div className="mt-3 space-y-2">
-                  {facturas.slice(0, 5).map((f) => (
-                    <div key={f.id_factura} className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-2.5 text-xs">
-                      <div>
-                        <p className="font-black text-[#EAF0F6]">{f.numero_factura}</p>
-                        <p className="text-[#93A1B1]">{f.cliente_nombre} · {f.servicio_nombre}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-teal-300">{formatoCOP(f.total)}</p>
-                        <span className={`text-[10px] font-bold ${f.estado_pago === 'pagado' ? 'text-emerald-300' : 'text-amber-300'}`}>{f.estado_pago}</span>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.65fr_1fr]">
+                <section className="card min-h-56 p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="font-heading text-sm font-black text-slate-950">Ingresos de la semana</h2>
+                    <span className="text-[9px] text-slate-500">Últimos 7 días · facturas pagadas</span>
+                  </div>
+                  {ingresosCargando ? (
+                    <p className="py-12 text-center text-xs text-slate-500">Cargando ingresos…</p>
+                  ) : errorIngresos ? (
+                    <p className="py-12 text-center text-xs text-rose-700">{errorIngresos}</p>
+                  ) : (
+                    <div className="flex h-40 items-end justify-between gap-3" aria-label="Ingresos por día de la semana">
+                      {ventasSemana.map((dia) => (
+                        <div key={dia.iso} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                          <span className="text-[9px] font-semibold text-slate-500">{dia.total ? formatoCOP(dia.total) : ''}</span>
+                          <div className={`w-full max-w-20 rounded-t-md ${dia.esHoy ? 'bg-cyan-700' : 'bg-cyan-200'}`}
+                            style={{ height: `${Math.max(7, (dia.total / maxVenta) * 76)}%` }}
+                            title={`${dia.etiqueta}: ${formatoCOP(dia.total)}`} />
+                          <span className={`text-[9px] ${dia.esHoy ? 'font-black text-cyan-800' : 'text-slate-500'}`}>
+                            {dia.esHoy ? 'Hoy' : dia.etiqueta}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {ingresosDesdeFacturas && !errorIngresos && (
+                    <p className="mt-2 text-[9px] text-amber-700">Datos calculados desde facturas; el reporte de ingresos no respondió.</p>
+                  )}
+                </section>
+
+                <section className="card min-h-56 p-5">
+                  <h2 className="font-heading text-sm font-black text-slate-950">Servicios más vendidos</h2>
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="relative h-20 w-20 shrink-0 rounded-full"
+                      style={{ background: donut }} role="img" aria-label="Distribución de citas por servicio">
+                      <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-white">
+                        <strong className="text-sm text-slate-950">{totalServiciosRanking}</strong>
+                        <span className="text-[8px] text-slate-500">citas</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="min-w-0 space-y-1.5">
+                      {serviciosPopularesCargando && <p className="text-[10px] text-slate-500">Cargando servicios…</p>}
+                      {serviciosRanking.map((servicio, indice) => (
+                        <div key={servicio.id_servicio} className="flex items-center gap-1.5 text-[9px]">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: coloresDonut[indice % coloresDonut.length] }} />
+                          <span className="truncate text-slate-600">{servicio.nombre}</span>
+                            <strong className="ml-auto text-slate-800">{servicio.total_citas}</strong>
+                        </div>
+                      ))}
+                        {errorServiciosPopulares
+                          ? <p className="text-[10px] text-rose-700">No se pudo cargar el ranking.</p>
+                          : serviciosRanking.length === 0 && <p className="text-[10px] text-slate-500">Sin citas registradas.</p>}
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <section className="card min-h-48 p-5">
+                  <h2 className="font-heading text-sm font-black text-slate-950">Horas con más citas</h2>
+                  <div className="mt-3 grid grid-cols-7 gap-1" aria-label="Mapa de calor de citas por día y hora">
+                    {diasAgenda.map((dia) => <span key={dia} className="text-center text-[8px] text-slate-500">{dia}</span>)}
+                    {celdasAgenda.map((celda) => {
+                      const intensidad = celda.citas / maxCitasFranja;
+                      return <span key={`${celda.dia}-${celda.hora}`}
+                        title={`${diasAgenda[celda.dia]} · ${celda.hora}:00: ${celda.citas} citas`}
+                        className="h-4 rounded-[3px]"
+                        style={{ backgroundColor: celda.citas ? `rgba(15, 112, 145, ${0.15 + intensidad * 0.8})` : '#E5EFF0' }} />;
+                    })}
+                  </div>
+                  <p className="mt-2 text-[8px] text-slate-500">Franjas de 9:00 a. m. a 7:00 p. m.</p>
+                </section>
+
+                <section className="card min-h-48 p-5">
+                  <h2 className="font-heading text-sm font-black text-slate-950">Equipo</h2>
+                  <div className="mt-3 space-y-3">
+                    {citasPorBarbero.slice(0, 3).map((barbero) => (
+                      <div key={barbero.id_barbero}>
+                        <div className="flex justify-between gap-2 text-[9px]">
+                          <span className="truncate font-semibold text-slate-700">{barbero.nombre}</span>
+                          <span className="shrink-0 text-slate-500">{barbero.citas} completadas</span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded-full bg-slate-100">
+                          <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-yellow-300"
+                            style={{ width: `${Math.max(5, (barbero.citas / maxCitasBarbero) * 100)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    {citasPorBarbero.length === 0 && <p className="text-[10px] text-slate-500">No hay barberos registrados.</p>}
+                  </div>
+                </section>
+
+                <section className="card min-h-48 p-5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-heading text-sm font-black text-slate-950">Últimas facturas</h2>
+                    <button onClick={() => setSeccion('facturacion')} className="text-[9px] font-bold text-cyan-800 hover:underline">Ver todas</button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {facturasCargando && <p className="py-4 text-center text-[10px] text-slate-500">Cargando…</p>}
+                    {!facturasCargando && errorFacturas && <p className="py-4 text-center text-[10px] text-rose-700">{errorFacturas}</p>}
+                    {!facturasCargando && !errorFacturas && facturasResumen.slice(0, 2).map((factura) => (
+                      <div key={factura.id_factura} className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[9px]">
+                        <div className="min-w-0">
+                          <p className="font-black text-slate-800">{factura.numero_factura}</p>
+                          <p className="truncate text-slate-500">{factura.cliente_nombre} · {factura.servicio_nombre}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-black text-slate-900">{formatoCOP(factura.total)}</p>
+                          <span className={factura.estado_pago === 'pagada' ? 'text-emerald-700' : 'text-cyan-800'}>
+                            {factura.estado_pago}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {!facturasCargando && !errorFacturas && facturasResumen.length === 0 && <p className="py-4 text-center text-[10px] text-slate-500">Sin facturas.</p>}
+                  </div>
+                </section>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* CITAS */}
         {seccion === 'citas' && (
@@ -538,7 +1081,6 @@ export const PanelAdmin: React.FC = () => {
                 {[
                   { etiqueta: 'Reporte de ingresos y facturación (.csv)', tipo: 'ingresos' as const },
                   { etiqueta: 'Historial de citas por barbero (.csv)', tipo: 'citas' as const },
-                  { etiqueta: 'Clientes y puntos de fidelidad (.csv)', tipo: 'clientes' as const },
                 ].map((reporte) => (
                   <div key={reporte.tipo} className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-3 text-xs">
                     <span className="font-semibold text-[#93A1B1]">{reporte.etiqueta}</span>
@@ -551,6 +1093,274 @@ export const PanelAdmin: React.FC = () => {
             </div>
           </div>
         )}
+
+        {seccion === 'puntos' && (
+          <div className="anim-aparecer grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,.7fr)]">
+            <section className="card overflow-hidden">
+              <div className="border-b border-slate-100 p-4">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                    <input value={busquedaPuntos} onChange={(e) => {
+                      setBusquedaPuntos(e.target.value);
+                      setPaginaClientesPuntos(1);
+                      setClientePuntosSeleccionado(null);
+                    }}
+                      placeholder="Buscar cliente por nombre, correo o teléfono" className={input + ' pl-10'} />
+                  </div>
+                  <button onClick={async () => {
+                    setReporteDescargando('clientes');
+                    const resultado = await descargarReporte('clientes');
+                    setReporteDescargando(null);
+                    mostrar(resultado.mensaje);
+                  }} disabled={reporteDescargando !== null}
+                    className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                    {reporteDescargando === 'clientes' ? 'Generando…' : 'Exportar puntos'}
+                  </button>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">
+                  Mostrando {clientesPuntos.length} de {clientesPuntosTotal} cliente(s).
+                </p>
+              </div>
+              {errorPuntos && <p className="m-4 rounded-lg bg-rose-50 p-3 text-xs font-semibold text-rose-700">{errorPuntos}</p>}
+              {clientesPuntosCargando ? (
+                <p className="p-8 text-center text-xs text-slate-500">Buscando clientes…</p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {clientesPuntos.map((cliente) => (
+                    <button key={cliente.id_cliente} onClick={() => {
+                      setClientePuntosSeleccionado(cliente);
+                      setAjustePuntos('');
+                      setMotivoAjustePuntos('');
+                      setErrorAjustePuntos('');
+                    }}
+                      className={`flex w-full items-center justify-between gap-3 p-4 text-left transition hover:bg-cyan-50 ${
+                        clientePuntosSeleccionado?.id_cliente === cliente.id_cliente ? 'bg-cyan-50' : ''
+                      }`}>
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-cyan-800">
+                          <UserRound className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-bold text-slate-800">{cliente.nombre}</span>
+                          <span className="block truncate text-[10px] text-slate-500">{cliente.correo}</span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <strong className="block text-xs text-slate-900">{cliente.puntos_saldo} pts</strong>
+                        <span className="text-[9px] text-cyan-800">{cliente.nivel_fidelizacion}</span>
+                      </span>
+                    </button>
+                  ))}
+                  {!clientesPuntosCargando && !errorPuntos && clientesPuntos.length === 0 && (
+                    <p className="p-8 text-center text-xs text-slate-500">No se encontraron clientes.</p>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+                <span className="text-[9px] text-slate-500">
+                  Página {paginaClientesPuntos} de {Math.max(1, Math.ceil(clientesPuntosTotal / 20))}
+                </span>
+                <div className="flex gap-1">
+                  <button onClick={() => setPaginaClientesPuntos((actual) => actual - 1)}
+                    disabled={paginaClientesPuntos <= 1 || clientesPuntosCargando}
+                    className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setPaginaClientesPuntos((actual) => actual + 1)}
+                    disabled={paginaClientesPuntos >= Math.ceil(clientesPuntosTotal / 20) || clientesPuntosCargando}
+                    className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="card p-5">
+              <h2 className="font-heading text-base font-black text-slate-950">Ajustar saldo</h2>
+              {!clientePuntosSeleccionado ? (
+                <div className="mt-8 text-center">
+                  <Gift className="mx-auto h-8 w-8 text-cyan-600" />
+                  <p className="mt-2 text-xs text-slate-500">Selecciona un cliente para consultar su saldo y registrar un ajuste.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="mt-4 rounded-xl bg-cyan-50 p-4">
+                    <p className="text-xs font-bold text-slate-800">{clientePuntosSeleccionado.nombre}</p>
+                    <p className="mt-1 text-[10px] text-slate-500">{clientePuntosSeleccionado.correo}</p>
+                    <div className="mt-3 flex items-end justify-between">
+                      <span className="text-[10px] text-slate-600">Saldo actual</span>
+                      <strong className="font-heading text-2xl font-black text-cyan-800">{clientePuntosSeleccionado.puntos_saldo} pts</strong>
+                    </div>
+                    <p className="text-right text-[9px] text-slate-500">Nivel {clientePuntosSeleccionado.nivel_fidelizacion}</p>
+                  </div>
+                  <form onSubmit={guardarAjustePuntos} className="mt-4 space-y-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold text-slate-600">Ajuste de puntos</label>
+                      <input type="number" step="1" required value={ajustePuntos}
+                        onChange={(e) => setAjustePuntos(e.target.value)} className={input}
+                        placeholder="Ej. 50 para sumar o -20 para descontar" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold text-slate-600">Motivo (queda registrado)</label>
+                      <textarea required minLength={3} maxLength={255} rows={3}
+                        value={motivoAjustePuntos} onChange={(e) => setMotivoAjustePuntos(e.target.value)}
+                        className={input + ' resize-none'} placeholder="Describe la razón del ajuste" />
+                    </div>
+                    {errorAjustePuntos && <p className="rounded-lg bg-rose-50 p-2.5 text-[10px] font-semibold text-rose-700">{errorAjustePuntos}</p>}
+                    <button type="submit" disabled={guardandoAjustePuntos}
+                      className="w-full rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-black text-[#06232A] transition hover:bg-cyan-400 disabled:opacity-50">
+                      {guardandoAjustePuntos ? 'Guardando…' : 'Registrar ajuste'}
+                    </button>
+                  </form>
+                </>
+              )}
+            </section>
+          </div>
+        )}
+
+        {seccion === 'facturacion' && (
+          <div className="anim-aparecer space-y-4">
+            {errorFacturas && (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                <span>{errorFacturas}</span>
+                <button onClick={() => {
+                  void cargarFacturas();
+                  setRevisionFacturas((revision) => revision + 1);
+                }} className="font-black underline">Reintentar</button>
+              </div>
+            )}
+            <section className="card overflow-hidden">
+              <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                  <input value={busquedaFacturas} onChange={(e) => { setBusquedaFacturas(e.target.value); setPaginaFacturas(1); }}
+                    placeholder="Buscar por factura, cliente o código de cita" className={input + ' pl-10'} />
+                </div>
+                <select value={estadoFacturas} onChange={(e) => {
+                  setEstadoFacturas(e.target.value as 'todas' | EstadoFacturaAdmin);
+                  setPaginaFacturas(1);
+                }} className={input + ' lg:w-48'}>
+                  <option value="todas">Todos los estados</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="pagada">Pagada</option>
+                  <option value="anulada">Anulada</option>
+                  <option value="reembolsada">Reembolsada</option>
+                </select>
+                <button onClick={() => {
+                  void cargarFacturas();
+                  setRevisionFacturas((revision) => revision + 1);
+                }} disabled={facturasCargando}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                  {facturasCargando ? 'Actualizando…' : 'Actualizar'}
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[780px] text-left text-xs">
+                  <thead className="bg-slate-50 text-[9px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="p-3">Factura</th><th className="p-3">Cliente / servicio</th>
+                      <th className="p-3">Emisión</th><th className="p-3">Total</th>
+                      <th className="p-3">Estado</th><th className="p-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {facturas.map((factura) => (
+                      <tr key={factura.id_factura} className="hover:bg-slate-50">
+                        <td className="p-3">
+                          <strong className="block text-slate-900">{factura.numero_factura}</strong>
+                          <span className="text-[9px] text-slate-500">{factura.metodo_pago}</span>
+                        </td>
+                        <td className="p-3">
+                          <strong className="block text-slate-800">{factura.cliente_nombre ?? 'Cliente'}</strong>
+                          <span className="text-[9px] text-slate-500">{factura.servicio_nombre ?? 'Servicio'}</span>
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {factura.fecha_emision ? fechaLarga(factura.fecha_emision.slice(0, 10)) : '—'}
+                        </td>
+                        <td className="p-3 font-black text-slate-900">{formatoCOP(factura.total)}</td>
+                        <td className="p-3">
+                          <span className={`rounded-full px-2.5 py-1 text-[9px] font-bold ${
+                            factura.estado_pago === 'pagada' ? 'bg-emerald-100 text-emerald-800'
+                            : factura.estado_pago === 'pendiente' ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-600'
+                          }`}>{factura.estado_pago}</span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex justify-end gap-1.5">
+                            {factura.estado_pago === 'pendiente' && (
+                              <button onClick={() => {
+                                setFacturaPago(factura);
+                                setMetodoPago(factura.metodo_pago);
+                                setErrorAccionFactura('');
+                              }} className="rounded-lg bg-cyan-100 px-2.5 py-1.5 text-[9px] font-black text-cyan-900 hover:bg-cyan-200">
+                                Registrar pago
+                              </button>
+                            )}
+                            {!['anulada', 'reembolsada'].includes(factura.estado_pago) && (
+                              <button onClick={() => {
+                                setFacturaAnular(factura);
+                                setMotivoAnulacion('');
+                                setErrorAccionFactura('');
+                              }} title={factura.estado_pago === 'pagada' ? 'Anular y registrar reembolso' : 'Anular factura'}
+                                className="rounded-lg border border-rose-200 p-1.5 text-rose-700 hover:bg-rose-50">
+                                <Ban className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!facturasCargando && facturas.length === 0 && (
+                      <tr><td colSpan={6} className="p-10 text-center text-slate-500">No hay facturas que coincidan con los filtros.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+                {facturasCargando && <p className="p-8 text-center text-xs text-slate-500">Cargando facturas…</p>}
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+                <span className="text-[10px] text-slate-500">
+                  {totalFacturas} factura(s) · página {paginaFacturas} de {totalPaginasFacturas}
+                </span>
+                <div className="flex gap-1">
+                  <button onClick={() => setPaginaFacturas((actual) => actual - 1)} disabled={paginaFacturas <= 1 || facturasCargando}
+                    className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+                  <button onClick={() => setPaginaFacturas((actual) => actual + 1)} disabled={paginaFacturas >= totalPaginasFacturas || facturasCargando}
+                    className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+                </div>
+              </div>
+            </section>
+
+            <section className="card p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-heading text-sm font-black text-slate-950">Citas completadas por facturar</h2>
+                  <p className="mt-1 text-[10px] text-slate-500">Solo se pueden emitir facturas para citas completadas que aún no tengan una.</p>
+                </div>
+                <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[10px] font-black text-cyan-800">{citasFacturables.length}</span>
+              </div>
+              <div className="mt-3 divide-y divide-slate-100">
+                {citasFacturables.slice(0, 5).map((cita) => (
+                  <div key={cita.id_cita} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">{cita.cliente_nombre} · {cita.servicio_nombre}</p>
+                      <p className="text-[9px] text-slate-500">{cita.codigo_reserva} · {fechaLarga(cita.fecha)} · {formatoCOP(cita.precio_total)}</p>
+                    </div>
+                    <button onClick={() => {
+                      setCitaFacturar(cita);
+                      setMetodoNuevaFactura('efectivo');
+                      setErrorAccionFactura('');
+                    }} className="rounded-lg bg-slate-950 px-3 py-1.5 text-[9px] font-black text-white hover:bg-slate-800">
+                      Emitir factura
+                    </button>
+                  </div>
+                ))}
+                {citasFacturables.length === 0 && <p className="py-4 text-center text-[10px] text-slate-500">No hay citas pendientes de facturación.</p>}
+              </div>
+            </section>
+          </div>
+        )}
+        </main>
       </div>
 
       {/* MODAL NUEVO PERFIL INTERNO */}
@@ -856,6 +1666,118 @@ export const PanelAdmin: React.FC = () => {
               </select>
               <textarea rows={2} value={sDesc} onChange={(e) => setSDesc(e.target.value)} placeholder="Descripción" className={input + ' resize-none'} />
               <button type="submit" className="btn-primario w-full rounded-2xl py-3 text-sm font-black">Guardar servicio</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {citaFacturar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="modal-emitir-factura"
+            className="anim-zoom card w-full max-w-md overflow-hidden">
+            <div className="flex items-start justify-between bg-cyan-500 px-5 py-4 text-[#06232A]">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-widest">Cita completada</p>
+                <h2 id="modal-emitir-factura" className="font-heading text-lg font-black">Emitir factura</h2>
+              </div>
+              <button onClick={() => setCitaFacturar(null)} aria-label="Cerrar"
+                className="rounded-full bg-black/10 p-1.5 hover:bg-black/20"><X className="h-4 w-4" /></button>
+            </div>
+            <form onSubmit={emitirFactura} className="space-y-4 p-5">
+              <div className="rounded-xl bg-slate-50 p-3 text-xs">
+                <p className="font-bold text-slate-900">{citaFacturar.cliente_nombre} · {citaFacturar.servicio_nombre}</p>
+                <p className="mt-1 text-slate-500">{citaFacturar.codigo_reserva} · {formatoCOP(citaFacturar.precio_total)}</p>
+              </div>
+              {errorAccionFactura && <p className="rounded-lg bg-rose-50 p-2.5 text-[10px] font-semibold text-rose-700">{errorAccionFactura}</p>}
+              <div>
+                <label className="mb-1 block text-[10px] font-bold text-slate-600">Medio de pago esperado</label>
+                <select value={metodoNuevaFactura} onChange={(e) => setMetodoNuevaFactura(e.target.value as MetodoPagoAdmin)} className={input}>
+                  {METODOS_PAGO.map((metodo) => <option key={metodo} value={metodo}>{metodo}</option>)}
+                </select>
+                <p className="mt-1 text-[9px] text-slate-500">La factura quedará pendiente hasta registrar el pago.</p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setCitaFacturar(null)}
+                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600">Cancelar</button>
+                <button type="submit" disabled={guardandoFactura}
+                  className="flex-1 rounded-xl bg-slate-950 py-2.5 text-xs font-black text-white disabled:opacity-50">
+                  {guardandoFactura ? 'Emitiendo…' : 'Emitir factura'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {facturaPago && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="modal-registrar-pago"
+            className="anim-zoom card w-full max-w-md overflow-hidden">
+            <div className="flex items-start justify-between bg-cyan-500 px-5 py-4 text-[#06232A]">
+              <div>
+                <p className="text-[9px] font-bold uppercase tracking-widest">{facturaPago.numero_factura}</p>
+                <h2 id="modal-registrar-pago" className="font-heading text-lg font-black">Registrar pago</h2>
+              </div>
+              <button onClick={() => setFacturaPago(null)} aria-label="Cerrar"
+                className="rounded-full bg-black/10 p-1.5 hover:bg-black/20"><X className="h-4 w-4" /></button>
+            </div>
+            <form onSubmit={registrarPagoFactura} className="space-y-4 p-5">
+              <p className="text-sm text-slate-600">Confirma el pago de <strong className="text-slate-950">{formatoCOP(facturaPago.total)}</strong>.</p>
+              {errorAccionFactura && <p className="rounded-lg bg-rose-50 p-2.5 text-[10px] font-semibold text-rose-700">{errorAccionFactura}</p>}
+              <div>
+                <label className="mb-1 block text-[10px] font-bold text-slate-600">Medio de pago recibido</label>
+                <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value as MetodoPagoAdmin)} className={input}>
+                  {METODOS_PAGO.map((metodo) => <option key={metodo} value={metodo}>{metodo}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setFacturaPago(null)}
+                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600">Cancelar</button>
+                <button type="submit" disabled={guardandoFactura}
+                  className="flex-1 rounded-xl bg-cyan-500 py-2.5 text-xs font-black text-[#06232A] disabled:opacity-50">
+                  {guardandoFactura ? 'Guardando…' : 'Confirmar pago'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {facturaAnular && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="modal-anular-factura"
+            className="anim-zoom card w-full max-w-md overflow-hidden">
+            <div className="flex items-start justify-between bg-rose-100 px-5 py-4 text-rose-950">
+              <div>
+                <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest"><XCircle className="h-3 w-3" /> {facturaAnular.numero_factura}</p>
+                <h2 id="modal-anular-factura" className="font-heading text-lg font-black">
+                  {facturaAnular.estado_pago === 'pagada' ? 'Anular y reembolsar' : 'Anular factura'}
+                </h2>
+              </div>
+              <button onClick={() => setFacturaAnular(null)} aria-label="Cerrar"
+                className="rounded-full bg-rose-900/10 p-1.5 hover:bg-rose-900/20"><X className="h-4 w-4" /></button>
+            </div>
+            <form onSubmit={anularFactura} className="space-y-4 p-5">
+              <p className="text-xs text-slate-600">
+                {facturaAnular.estado_pago === 'pagada'
+                  ? 'Esta factura quedará marcada como reembolsada. Registra el motivo para auditoría.'
+                  : 'La factura quedará anulada. Registra el motivo para auditoría.'}
+              </p>
+              {errorAccionFactura && <p className="rounded-lg bg-rose-50 p-2.5 text-[10px] font-semibold text-rose-700">{errorAccionFactura}</p>}
+              <div>
+                <label className="mb-1 block text-[10px] font-bold text-slate-600">Motivo de anulación</label>
+                <textarea required minLength={3} maxLength={255} rows={3} value={motivoAnulacion}
+                  onChange={(e) => setMotivoAnulacion(e.target.value)} className={input + ' resize-none'}
+                  placeholder="Motivo (requerido)" />
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setFacturaAnular(null)}
+                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600">Volver</button>
+                <button type="submit" disabled={guardandoFactura}
+                  className="flex-1 rounded-xl bg-rose-700 py-2.5 text-xs font-black text-white disabled:opacity-50">
+                  {guardandoFactura ? 'Anulando…' : 'Confirmar anulación'}
+                </button>
+              </div>
             </form>
           </div>
         </div>

@@ -5,7 +5,7 @@ import re
 import pytest
 
 from app.core import security
-from app.services import puntos_service
+from app.services import email_service, puntos_service
 from app.utils.paginacion import offset_de, paginar
 
 
@@ -74,6 +74,16 @@ class TestTokens:
     def test_token_basura_es_rechazado(self):
         with pytest.raises(security.TokenInvalido):
             security.decodificar_token("esto.no.es.un.jwt", "access")
+
+
+class TestProgresoNivel:
+    def test_progreso_se_calcula_en_el_intervalo_del_nivel_actual(self, monkeypatch):
+        monkeypatch.setattr(puntos_service.settings, "NIVEL_PLATA_DESDE", 100)
+        monkeypatch.setattr(puntos_service.settings, "NIVEL_ORO_DESDE", 250)
+        monkeypatch.setattr(puntos_service.settings, "NIVEL_DIAMANTE_DESDE", 500)
+
+        assert puntos_service._progreso_nivel(175) == 50
+        assert puntos_service._progreso_nivel(500) == 100
 
 
 # ----------------------------------------------------------------------
@@ -179,3 +189,25 @@ class TestConfiguracion:
 
     def test_bcrypt_rounds_seguro(self, settings):
         assert settings.BCRYPT_ROUNDS >= 10
+
+
+# ----------------------------------------------------------------------
+# Plantilla de correo
+# ----------------------------------------------------------------------
+
+class TestPlantillaEmail:
+    def test_plantilla_usa_logo_incrustado_y_modo_oscuro(self):
+        html = email_service._plantilla_base(
+            "Seguridad de la cuenta", "<p>Restablecer contraseña</p>"
+        )
+        mensaje = email_service._crear_mensaje("cliente@example.com", "Prueba", html, "Texto")
+        partes = list(mensaje.walk())
+        logo = next(parte for parte in partes if parte.get_content_type() == "image/png")
+
+        assert 'src="cid:globde-logo"' in html
+        assert mensaje.get_content_type() == "multipart/related"
+        assert logo["Content-ID"] == "<globde-logo>"
+        assert logo["Content-Disposition"] == "inline"
+        assert '<meta name="color-scheme" content="light dark">' in html
+        assert "@media (prefers-color-scheme:dark)" in html
+        assert "Restablecer contraseña" in html

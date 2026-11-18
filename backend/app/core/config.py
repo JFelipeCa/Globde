@@ -114,6 +114,8 @@ class Settings:
             "charset": "utf8mb4",
             "collation": "utf8mb4_unicode_ci",
             "connection_timeout": self.DB_CONNECT_TIMEOUT,
+            "read_timeout": 10,
+            "write_timeout": 10,
             "autocommit": False,
             "time_zone": "+00:00",
         }

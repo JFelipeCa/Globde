@@ -74,8 +74,8 @@ export const QuizModal: React.FC = () => {
     <div className="grid grid-cols-2 gap-2.5">
       {items.map((o) => (
         <button key={o} onClick={() => { set(o); setPaso(next); }}
-          className={`rounded-2xl border p-3.5 text-left text-sm font-bold transition hover:-translate-y-0.5 hover:border-amber-400/60 ${
-            valor === o ? 'border-amber-400 bg-amber-400/10 text-amber-700' : 'border-white/10 bg-[#141A21] text-[#C6D0DC]'
+          className={`rounded-2xl border p-3.5 text-left text-sm font-bold transition hover:-translate-y-0.5 hover:border-neutral-900 ${
+            valor === o ? 'border-neutral-900 bg-amber-400/10 text-amber-700' : 'border-white/10 bg-[#141A21] text-[#C6D0DC]'
           }`}>
           {o}
         </button>
@@ -235,7 +235,30 @@ export const EsperaModal: React.FC = () => {
    PIE DE PÁGINA
    ========================================================= */
 export const Footer: React.FC = () => {
-  const { irA, abrirReserva, setEsperaAbierta } = useApp();
+  const { irA, abrirReserva, setEsperaAbierta, vista } = useApp();
+
+  if (vista === 'panel-cliente') {
+    return (
+      <footer className="panel-cliente-footer border-t border-[#e6e9e3] bg-white text-[#172124]">
+        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:grid-cols-3 sm:px-6 lg:px-8">
+          <div>
+            <p className="font-heading text-sm font-black leading-none">GLOBDE</p>
+            <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.2em] text-[#18899a]">Barber Gestor</p>
+            <p className="mt-2 text-[9px] leading-relaxed text-[#65716d]">Estilo y cuidado personal en Bogotá.</p>
+          </div>
+          <div>
+            <h2 className="text-[9px] font-black uppercase tracking-wider text-[#394642]">Horarios</h2>
+            <p className="mt-2 text-[9px] leading-relaxed text-[#65716d]">Lun–Vie 8:00 a. m.–8:00 p. m.<br />Sábados 8:00 a. m.–3:00 p. m.</p>
+          </div>
+          <div>
+            <h2 className="text-[9px] font-black uppercase tracking-wider text-[#394642]">Contacto</h2>
+            <p className="mt-2 text-[9px] leading-relaxed text-[#65716d]">Calle 85 #14-20, Bogotá<br />+57 312 456 7890</p>
+          </div>
+        </div>
+        <p className="border-t border-[#edf0ec] py-2 text-center text-[8px] text-[#87918c]">© 2026 Globde Barber Studio</p>
+      </footer>
+    );
+  }
 
   return (
     <footer className="border-t border-white/8 bg-[#141A21]">
@@ -243,7 +266,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0F151C] ring-1 ring-amber-400/40">
+              <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#0F151C] ring-1 ring-neutral-900/30">
                 <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
               </span>
               <span>

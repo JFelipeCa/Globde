@@ -1,3 +1,9 @@
+<!--
+  ¿Qué? Documentación técnica de la API backend de GLOBDE.
+  ¿Para qué? Explica su configuración, uso, pruebas y controles de seguridad.
+  ¿Impacto? Sin esta guía, operar y mantener la API sería más propenso a errores.
+-->
+
 # GLOBDE API — Backend v2
 
 API REST de la barbería GLOBDE. El esquema de base de datos lo gestionan las
@@ -220,7 +226,27 @@ Consultables por un administrador en `/api/auditoria`.
 
 ---
 
-## 9. Notas de seguridad
+## 9. Correo SMTP sin costo adicional
+
+Para desarrollo o un volumen bajo, se puede usar Gmail SMTP sin contratar otro
+proveedor. Activa la verificación en dos pasos de la cuenta y genera una
+contraseña de aplicación de Google; no uses ni guardes la contraseña normal de
+Gmail en la aplicación. Configura `SMTP_USER` y `SMTP_FROM` con la misma
+dirección, `SMTP_PASSWORD` con la contraseña de aplicación, y
+`EMAIL_ENABLED=true`. Mantén las credenciales solo en el `.env` local o en los
+secretos del entorno de despliegue.
+
+El backend muestra `GLOBDE Barber Gestor` como nombre del remitente, sin
+cambiar la dirección autenticada. Gmail gestiona SPF y DKIM para sus propios
+dominios; usar una cuenta `@gmail.com` no permite publicar registros DNS de
+GLOBDE. La entrega a la bandeja de entrada no se puede garantizar: evita
+envíos masivos y revisa “Mostrar original” en Gmail si un mensaje acaba en
+spam. El logo se adjunta dentro del mensaje, por lo que no depende de imágenes
+externas que el cliente de correo pueda bloquear.
+
+---
+
+## 10. Notas de seguridad
 
 - Las contraseñas se guardan con bcrypt (12 rondas); nunca en texto plano.
 - De los tokens de recuperación solo se persiste el hash SHA-256.
@@ -231,7 +257,7 @@ Consultables por un administrador en `/api/auditoria`.
 
 ---
 
-## 10. Compatibilidad con el frontend v1
+## 11. Compatibilidad con el frontend v1
 
 El frontend del proyecto fue escrito contra la primera versión de la API. Para
 no modificarlo, `app/routers/legacy.py` traduce sus cuatro llamadas al

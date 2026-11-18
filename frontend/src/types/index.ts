@@ -20,6 +20,7 @@ export interface Usuario {
   id_cliente?: number;
   /** PK de la tabla `barberos`. No coincide con id_usuario. */
   id_barbero?: number;
+  id_barbero_favorito?: number | null;
 }
 
 export interface UsuarioInternoCreate {

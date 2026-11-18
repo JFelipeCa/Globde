@@ -21,6 +21,11 @@ class UsuarioOut(ModeloBase):
     email_verificado_at: str | None = None
     ultimo_login_at: str | None = None
     creado_en: str | None = None
+    id_barbero_favorito: int | None = None
+
+
+class BarberoFavoritoUpdate(ModeloBase):
+    id_barbero: int | None
 
 
 class UsuarioInternoCreate(ModeloBase):

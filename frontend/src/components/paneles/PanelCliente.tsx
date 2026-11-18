@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  CalendarDays, Crown, Plus, QrCode, Star, Timer, Ban, Check,
-  RotateCcw, CircleAlert, Gift, History, Hourglass, X, Eye, Sparkles, Camera,
+  CalendarDays, Plus, QrCode, Star, Timer, Ban, Check,
+  RotateCcw, CircleAlert, History, Hourglass, X, Eye, Sparkles, Camera, Heart,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import type { Cita } from '../../types';
+import type { Cita, Servicio, PremioFidelidad, NivelFidelizacion } from '../../types';
+import { apiRequest } from '../../utils/apiClient';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
   hoyISO, sumarDiasISO, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape, desglosarFecha,
 } from '../../utils/helpers';
+import { CodigoQRReserva } from '../ui/CodigoQRReserva';
+
+const SERVICIOS_RAPIDOS = [
+  'Mid Skin Fade + Crop Texturizado',
+  'Low Taper con Barba Integrada',
+  'Pompadour Moderno con Drop Fade',
+  'Buzz Cut con Line-up a Navaja',
+] as const;
 
 const MOTIVOS = [
   'Me surgió un imprevisto',
@@ -18,13 +27,24 @@ const MOTIVOS = [
   'Otro motivo',
 ];
 
+interface SaldoFidelizacion {
+  puntos_saldo: number;
+  nivel_fidelizacion: NivelFidelizacion;
+  proximo_nivel: NivelFidelizacion | null;
+  puntos_para_proximo_nivel: number | null;
+  progreso_nivel: number;
+}
+
 export const PanelCliente: React.FC = () => {
   const {
-    usuario, citas, barberos, abrirReserva, verTicket, cancelarCita,
+    usuario, citas, servicios, barberos, abrirReserva, verTicket, cancelarCita,
     editarCita, calificarCita, actualizarAvatar, setEsperaAbierta, irA, listaEspera, franjasOcupadas,
+    setQuizAbierto, actualizarBarberoFavorito, premios,
   } = useApp();
 
-  const [tab, setTab] = useState<'proximas' | 'historial' | 'espera'>('proximas');
+  const [tab, setTab] = useState<'resumen' | 'proximas' | 'historial' | 'espera'>('resumen');
+  const [saldoFidelizacion, setSaldoFidelizacion] = useState<SaldoFidelizacion | null>(null);
+  const [errorSaldo, setErrorSaldo] = useState('');
   const [aCancelar, setACancelar] = useState<Cita | null>(null);
   const [motivo, setMotivo] = useState(MOTIVOS[0]);
   const [aReprogramar, setAReprogramar] = useState<Cita | null>(null);
@@ -36,13 +56,74 @@ export const PanelCliente: React.FC = () => {
   const [aviso, setAviso] = useState('');
   const [error, setError] = useState('');
   const [subiendoAvatar, setSubiendoAvatar] = useState(false);
+  const [actualizandoFavorito, setActualizandoFavorito] = useState(false);
+  const [errorFavorito, setErrorFavorito] = useState('');
+  const idUsuario = usuario?.id_usuario;
+  const rolUsuario = usuario?.id_rol;
+
+  useEffect(() => {
+    let vigente = true;
+    if (rolUsuario !== 3) {
+      setSaldoFidelizacion(null);
+      setErrorSaldo('');
+      return () => { vigente = false; };
+    }
+
+    apiRequest<SaldoFidelizacion>('/puntos/saldo')
+      .then((saldo) => {
+        if (vigente) {
+          setSaldoFidelizacion(saldo);
+          setErrorSaldo('');
+        }
+      })
+      .catch((causa: unknown) => {
+        if (vigente) {
+          setErrorSaldo('No se pudo actualizar tu saldo de puntos.');
+          console.error('Error al consultar el saldo de fidelización:', causa);
+        }
+      });
+
+    return () => { vigente = false; };
+  }, [idUsuario, rolUsuario]);
 
   const mias = citas.filter((c) => c.id_cliente === usuario?.id_usuario || c.cliente_correo === usuario?.correo);
   const proximas = mias.filter((c) => ['pendiente', 'confirmada', 'en_atencion'].includes(c.estado));
+  const proximasOrdenadas = [...proximas].sort((a, b) =>
+    `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`),
+  );
+  const citaProxima = proximasOrdenadas[0];
   const historial = mias.filter((c) => ['completada', 'cancelada', 'no_asistio'].includes(c.estado));
+  const historialOrdenado = [...historial].sort((a, b) =>
+    `${b.fecha} ${b.hora_inicio}`.localeCompare(`${a.fecha} ${a.hora_inicio}`),
+  );
+  const historialReciente = historialOrdenado.slice(0, 2);
   const misEsperas = listaEspera.filter((e) => e.id_cliente === usuario?.id_usuario);
+  const barberoFavorito = barberos.find((b) => b.id_barbero === usuario?.id_barbero_favorito);
+  const barberoTarjeta = barberoFavorito
+    ?? barberos.find((b) => b.id_barbero === citaProxima?.id_barbero)
+    ?? barberos.find((b) => b.id_barbero === historialOrdenado[0]?.id_barbero);
+  const serviciosRapidos = SERVICIOS_RAPIDOS
+    .map((nombre) => servicios.find((s) => s.nombre === nombre))
+    .filter((s): s is Servicio => Boolean(s));
+  const saldoActual = saldoFidelizacion?.puntos_saldo ?? usuario?.puntos ?? 0;
+  const nivelActual = saldoFidelizacion?.nivel_fidelizacion ?? usuario?.nivel_fidelizacion ?? 'Bronce';
+  const premiosVisibles = [...premios].sort((a, b) => a.costo_puntos - b.costo_puntos).slice(0, 2);
+  const puntosCitaProxima = servicios.find((s) => s.id_servicio === citaProxima?.id_servicio)?.puntos_otorga;
 
   const mostrarAviso = (t: string) => { setAviso(t); setTimeout(() => setAviso(''), 4500); };
+
+  const guardarBarberoFavorito = async (valor: string) => {
+    setActualizandoFavorito(true);
+    setErrorFavorito('');
+    const idBarbero = valor ? Number(valor) : null;
+    const resultado = await actualizarBarberoFavorito(idBarbero);
+    setActualizandoFavorito(false);
+    if (!resultado.ok) {
+      setErrorFavorito(resultado.mensaje);
+      return;
+    }
+    mostrarAviso(idBarbero === null ? 'Se eliminó tu barbero favorito.' : 'Tu barbero favorito quedó guardado.');
+  };
 
   const seleccionarAvatar = async (evento: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = evento.target.files?.[0];
@@ -101,65 +182,243 @@ export const PanelCliente: React.FC = () => {
   const inputCls = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-400/15';
 
   return (
-    <div className="min-h-[70vh] bg-[#0B0F14] py-10">
-      <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-        {/* Encabezado */}
-        <div className="card overflow-hidden">
-          <div className="flex flex-col items-start gap-5 malla-suave p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-            <div className="flex items-center gap-4">
-      <div className="relative shrink-0">
-      {usuario?.avatar_url
-        ? <img src={usuario.avatar_url} alt="Foto de perfil" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
-        : <span className="avatar-respaldo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl font-heading text-2xl font-black text-[#06232A] shadow-md ring-1 ring-cyan-300/60 sm:h-20 sm:w-20 sm:text-3xl">
-      {(usuario?.nombre.trim()[0] ?? '?').toUpperCase()}
-    </span>}
-        <label className="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-[#0B0F14] bg-amber-400 text-[#1A1400] shadow-lg transition hover:bg-amber-300" title="Cambiar foto de perfil">
-          <Camera className="h-4 w-4" />
-          <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={seleccionarAvatar} disabled={subiendoAvatar} />
-        </label>
-      </div>
-              <div>
-                <h1 className="font-heading text-2xl font-black text-[#EAF0F6] sm:text-3xl">
-                  ¡Hola, {usuario?.nombre.split(' ')[0]}! 💈
-                </h1>
-                <p className="text-sm text-[#93A1B1]">Gestiona tus citas, cancela o reprograma cuando quieras.</p>
-                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-3 py-1 text-xs font-black text-amber-300">
-                  <Crown className="h-3.5 w-3.5" /> {usuario?.puntos} pts · Nivel {usuario?.nivel_fidelizacion}
-                </span>
-              </div>
+    <div className="panel-cliente-dashboard min-h-[70vh] bg-[#f7f8f4] py-5 text-[#172124]">
+      <div className="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
+        <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6e9e3] bg-gradient-to-r from-[#f7f2e7] to-[#e2f5f4] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative shrink-0">
+              {usuario?.avatar_url
+                ? <img src={usuario.avatar_url} alt="Foto de perfil" className="h-11 w-11 rounded-full object-cover" />
+                : <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#55d7e5] text-lg font-black text-[#12383c]">
+                    {(usuario?.nombre.trim()[0] ?? '?').toUpperCase()}
+                  </span>}
+              <label className="absolute -bottom-1 -right-1 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#172124] text-white" title="Cambiar foto de perfil">
+                <Camera className="h-3 w-3" />
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={seleccionarAvatar} disabled={subiendoAvatar} />
+              </label>
             </div>
-            <div className="flex w-full gap-2 sm:w-auto">
-              <button onClick={() => abrirReserva()} className="btn-primario flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black sm:flex-none">
-                <Plus className="h-4 w-4" /> Nueva cita
-              </button>
-              <button onClick={() => irA('fidelizacion')} className="flex items-center justify-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-400/20">
-                <Gift className="h-4 w-4" /> Premios
-              </button>
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#66716d]">Bienvenido de nuevo</p>
+              <h1 className="truncate font-heading text-lg font-black leading-tight text-[#172124]">Hola, {usuario?.nombre.split(' ')[0]}</h1>
+              <p className="text-[10px] text-[#5d6965]">Tu estilo, tus citas y tus beneficios.</p>
             </div>
           </div>
-        </div>
+          <div className="flex gap-2">
+            {[
+              { label: 'Puntos', value: saldoActual, action: () => irA('fidelizacion') },
+              { label: 'Próximas', value: proximas.length, action: () => setTab('proximas') },
+              { label: 'Historial', value: historial.length, action: () => setTab('historial') },
+            ].map((dato) => (
+              <button key={dato.label} onClick={dato.action} className="min-w-[58px] rounded-lg border border-white/70 bg-white/70 px-2 py-1.5 text-center transition hover:bg-white">
+                <span className="block text-sm font-black leading-none text-[#172124]">{dato.value}</span>
+                <span className="mt-1 block text-[8px] font-semibold text-[#66716d]">{dato.label}</span>
+              </button>
+            ))}
+          </div>
+        </header>
 
         {aviso && (
-          <div className="anim-aparecer flex items-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3.5 text-sm font-bold text-emerald-300">
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-bold text-emerald-800">
             <Check className="h-4 w-4" /> {aviso}
           </div>
         )}
 
+        <section className="grid gap-5 md:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.9fr)]">
+          <div className="space-y-3">
+            <section id="mis-citas" className="overflow-hidden rounded-xl border border-[#e4e8e2] bg-white shadow-sm">
+              <div className="flex items-center justify-between px-3.5 pb-2 pt-3">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#6a7772]">Tu agenda</p>
+                  <h2 className="font-heading text-sm font-black text-[#172124]">Próxima cita</h2>
+                </div>
+                <button onClick={() => setTab('proximas')} className="text-[9px] font-bold text-[#18899a] hover:underline">Ver todas</button>
+              </div>
+              {citaProxima ? (
+                <div className="grid min-h-[94px] grid-cols-[82px_minmax(0,1fr)] sm:grid-cols-[100px_minmax(0,1fr)_68px]">
+                  <div className="flex flex-col items-center justify-center bg-[#55d7e5] px-2 py-3 text-center text-[#12383c]">
+                    <span className="text-[8px] font-black uppercase tracking-wider">{desglosarFecha(citaProxima.fecha).diaSemanaCorto}</span>
+                    <span className="font-heading text-2xl font-black leading-none">{desglosarFecha(citaProxima.fecha).dia}</span>
+                    <span className="mt-1 text-[9px] font-bold uppercase">{desglosarFecha(citaProxima.fecha).mesCorto}</span>
+                    <span className="mt-1 text-[9px] font-bold">{hora12(citaProxima.hora_inicio)}</span>
+                  </div>
+                  <div className="flex min-w-0 flex-col justify-center px-3 py-2">
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#75817c]">{citaProxima.codigo_reserva} · {citaProxima.estado === 'confirmada' ? 'Confirmada' : 'Pendiente'}</span>
+                    <p className="mt-0.5 truncate text-xs font-black text-[#172124]">{citaProxima.servicio_nombre}</p>
+                    <p className="truncate text-[10px] text-[#65716d]">Con {citaProxima.barbero_nombre} · {rangoHorario(citaProxima.hora_inicio, citaProxima.hora_fin)}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button onClick={() => verTicket(citaProxima)} className="rounded-md bg-[#172124] px-2 py-1 text-[9px] font-bold text-white">Pase QR</button>
+                      <button onClick={() => { setAReprogramar(citaProxima); setNFecha(citaProxima.fecha); setNHora(''); setError(''); }} className="rounded-md border border-[#dce4e1] px-2 py-1 text-[9px] font-bold text-[#273532]">Reprogramar</button>
+                    </div>
+                  </div>
+                  <div className="hidden items-center justify-center pr-2 sm:flex">
+                    <button onClick={() => verTicket(citaProxima)} className="rounded-md border border-[#e7eae6] bg-white p-1.5" aria-label="Ver pase QR">
+                      <CodigoQRReserva codigo={citaProxima.codigo_reserva} tamano={52} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3 bg-[#f8faf8] px-4 py-4">
+                  <p className="text-xs text-[#65716d]">Todavía no tienes una cita programada.</p>
+                  <button onClick={() => abrirReserva()} className="shrink-0 rounded-md bg-[#172124] px-3 py-2 text-[10px] font-bold text-white">Reservar cita</button>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#6a7772]">Reserva rápida</p>
+                  <h2 className="font-heading text-sm font-black text-[#172124]">Elige tu próximo corte</h2>
+                </div>
+                <button onClick={() => irA('catalogo')} className="text-[9px] font-bold text-[#18899a] hover:underline">Catálogo</button>
+              </div>
+              {serviciosRapidos.length ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {serviciosRapidos.map((servicio, indice) => (
+                    <article key={servicio.id_servicio} className="flex min-w-0 items-center gap-2 rounded-lg border border-[#edf0ec] p-2">
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-lg ${['bg-[#e9f4f3]', 'bg-[#f5efe7]', 'bg-[#edf1f8]', 'bg-[#f7eeee]'][indice % 4]}`}>{servicio.icono}</span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="line-clamp-1 text-[10px] font-black text-[#172124]">{servicio.nombre}</h3>
+                        <p className="text-[9px] text-[#65716d]">{duracionLegible(servicio.duracion_minutos)} · {formatoCOP(servicio.precio)}</p>
+                      </div>
+                      <button onClick={() => abrirReserva({ servicioId: servicio.id_servicio, barberoId: usuario?.id_barbero_favorito ?? undefined })} className="shrink-0 rounded-md bg-[#f0f3f0] px-2 py-1.5 text-[9px] font-bold text-[#263532] hover:bg-[#dff6f7]">Reservar</button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-lg bg-[#f8faf8] p-3 text-[10px] text-[#65716d]">Los servicios destacados no están disponibles en el catálogo activo.</p>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#6a7772]">Tus visitas</p>
+                  <h2 className="font-heading text-sm font-black text-[#172124]">Historial reciente</h2>
+                </div>
+                <button onClick={() => setTab('historial')} className="text-[9px] font-bold text-[#18899a] hover:underline">Ver historial</button>
+              </div>
+              {historialReciente.length ? (
+                <div className="divide-y divide-[#edf0ec]">
+                  {historialReciente.map((cita) => (
+                    <div key={cita.id_cita} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#f2f4f0] text-sm">✂</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[10px] font-bold text-[#172124]">{cita.servicio_nombre}</p>
+                        <p className="text-[9px] text-[#65716d]">{fechaLarga(cita.fecha)} · {cita.barbero_nombre}</p>
+                      </div>
+                      <button onClick={() => abrirReserva({ servicioId: cita.id_servicio, barberoId: cita.id_barbero })} className="rounded-md border border-[#dce4e1] px-2 py-1 text-[9px] font-bold text-[#263532] hover:bg-[#f5faf9]">Repetir</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-[#65716d]">Tus citas completadas aparecerán aquí.</p>
+              )}
+            </section>
+          </div>
+
+          <aside className="space-y-3">
+            <section className="rounded-xl bg-[#172124] p-3.5 text-white shadow-sm">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-full p-[5px]"
+                  style={{ background: `conic-gradient(#55d7e5 ${saldoFidelizacion?.progreso_nivel ?? 0}%, #435052 0)` }}
+                  aria-label={saldoFidelizacion ? `${saldoFidelizacion.progreso_nivel}% de progreso al siguiente nivel` : 'Progreso de nivel pendiente de actualizar'}
+                >
+                  <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-[#172124]">
+                    <span className="font-heading text-lg font-black leading-none">{saldoActual}</span>
+                    <span className="text-[8px] text-[#becac7]">puntos</span>
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-[#55d7e5]">Club Globde · {nivelActual}</p>
+                  {saldoFidelizacion?.proximo_nivel && saldoFidelizacion.puntos_para_proximo_nivel !== null ? (
+                    <p className="mt-1 text-[10px] font-semibold text-white">{saldoFidelizacion.puntos_para_proximo_nivel} pts para nivel {saldoFidelizacion.proximo_nivel}</p>
+                  ) : saldoFidelizacion ? (
+                    <p className="mt-1 text-[10px] font-semibold text-white">Has alcanzado el nivel máximo.</p>
+                  ) : (
+                    <p className="mt-1 text-[10px] font-semibold text-white">Consulta tu saldo y nivel.</p>
+                  )}
+                  {puntosCitaProxima
+                    ? <p className="mt-1 text-[9px] text-[#becac7]">Gana {puntosCitaProxima} pts al completar tu próxima cita.</p>
+                    : <p className="mt-1 text-[9px] text-[#becac7]">Acumula puntos en tus servicios completados.</p>}
+                </div>
+              </div>
+              {errorSaldo && <p role="alert" className="mt-2 text-[9px] font-semibold text-[#ffb4a9]">{errorSaldo}</p>}
+              <button onClick={() => irA('fidelizacion')} className="mt-3 flex w-full items-center justify-between border-t border-white/10 pt-2 text-[9px] font-bold text-[#55d7e5]">
+                Ver puntos y beneficios <span aria-hidden="true">→</span>
+              </button>
+            </section>
+
+            <button onClick={() => setQuizAbierto(true)} className="w-full rounded-xl bg-[#55d7e5] p-3.5 text-left text-[#12383c] shadow-sm transition hover:bg-[#45cbd9]">
+              <span className="flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.16em]"><Sparkles className="h-3.5 w-3.5" /> Asesor de estilo</span>
+              <p className="mt-1 text-xs font-black">Descubre qué corte va con tu rostro</p>
+              <span className="mt-2 inline-flex rounded-md bg-[#172124] px-2.5 py-1.5 text-[9px] font-bold text-white">Probar asesor <span className="ml-1">→</span></span>
+            </button>
+
+            <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-[#6a7772]">Tu barbero</p>
+                  <p className="mt-0.5 text-xs font-black text-[#172124]">{barberoTarjeta?.nombre ?? 'Elige un barbero'}</p>
+                  {barberoTarjeta && <p className="text-[9px] text-[#65716d]">{barberoTarjeta.rol_titulo}</p>}
+                </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#74563f] text-sm font-black text-white">
+                  {barberoTarjeta?.foto_url
+                    ? <img src={barberoTarjeta.foto_url} alt="" className="h-full w-full object-cover" />
+                    : barberoTarjeta?.nombre.trim()[0]?.toUpperCase() ?? <Heart className="h-4 w-4" />}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  id="barbero-favorito"
+                  aria-label="Barbero favorito"
+                  value={usuario?.id_barbero_favorito ?? ''}
+                  onChange={(evento) => void guardarBarberoFavorito(evento.target.value)}
+                  disabled={actualizandoFavorito || !barberos.length}
+                  className="min-w-0 flex-1 rounded-md border border-[#dce4e1] bg-white px-2 py-1.5 text-[9px] text-[#263532]"
+                >
+                  <option value="">Guardar como favorito</option>
+                  {barberos.map((barbero) => (
+                    <option key={barbero.id_barbero} value={barbero.id_barbero}>{barbero.nombre}</option>
+                  ))}
+                </select>
+                <button onClick={() => abrirReserva({ barberoId: usuario?.id_barbero_favorito ?? barberoTarjeta?.id_barbero })} className="rounded-md bg-[#172124] px-2.5 py-1.5 text-[9px] font-bold text-white">Reservar</button>
+              </div>
+              {errorFavorito && <p role="alert" className="mt-1.5 text-[9px] font-semibold text-rose-700">{errorFavorito}</p>}
+            </section>
+
+            <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="font-heading text-xs font-black text-[#172124]">Premios disponibles</h2>
+                <button onClick={() => irA('fidelizacion')} className="text-[9px] font-bold text-[#18899a]">Ver todos</button>
+              </div>
+              {premiosVisibles.length ? premiosVisibles.map((premio: PremioFidelidad) => (
+                <div key={premio.id_premio} className="flex items-center justify-between gap-2 border-t border-[#edf0ec] py-1.5 first:border-0">
+                  <p className="min-w-0 truncate text-[9px] font-semibold text-[#394642]">{premio.icono} {premio.titulo}</p>
+                  <span className="shrink-0 text-[9px] font-bold text-[#73817b]">{premio.costo_puntos} pts</span>
+                </div>
+              )) : <p className="text-[9px] text-[#65716d]">No hay premios publicados.</p>}
+            </section>
+          </aside>
+        </section>
+
         {/* Pestañas */}
-        <div className="flex flex-wrap gap-2">
+        {tab !== 'resumen' && <div className="flex flex-wrap gap-2">
           {[
             { id: 'proximas', t: `Próximas (${proximas.length})`, i: CalendarDays },
             { id: 'historial', t: `Historial (${historial.length})`, i: History },
             { id: 'espera', t: `Lista de espera (${misEsperas.length})`, i: Hourglass },
           ].map((x) => (
             <button key={x.id} onClick={() => setTab(x.id as typeof tab)}
-              className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition ${
-                tab === x.id ? 'bg-amber-400 text-[#1A1400] shadow-lg' : 'border border-white/10 bg-[#141A21] text-[#93A1B1] hover:border-amber-400/40'
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-bold transition ${
+                tab === x.id ? 'bg-[#172124] text-white' : 'border border-[#e4e8e2] bg-white text-[#65716d] hover:border-[#55d7e5]'
               }`}>
               <x.i className="h-4 w-4" /> {x.t}
             </button>
           ))}
-        </div>
+          <button onClick={() => setTab('resumen')} className="rounded-lg px-3 py-2 text-[10px] font-bold text-[#65716d] hover:bg-white">Cerrar</button>
+        </div>}
 
         {/* PRÓXIMAS */}
         {tab === 'proximas' && (
@@ -175,7 +434,7 @@ export const PanelCliente: React.FC = () => {
               </div>
             )}
 
-            {proximas.map((c) => {
+            {proximasOrdenadas.map((c) => {
               const est = estiloEstado(c.estado);
               return (
                 <article key={c.id_cita} className="card card-hover overflow-hidden">
@@ -208,6 +467,21 @@ export const PanelCliente: React.FC = () => {
                         <p className="font-bold text-amber-300">{c.barbero_nombre}</p>
                       </div>
                     </div>
+
+                    {citaProxima?.id_cita === c.id_cita && (
+                      <div className="flex items-center gap-4 rounded-2xl border border-amber-400/20 bg-[#0F151C] p-3">
+                        <div className="shrink-0 rounded-xl bg-white p-2">
+                          <CodigoQRReserva codigo={c.codigo_reserva} />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600">
+                            <QrCode className="h-3.5 w-3.5" /> Pase digital
+                          </span>
+                          <p className="mt-1 text-sm font-black text-[#EAF0F6]">Presenta este QR al llegar</p>
+                          <p className="mt-1 break-all font-mono text-xs tracking-wider text-[#93A1B1]">{c.codigo_reserva}</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-2.5">
                       <span className="text-xs font-semibold text-[#93A1B1]">Total</span>
