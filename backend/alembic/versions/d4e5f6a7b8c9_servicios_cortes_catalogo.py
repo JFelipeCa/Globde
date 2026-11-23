@@ -95,6 +95,7 @@ def upgrade() -> None:
                 "popular": popular,
             },
         )
+    # Todo lo que no sea uno de los 6 cortes sale del catalogo y de agendar.
     bind.execute(sa.text("UPDATE servicios SET activo = 0 WHERE id_servicio > 6"))
 
 

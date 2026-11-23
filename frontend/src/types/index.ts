@@ -46,7 +46,7 @@ export interface Barbero {
   rating: number;
   total_resenas: number;
   especialidades: string[];
-  foto_url: string;
+  foto_url: string | null;
   disponible_hoy: boolean;
   hora_apertura: string; // HH:MM 24h
   hora_cierre: string;   // HH:MM 24h
@@ -163,6 +163,9 @@ export interface Factura {
 
 export interface CatalogoCorte {
   id_corte: number;
+  // Servicio que hace agendable este corte. Lo resuelve AppContext contra los
+  // servicios activos; si es null, el corte solo existe en el catálogo.
+  id_servicio?: number | null;
   nombre: string;
   categoria: string;
   descripcion: string;
@@ -181,7 +184,7 @@ export interface Testimonio {
   texto: string;
   rating: number;
   barbero_favorito: string;
-  avatar_url: string;
+  avatar_url?: string | null;
   corte: string;
   fecha: string;
 }

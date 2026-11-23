@@ -9,7 +9,7 @@ import {
   ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE,
 } from '../types';
 import {
-  CATALOGO_CORTES, PREMIOS,
+  CATALOGO_CORTES, SERVICIOS, PREMIOS,
   FACTURAS, TESTIMONIOS, EXTRAS_SERVICIO,
 } from '../data/mockData';
 import {
@@ -300,7 +300,7 @@ function mapBarberoApi(u: Record<string, unknown>, detalle: Record<string, unkno
     rating: Number(u.rating ?? 0),
     total_resenas: Number(u.total_resenas ?? 0),
     especialidades,
-    foto_url: String(u.foto_url ?? 'https://images.pexels.com/photos/12304510/pexels-photo-12304510.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=700&w=600&fm=webp'),
+    foto_url: typeof u.foto_url === 'string' && u.foto_url.trim() ? u.foto_url : null,
     disponible_hoy: Boolean(u.disponible ?? true),
     hora_apertura: aperturas[0] ?? '08:00',
     hora_cierre: cierres[cierres.length - 1] ?? '20:00',
@@ -993,7 +993,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         body: formulario,
       });
-      setUsuario((actual) => actual ? { ...actual, avatar_url: String(respuesta.avatar_url ?? '') } : actual);
+      const avatarUrl = typeof respuesta.avatar_url === 'string' ? respuesta.avatar_url : '';
+      setUsuario((actual) => actual ? { ...actual, avatar_url: avatarUrl } : actual);
+      setBarberos((actual) => actual.map((barbero) => (
+        barbero.id_usuario === usuario?.id_usuario
+          ? { ...barbero, foto_url: avatarUrl || null }
+          : barbero
+      )));
       notificar('Foto actualizada', 'Tu foto de perfil se guardó correctamente.', 'sistema');
       return { ok: true, mensaje: 'Foto actualizada' };
     } catch (error) {
@@ -1261,6 +1267,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Cada corte del catálogo se enlaza con el servicio que lo hace agendable.
+  // Se cruza por nombre contra los servicios activos (los de la API, o los mock
+  // si el backend no respondió, igual que hace BookingWizard). Si no hay un
+  // servicio con ese nombre, id_servicio queda en null: el corte se muestra pero
+  // no se puede agendar. Precio y duración salen del servicio para que el
+  // catálogo muestre lo mismo que se cobra al agendar.
+  const normalizarNombre = (t: string) => t.trim().toLowerCase();
+  const serviciosAgendables = servicios.length ? servicios : SERVICIOS;
+  const catalogoCortes: CatalogoCorte[] = CATALOGO_CORTES.map((corte) => {
+    const servicio = serviciosAgendables.find(
+      (s) => s.activo && normalizarNombre(s.nombre) === normalizarNombre(corte.nombre),
+    );
+    if (!servicio) return { ...corte, id_servicio: null };
+    return {
+      ...corte,
+      id_servicio: servicio.id_servicio,
+      precio_sugerido: servicio.precio,
+      duracion_minutos: servicio.duracion_minutos,
+    };
+  });
+
   return (
     <Ctx.Provider
       value={{
@@ -1268,7 +1295,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         citas,
         servicios,
         barberos,
-        catalogoCortes: CATALOGO_CORTES,
+        catalogoCortes,
         premios: PREMIOS,
         listaEspera,
         facturas,

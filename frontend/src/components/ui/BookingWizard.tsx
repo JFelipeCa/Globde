@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   X, Check, ArrowRight, ArrowLeft, Clock, Star, Crown, Timer,
-  CalendarDays, Sparkles, CircleAlert, Plus,
+  CalendarDays, Sparkles, CircleAlert, Plus, Scissors,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { ClienteBusqueda } from '../../types';
@@ -23,7 +23,7 @@ interface SlotDisponibilidad {
 export const BookingWizard: React.FC = () => {
   const {
     reservaAbierta, cerrarReserva, configReserva, servicios, barberos,
-    usuario, crearCita, buscarClientes,
+    catalogoCortes, usuario, crearCita, buscarClientes,
   } = useApp();
 
   const [paso, setPaso] = useState(1);
@@ -65,8 +65,22 @@ export const BookingWizard: React.FC = () => {
   // Respaldo: si el backend no trae catálogo, se usan los datos mock
   const listaServicios = servicios.length ? servicios : SERVICIOS;
   const listaBarberos = barberos.length ? barberos : BARBEROS;
+
+  // Si el catálogo de la API llega después de abrir la reserva, conserva la
+  // selección cuando exista; de lo contrario selecciona un servicio válido.
+  useEffect(() => {
+    if (listaServicios.length && !listaServicios.some((s) => s.id_servicio === idServicio)) {
+      setIdServicio(listaServicios[0].id_servicio);
+    }
+  }, [listaServicios, idServicio]);
+
   const servicio = listaServicios.find((s) => s.id_servicio === idServicio) ?? listaServicios[0];
   const barbero = listaBarberos.find((b) => b.id_barbero === idBarbero) ?? listaBarberos[0];
+  const corteDeServicio = (servicioId: number, nombre: string) =>
+    catalogoCortes.find((corte) => corte.id_servicio === servicioId) ??
+    catalogoCortes.find((corte) => corte.nombre.trim().toLowerCase() === nombre.trim().toLowerCase()) ??
+    catalogoCortes.find((corte) => corte.id_corte === servicioId);
+  const corteSeleccionado = servicio ? corteDeServicio(servicio.id_servicio, servicio.nombre) : undefined;
 
   const minutosExtras = extras.reduce((a, e) => a + (EXTRAS_SERVICIO.find((x) => x.id === e)?.minutos ?? 0), 0);
   const costoExtras = extras.reduce((a, e) => a + (EXTRAS_SERVICIO.find((x) => x.id === e)?.precio ?? 0), 0);
@@ -241,46 +255,50 @@ export const BookingWizard: React.FC = () => {
             <div className="anim-aparecer space-y-3">
               <h4 className="font-heading text-lg font-black text-[#EAF0F6]">¿Qué servicio deseas?</h4>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {servicios.map((s) => (
-                  <button
-                    key={s.id_servicio}
-                    onClick={() => { setIdServicio(s.id_servicio); setHoraInicio(''); }}
-                    className={`group card card-hover overflow-hidden text-left ${idServicio === s.id_servicio ? 'seleccionada' : ''}`}
-                  >
-                    <div className="relative h-28 overflow-hidden">
-                      <img src={s.imagen_url} alt={s.nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#141A21] via-[#141A21]/20 to-transparent" />
-                      <span className="absolute left-3 top-3 rounded-full border border-white/10 bg-[#0B0F14]/85 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-300 backdrop-blur">
-                        {s.categoria}
-                      </span>
-                      {s.popular && (
-                        <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-[#2B1E04]">
-                          Popular
+                {listaServicios.map((s) => {
+                  const corte = corteDeServicio(s.id_servicio, s.nombre);
+                  const nombre = corte?.nombre ?? s.nombre;
+                  return (
+                    <button
+                      key={s.id_servicio}
+                      onClick={() => { setIdServicio(s.id_servicio); setHoraInicio(''); }}
+                      className={`group card card-hover overflow-hidden text-left ${idServicio === s.id_servicio ? 'seleccionada' : ''}`}
+                    >
+                      <div className="relative h-28 overflow-hidden">
+                        <img src={corte?.imagen_url ?? s.imagen_url} alt={nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#141A21] via-[#141A21]/20 to-transparent" />
+                        <span className="absolute left-3 top-3 rounded-full border border-white/10 bg-[#0B0F14]/85 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-300 backdrop-blur">
+                          {corte?.categoria ?? s.categoria}
                         </span>
-                      )}
-                    </div>
-
-                    <div className="p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <h5 className="font-heading text-lg font-black text-[#EAF0F6]">{s.icono} {s.nombre}</h5>
-                        <span className="rounded-full bg-amber-400/12 px-2 py-0.5 text-[10px] font-black text-amber-700">
-                          +{s.puntos_otorga} pts
-                        </span>
+                        {s.popular && (
+                          <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-[#2B1E04]">
+                            Popular
+                          </span>
+                        )}
                       </div>
-                      <p className="mt-2 text-[11px] leading-relaxed text-[#93A1B1] line-clamp-3">{s.descripcion}</p>
 
-                      <div className="mt-4 flex items-center justify-between border-t border-white/8 pt-3">
-                        <div>
-                          <span className="block text-[10px] font-bold uppercase text-[#6B7A8C]">Valor</span>
-                          <span className="font-heading text-xl font-black text-[#EAF0F6]">{formatoCOP(s.precio)}</span>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <h5 className="font-heading text-lg font-black text-[#EAF0F6]">{nombre}</h5>
+                          <span className="rounded-full bg-amber-400/12 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                            +{s.puntos_otorga} pts
+                          </span>
                         </div>
-                        <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#93A1B1]">
-                          <Timer className="h-3.5 w-3.5 text-amber-600" /> {duracionLegible(s.duracion_minutos)}
-                        </span>
+                        <p className="mt-2 text-[11px] leading-relaxed text-[#93A1B1] line-clamp-3">{corte?.descripcion ?? s.descripcion}</p>
+
+                        <div className="mt-4 flex items-center justify-between border-t border-white/8 pt-3">
+                          <div>
+                            <span className="block text-[10px] font-bold uppercase text-[#6B7A8C]">Valor</span>
+                            <span className="font-heading text-xl font-black text-[#EAF0F6]">{formatoCOP(s.precio)}</span>
+                          </div>
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#93A1B1]">
+                            <Timer className="h-3.5 w-3.5 text-amber-600" /> {duracionLegible(s.duracion_minutos)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -294,7 +312,11 @@ export const BookingWizard: React.FC = () => {
                   key={b.id_barbero} onClick={() => { setIdBarbero(b.id_barbero); setHoraInicio(''); }}
                   className={`card card-hover flex w-full items-center gap-4 p-4 text-left ${idBarbero === b.id_barbero ? 'seleccionada' : ''}`}
                 >
-                  <img src={b.foto_url} alt={b.nombre} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+                  <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
+                    {b.foto_url
+                      ? <img src={b.foto_url} alt={b.nombre} className="h-full w-full object-cover" />
+                      : <Scissors className="h-7 w-7" aria-hidden="true" />}
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex items-center gap-2 text-sm font-black text-[#EAF0F6]">
@@ -406,7 +428,6 @@ export const BookingWizard: React.FC = () => {
                         }`}
                       >
                         <span className="flex items-center gap-2 font-semibold">
-                          <span>{e.icono}</span> {e.id}
                           <span className="text-[10px] text-[#6B7A8C]">+{e.minutos} min</span>
                         </span>
                         <span className="font-black text-[#EAF0F6]">+$6k</span>
@@ -494,7 +515,7 @@ export const BookingWizard: React.FC = () => {
                   <CalendarDays className="h-4 w-4 text-amber-600" /> Resumen de tu reserva
                 </div>
                 <div className="space-y-2 p-4 text-sm">
-                  <div className="flex justify-between"><span className="text-[#93A1B1]">Servicio</span><span className="font-semibold text-[#EAF0F6]">{servicio.nombre}</span></div>
+                  <div className="flex justify-between"><span className="text-[#93A1B1]">Servicio</span><span className="font-semibold text-[#EAF0F6]">{corteSeleccionado?.nombre ?? servicio.nombre}</span></div>
                   <div className="flex justify-between"><span className="text-[#93A1B1]">Barbero</span><span className="font-semibold text-[#EAF0F6]">{barbero.nombre}</span></div>
                   <div className="flex justify-between"><span className="text-[#93A1B1]">Día</span><span className="font-semibold text-[#EAF0F6]">{fechaLarga(fecha)}</span></div>
                   <div className="flex justify-between">
