@@ -1,12 +1,102 @@
 """Pruebas unitarias puras: no requieren base de datos ni servidor."""
 
 import re
+from contextlib import contextmanager
+from types import SimpleNamespace
 
 import pytest
 
 from app.core import security
-from app.services import email_service, puntos_service
+from app.core.exceptions import DatosInvalidos, Prohibido
+from app.schemas.agenda import HorarioNegocioIn
+from app.services import (
+    agenda_service,
+    citas_service,
+    email_service,
+    lista_espera_service,
+    puntos_service,
+    recordatorios_service,
+)
 from app.utils.paginacion import offset_de, paginar
+
+
+class TestListaEspera:
+    @pytest.mark.parametrize(
+        ("franja", "hora", "coincide"),
+        [
+            ("manana", "12:59", True),
+            ("manana", "13:00", False),
+            ("tarde", "13:00", True),
+            ("tarde", "12:59", False),
+            ("cualquiera", "08:00", True),
+        ],
+    )
+    def test_franja_coincide_con_la_hora(self, franja, hora, coincide):
+        assert lista_espera_service._franja_coincide(franja, hora) is coincide
+
+    def test_barbero_no_puede_cancelar_solicitud_ajena(self, monkeypatch):
+        class Cursor:
+            statements = []
+
+            def execute(self, query, _params):
+                self.statements.append(query)
+
+            def fetchone(self):
+                return {"id_cliente": 4, "estado": "en_espera"}
+
+        cursor = Cursor()
+
+        @contextmanager
+        def fake_transaction():
+            yield cursor
+
+        monkeypatch.setattr(lista_espera_service, "transaction", fake_transaction)
+        barbero = SimpleNamespace(es_admin=False, es_cliente=False, id_cliente=None)
+
+        with pytest.raises(Prohibido):
+            lista_espera_service.cancelar(1, barbero)
+        assert len(cursor.statements) == 1
+
+    def test_ofrece_al_primer_cliente_que_coincide_con_la_franja(self, monkeypatch):
+        candidatos = [
+            {
+                "id_espera": 1,
+                "franja_horaria": "manana",
+                "nombre": "Cliente mañana",
+                "correo": "manana@example.com",
+                "id_usuario": 11,
+            },
+            {
+                "id_espera": 2,
+                "franja_horaria": "tarde",
+                "nombre": "Cliente tarde",
+                "correo": "tarde@example.com",
+                "id_usuario": 12,
+            },
+        ]
+        reclamos = []
+        monkeypatch.setattr(lista_espera_service, "fetch_one", lambda *_: None)
+        monkeypatch.setattr(lista_espera_service, "fetch_all", lambda *_: candidatos)
+        monkeypatch.setattr(
+            lista_espera_service,
+            "execute_rowcount",
+            lambda _query, params: reclamos.append(params[3]) or 1,
+        )
+        monkeypatch.setattr(
+            lista_espera_service.notificaciones_service,
+            "crear_notificacion",
+            lambda *_args: None,
+        )
+        monkeypatch.setattr(
+            lista_espera_service.email_service,
+            "enviar_notificacion_generica",
+            lambda *_args: True,
+        )
+
+        assert lista_espera_service.ofrecer_siguiente(
+            "2026-03-10", "14:00", "14:30", 5, 3
+        )
+        assert reclamos == [2]
 
 
 # ----------------------------------------------------------------------
@@ -171,6 +261,135 @@ class TestPaginacion:
     @pytest.mark.parametrize("pagina,por_pagina,esperado", [(1, 20, 0), (2, 20, 20), (3, 15, 30), (0, 20, 0)])
     def test_offset(self, pagina, por_pagina, esperado):
         assert offset_de(pagina, por_pagina) == esperado
+
+
+# ----------------------------------------------------------------------
+# Agenda del negocio
+# ----------------------------------------------------------------------
+
+class TestHorariosNegocio:
+    def test_rechaza_franjas_que_se_solapan(self):
+        horarios = [
+            {"dia_semana": 1, "hora_inicio": "09:00", "hora_fin": "12:00"},
+            {"dia_semana": 1, "hora_inicio": "11:30", "hora_fin": "14:00"},
+        ]
+        with pytest.raises(DatosInvalidos, match="se solapan"):
+            agenda_service._validar_solapes(horarios)
+
+    def test_permite_franjas_contiguas(self):
+        horarios = [
+            {"dia_semana": 1, "hora_inicio": "09:00", "hora_fin": "12:00"},
+            {"dia_semana": 1, "hora_inicio": "12:00", "hora_fin": "14:00"},
+        ]
+        agenda_service._validar_solapes(horarios)
+
+    def test_rechaza_hora_de_cierre_anterior_a_apertura(self):
+        with pytest.raises(ValueError, match="posterior"):
+            HorarioNegocioIn(
+                dia_semana=1,
+                hora_inicio="18:00",
+                hora_fin="09:00",
+            )
+
+
+class TestExtrasCita:
+    def test_suma_duracion_y_precio_de_extras_validos(self):
+        extras = citas_service._validar_extras(["Lavado premium", "Perfilado de cejas"])
+
+        assert citas_service._minutos_de_extras(extras) == 15
+        assert citas_service._precio_de_extras(extras) == 12000
+
+    @pytest.mark.parametrize(
+        "extras",
+        [["Descuento inventado"], ["Lavado premium", "Lavado premium"], [None]],
+    )
+    def test_rechaza_extras_no_validos_o_repetidos(self, extras):
+        with pytest.raises(DatosInvalidos):
+            citas_service._validar_extras(extras)
+
+
+class TestFiltrosCitas:
+    def test_incluye_rango_de_fechas_y_usa_parametros(self):
+        where, parametros = citas_service._construir_filtros(
+            id_barbero=4,
+            estado="confirmada",
+            desde="2026-11-01",
+            hasta="2026-11-30",
+        )
+
+        assert "id_barbero = %s" in where
+        assert "estado = %s" in where
+        assert "fecha >= %s" in where
+        assert "fecha <= %s" in where
+        assert parametros == [4, "confirmada", "2026-11-01", "2026-11-30"]
+
+
+class TestRecordatoriosCitas:
+    @pytest.fixture
+    def registro_recordatorio(self):
+        return {
+            "id_recordatorio": 7,
+            "id_cita": 21,
+            "intentos": 0,
+            "codigo_reserva": "GB-1234ABCD",
+            "fecha": "2026-12-01",
+            "hora_inicio": "10:00",
+            "id_usuario": 18,
+            "nombre": "Cliente",
+            "correo": "cliente@example.test",
+            "barbero_nombre": "Barbero",
+        }
+
+    def test_envia_y_marca_recordatorio_con_un_solo_claim(
+        self, monkeypatch, registro_recordatorio
+    ):
+        consultas: list[str] = []
+        monkeypatch.setattr(recordatorios_service, "fetch_all", lambda *_: [registro_recordatorio])
+
+        def ejecutar(sql, _params=()):
+            consultas.append(sql)
+            return 1
+
+        enviados = []
+        monkeypatch.setattr(recordatorios_service, "execute_rowcount", ejecutar)
+        monkeypatch.setattr(
+            recordatorios_service.email_service,
+            "enviar_recordatorio_cita",
+            lambda *args: enviados.append(args) or True,
+        )
+
+        assert recordatorios_service.procesar_recordatorios() == 1
+        assert len(enviados) == 1
+        assert any("estado = 'enviado'" in consulta for consulta in consultas)
+
+    @pytest.mark.parametrize(
+        ("intentos", "estado_esperado"),
+        [(0, "pendiente"), (1, "fallido")],
+    )
+    def test_reintenta_fallo_a_los_30_minutos_y_detiene_tras_segundo_intento(
+        self, monkeypatch, registro_recordatorio, intentos, estado_esperado
+    ):
+        registro_recordatorio["intentos"] = intentos
+        consultas: list[tuple[str, tuple]] = []
+        monkeypatch.setattr(recordatorios_service, "fetch_all", lambda *_: [registro_recordatorio])
+        monkeypatch.setattr(
+            recordatorios_service,
+            "execute_rowcount",
+            lambda sql, params=(): consultas.append((sql, params)) or 1,
+        )
+        monkeypatch.setattr(
+            recordatorios_service.email_service,
+            "enviar_recordatorio_cita",
+            lambda *_: False,
+        )
+
+        assert recordatorios_service.procesar_recordatorios() == 0
+        actualizacion = next(
+            (sql, params) for sql, params in consultas
+            if "SET estado = %s, intentos = %s" in sql
+        )
+        assert estado_esperado in actualizacion[1]
+        assert intentos + 1 in actualizacion[1]
 
 
 # ----------------------------------------------------------------------

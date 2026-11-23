@@ -4,18 +4,26 @@ import {
   CalendarDays, Sparkles, CircleAlert, Plus,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import type { ClienteBusqueda } from '../../types';
 import { EXTRAS_SERVICIO, SERVICIOS, BARBEROS } from '../../data/mockData';
 import {
-  formatoCOP, hoyISO, sumarDiasISO, desglosarFecha, generarFranjasJornada,
-  sumarMinutos, hora12, duracionLegible, haySolape, fechaLarga, franjasVigentes,
+  formatoCOP, hoyISO, sumarDiasISO, desglosarFecha,
+  sumarMinutos, hora12, duracionLegible, fechaLarga,
 } from '../../utils/helpers';
+import { apiRequest } from '../../utils/apiClient';
 
 const PASOS = ['Servicio', 'Barbero', 'Fecha y hora', 'Confirmar'];
+
+interface SlotDisponibilidad {
+  hora_inicio: string;
+  hora_fin: string;
+  disponible: boolean;
+}
 
 export const BookingWizard: React.FC = () => {
   const {
     reservaAbierta, cerrarReserva, configReserva, servicios, barberos,
-    usuario, crearCita, franjasOcupadas,
+    usuario, crearCita, buscarClientes,
   } = useApp();
 
   const [paso, setPaso] = useState(1);
@@ -30,6 +38,14 @@ export const BookingWizard: React.FC = () => {
   const [telefono, setTelefono] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [error, setError] = useState('');
+  const [slots, setSlots] = useState<SlotDisponibilidad[]>([]);
+  const [cargandoSlots, setCargandoSlots] = useState(false);
+  const [errorSlots, setErrorSlots] = useState('');
+  const [clienteTexto, setClienteTexto] = useState('');
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteBusqueda | null>(null);
+  const [resultadosCliente, setResultadosCliente] = useState<ClienteBusqueda[]>([]);
+  const [buscandoClientes, setBuscandoClientes] = useState(false);
+  const [errorBusquedaCliente, setErrorBusquedaCliente] = useState('');
   const [saltarBarbero, setSaltarBarbero] = useState(false);
 
   useEffect(() => {
@@ -40,6 +56,10 @@ export const BookingWizard: React.FC = () => {
     if (configReserva.barberoId) setIdBarbero(configReserva.barberoId);
     if (usuario) { setNombre(usuario.nombre); setCorreo(usuario.correo); setTelefono(usuario.telefono); }
     setHoraInicio(''); setError('');
+    setClienteTexto('');
+    setClienteSeleccionado(null);
+    setResultadosCliente([]);
+    setErrorBusquedaCliente('');
   }, [reservaAbierta, configReserva, usuario]);
 
   // Respaldo: si el backend no trae catálogo, se usan los datos mock
@@ -52,21 +72,49 @@ export const BookingWizard: React.FC = () => {
   const costoExtras = extras.reduce((a, e) => a + (EXTRAS_SERVICIO.find((x) => x.id === e)?.precio ?? 0), 0);
   const duracionTotal = servicio.duracion_minutos + minutosExtras;
   const subtotal = servicio.precio + costoExtras;
-  const puntosUsables = usarPuntos && usuario && usuario.puntos >= 50 ? 50 : 0;
+  const puedeCanjearPuntos = usuario?.id_rol === 3;
+  const puntosUsables = puedeCanjearPuntos && usarPuntos && usuario && usuario.puntos >= 50 ? 50 : 0;
   const descuento = (puntosUsables / 100) * 10000;
   const total = Math.max(0, subtotal - descuento);
 
   const dias = useMemo(() => Array.from({ length: 10 }, (_, i) => sumarDiasISO(i)), []);
-  const ocupadas = franjasOcupadas(fecha, idBarbero);
 
-  const franjas = useMemo(() => {
-    const base = generarFranjasJornada(barbero, fecha, duracionTotal, duracionTotal);
-    return franjasVigentes(base, fecha).map((ini) => {
-      const fin = sumarMinutos(ini, duracionTotal);
-      const libre = !ocupadas.some((o) => haySolape(ini, fin, o.inicio, o.fin));
-      return { ini, fin, libre };
+  useEffect(() => {
+    if (!reservaAbierta) return;
+    const controlador = new AbortController();
+    setHoraInicio('');
+    setSlots([]);
+    setErrorSlots('');
+    setCargandoSlots(true);
+    const parametros = new URLSearchParams({
+      fecha,
+      id_servicio: String(idServicio),
+      duracion_adicional_minutos: String(minutosExtras),
     });
-  }, [barbero, duracionTotal, fecha, ocupadas]);
+    apiRequest<{ slots: SlotDisponibilidad[] }>(
+      `/barberos/${idBarbero}/disponibilidad?${parametros.toString()}`,
+      { signal: controlador.signal },
+    )
+      .then((respuesta) => setSlots(respuesta.slots))
+      .catch((causa: unknown) => {
+        if (!controlador.signal.aborted) {
+          setErrorSlots(causa instanceof Error ? causa.message : 'No se pudo consultar la disponibilidad.');
+        }
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setCargandoSlots(false);
+      });
+    return () => controlador.abort();
+  }, [reservaAbierta, idBarbero, idServicio, fecha, minutosExtras]);
+
+  const franjas = useMemo(
+    () => slots.map((slot) => ({
+      ini: slot.hora_inicio,
+      fin: slot.hora_fin,
+      libre: slot.disponible,
+    })),
+    [slots],
+  );
 
   const franjasManana = franjas.filter((f) => Number(f.ini.split(':')[0]) < 13);
   const franjasTarde = franjas.filter((f) => Number(f.ini.split(':')[0]) >= 13);
@@ -86,13 +134,43 @@ export const BookingWizard: React.FC = () => {
 
   const confirmar = async () => {
     setError('');
+    const reservaInterna = Boolean(usuario && usuario.id_rol !== 3);
+    if (reservaInterna && !clienteSeleccionado) {
+      return setError('Busca y selecciona el cliente de esta cita.');
+    }
     if (!nombre.trim() || !telefono.trim()) return setError('Completa tu nombre y teléfono de contacto.');
     const r = await crearCita({
       servicio_id: idServicio, barbero_id: idBarbero, fecha, hora_inicio: horaInicio,
       extras, usar_puntos: usarPuntos, puntos_a_usar: puntosUsables,
       nombre, correo, telefono, observaciones,
+      ...(reservaInterna && clienteSeleccionado ? { id_cliente: clienteSeleccionado.id_cliente } : {}),
     });
     if (!r.ok) setError(r.mensaje);
+  };
+
+  const buscarClienteInterno = async () => {
+    if (clienteTexto.trim().length < 2) {
+      setErrorBusquedaCliente('Escribe al menos 2 caracteres para buscar.');
+      return;
+    }
+    setBuscandoClientes(true);
+    setErrorBusquedaCliente('');
+    try {
+      setResultadosCliente(await buscarClientes(clienteTexto));
+    } catch (causa) {
+      setErrorBusquedaCliente(causa instanceof Error ? causa.message : 'No se pudo buscar el cliente.');
+    } finally {
+      setBuscandoClientes(false);
+    }
+  };
+
+  const seleccionarCliente = (cliente: ClienteBusqueda) => {
+    setClienteSeleccionado(cliente);
+    setResultadosCliente([]);
+    setNombre(cliente.nombre);
+    setCorreo(cliente.correo);
+    setTelefono(cliente.telefono ?? '');
+    setErrorBusquedaCliente('');
   };
 
   const inputCls = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-400/15';
@@ -224,7 +302,8 @@ export const BookingWizard: React.FC = () => {
                         <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-black text-amber-700">{b.nivel}</span>
                       </span>
                       <span className="flex items-center gap-1 text-xs font-black text-amber-600">
-                        <Star className="h-3.5 w-3.5 fill-amber-500" /> {b.rating}
+                        <Star className="h-3.5 w-3.5 fill-amber-500" />
+                        {b.total_resenas > 0 ? b.rating.toFixed(1) : 'Sin calificaciones aún'}
                       </span>
                     </div>
                     <p className="text-[11px] font-semibold text-[#6B7A8C]">{b.rol_titulo}</p>
@@ -274,16 +353,28 @@ export const BookingWizard: React.FC = () => {
                   </span>
                 </div>
 
-                <p className="mt-3 text-[11px] font-semibold text-[#6B7A8C]">MAÑANA</p>
-                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {franjasManana.length ? franjasManana.map((f) => <BotonFranja key={f.ini} f={f} />)
-                    : <p className="col-span-4 text-xs text-[#6B7A8C]">Sin turnos en la mañana para este barbero.</p>}
-                </div>
+                {errorSlots ? (
+                  <p role="alert" className="mt-4 rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">
+                    No se pudo consultar la disponibilidad: {errorSlots}
+                  </p>
+                ) : cargandoSlots ? (
+                  <p className="mt-4 text-xs text-[#93A1B1]">Consultando horarios disponibles…</p>
+                ) : franjas.length === 0 ? (
+                  <p className="mt-4 text-xs text-[#93A1B1]">No hay horarios disponibles para esta fecha y servicio.</p>
+                ) : (
+                  <>
+                    <p className="mt-3 text-[11px] font-semibold text-[#6B7A8C]">MAÑANA</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {franjasManana.length ? franjasManana.map((f) => <BotonFranja key={f.ini} f={f} />)
+                        : <p className="col-span-4 text-xs text-[#6B7A8C]">Sin turnos en la mañana para este barbero.</p>}
+                    </div>
 
-                <p className="mt-4 text-[11px] font-semibold text-[#6B7A8C]">TARDE Y NOCHE</p>
-                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {franjasTarde.map((f) => <BotonFranja key={f.ini} f={f} />)}
-                </div>
+                    <p className="mt-4 text-[11px] font-semibold text-[#6B7A8C]">TARDE Y NOCHE</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {franjasTarde.map((f) => <BotonFranja key={f.ini} f={f} />)}
+                    </div>
+                  </>
+                )}
 
                 {horaInicio && (
                   <div className="anim-aparecer mt-4 flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm font-bold text-amber-700">
@@ -325,7 +416,7 @@ export const BookingWizard: React.FC = () => {
                 </div>
               </div>
 
-              {usuario && usuario.puntos >= 50 && (
+              {usuario?.id_rol === 3 && usuario.puntos >= 50 && (
                 <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3.5">
                   <span className="flex items-center gap-2 text-xs font-bold text-amber-700">
                     <Crown className="h-4 w-4 text-amber-600" />
@@ -336,9 +427,63 @@ export const BookingWizard: React.FC = () => {
                 </label>
               )}
 
+              {usuario && usuario.id_rol !== 3 && (
+                <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+                  <p className="text-xs font-black text-[#EAF0F6]">Cliente de la cita</p>
+                  {clienteSeleccionado ? (
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-cyan-200">{clienteSeleccionado.nombre}</p>
+                        <p className="truncate text-[11px] text-[#93A1B1]">{clienteSeleccionado.correo} · {clienteSeleccionado.telefono || 'Sin teléfono'}</p>
+                      </div>
+                      <button type="button" onClick={() => {
+                        setClienteSeleccionado(null);
+                        setClienteTexto('');
+                        setNombre('');
+                        setCorreo('');
+                        setTelefono('');
+                      }} className="shrink-0 rounded-lg border border-white/12 px-3 py-1.5 text-[11px] font-bold text-[#93A1B1]">
+                        Cambiar
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-2 flex gap-2">
+                        <input value={clienteTexto} onChange={(evento) => setClienteTexto(evento.target.value)}
+                          onKeyDown={(evento) => {
+                            if (evento.key === 'Enter') {
+                              evento.preventDefault();
+                              void buscarClienteInterno();
+                            }
+                          }}
+                          placeholder="Buscar por nombre, correo o teléfono" className={inputCls} />
+                        <button type="button" onClick={() => void buscarClienteInterno()} disabled={buscandoClientes}
+                          className="shrink-0 rounded-xl bg-cyan-400 px-3 text-xs font-black text-[#06232A] disabled:opacity-50">
+                          {buscandoClientes ? 'Buscando…' : 'Buscar'}
+                        </button>
+                      </div>
+                      {errorBusquedaCliente && <p role="alert" className="mt-2 text-[11px] font-semibold text-rose-300">{errorBusquedaCliente}</p>}
+                      {resultadosCliente.length > 0 && (
+                        <div className="mt-2 max-h-36 overflow-y-auto rounded-xl border border-white/10">
+                          {resultadosCliente.map((cliente) => (
+                            <button key={cliente.id_cliente} type="button" onClick={() => seleccionarCliente(cliente)}
+                              className="block w-full border-b border-white/8 px-3 py-2 text-left last:border-0 hover:bg-white/5">
+                              <span className="block text-xs font-bold text-[#EAF0F6]">{cliente.nombre}</span>
+                              <span className="block text-[10px] text-[#93A1B1]">{cliente.correo} · {cliente.telefono || 'Sin teléfono'}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </section>
+              )}
+
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo" className={inputCls} />
-                <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Teléfono WhatsApp" className={inputCls} />
+                <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo"
+                  readOnly={Boolean(usuario && usuario.id_rol !== 3)} className={inputCls} />
+                <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Teléfono WhatsApp"
+                  readOnly={Boolean(usuario && usuario.id_rol !== 3)} className={inputCls} />
               </div>
               <input value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
                 placeholder="Indicaciones para el barbero (opcional)" className={inputCls} />

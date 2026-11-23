@@ -18,7 +18,13 @@ from app.core.exceptions import Conflicto, DatosInvalidos, NoEncontrado, Prohibi
 from app.core.security import generar_codigo_reserva
 from app.db.database import execute, fetch_all, fetch_one, fetch_value, transaction
 from app.db.serializers import hhmm
-from app.services import barberos_service, email_service, notificaciones_service, puntos_service
+from app.services import (
+    agenda_service,
+    barberos_service,
+    email_service,
+    notificaciones_service,
+    puntos_service,
+)
 from app.services.auditoria_service import Accion, registrar_auditoria
 
 logger = logging.getLogger("globde.citas")
@@ -34,6 +40,13 @@ TRANSICIONES: dict[str, tuple[str, ...]] = {
     "completada": (),
     "cancelada": (),
     "no_asistio": (),
+}
+
+EXTRAS_CATALOGO: dict[str, tuple[float, int]] = {
+    "Lavado premium": (6000, 10),
+    "Toalla caliente": (6000, 10),
+    "Mascarilla de carbón": (6000, 10),
+    "Perfilado de cejas": (6000, 5),
 }
 
 
@@ -69,9 +82,59 @@ def _minutos(hora: time) -> int:
     return hora.hour * 60 + hora.minute
 
 
+def _validar_extras(valores: Any) -> list[str]:
+    if not isinstance(valores, list):
+        raise DatosInvalidos("Los extras de la cita deben ser una lista")
+    if any(not isinstance(nombre, str) for nombre in valores):
+        raise DatosInvalidos("La selección de extras no es válida")
+    if len(valores) > len(EXTRAS_CATALOGO) or len(set(valores)) != len(valores):
+        raise DatosInvalidos("La selección de extras no es válida")
+    if any(nombre not in EXTRAS_CATALOGO for nombre in valores):
+        raise DatosInvalidos("La cita contiene un extra no disponible")
+    return valores
+
+
+def _minutos_de_extras(extras: list[str]) -> int:
+    return sum(EXTRAS_CATALOGO[nombre][1] for nombre in extras)
+
+
+def _precio_de_extras(extras: list[str]) -> float:
+    return sum(EXTRAS_CATALOGO[nombre][0] for nombre in extras)
+
+
 # ----------------------------------------------------------------------
 # Consultas
 # ----------------------------------------------------------------------
+
+def _adjuntar_extras(citas: list[dict]) -> list[dict]:
+    if not citas:
+        return citas
+    ids = [int(cita["id_cita"]) for cita in citas]
+    marcadores = ", ".join(["%s"] * len(ids))
+    filas = fetch_all(
+        f"""SELECT id_cita, nombre FROM cita_extras
+            WHERE id_cita IN ({marcadores}) ORDER BY id_cita_extra""",
+        ids,
+    )
+    completadas = fetch_all(
+        f"""SELECT id_cita, completada_en FROM citas
+            WHERE id_cita IN ({marcadores})""",
+        ids,
+    )
+    extras_por_cita: dict[int, list[str]] = {}
+    for fila in filas:
+        extras_por_cita.setdefault(int(fila["id_cita"]), []).append(str(fila["nombre"]))
+    fecha_completada_por_cita = {
+        int(fila["id_cita"]): fila["completada_en"] for fila in completadas
+    }
+    for cita in citas:
+        cita["extras"] = extras_por_cita.get(int(cita["id_cita"]), [])
+        cita["completada_en"] = fecha_completada_por_cita.get(int(cita["id_cita"]))
+        inicio = _minutos(_a_time(cita["hora_inicio"]))
+        fin = _minutos(_a_time(cita["hora_fin"]))
+        cita["duracion_minutos"] = fin - inicio
+    return citas
+
 
 def _formatear(fila: dict) -> dict:
     fila["hora_inicio"] = hhmm(fila.get("hora_inicio"))
@@ -83,14 +146,14 @@ def obtener(id_cita: int) -> dict:
     fila = fetch_one("SELECT * FROM v_citas_detalle WHERE id_cita = %s", (id_cita,))
     if not fila:
         raise NoEncontrado("La cita no existe")
-    return _formatear(fila)
+    return _adjuntar_extras([_formatear(fila)])[0]
 
 
 def obtener_por_codigo(codigo: str) -> dict:
     fila = fetch_one("SELECT * FROM v_citas_detalle WHERE codigo_reserva = %s", (codigo,))
     if not fila:
         raise NoEncontrado("No existe una cita con ese codigo de reserva")
-    return _formatear(fila)
+    return _adjuntar_extras([_formatear(fila)])[0]
 
 
 def _construir_filtros(
@@ -148,7 +211,7 @@ def listar(limite: int = 100, offset: int = 0, orden: str = "desc", **filtros) -
             LIMIT %s OFFSET %s""",
         params,
     )
-    return [_formatear(f) for f in filas]
+    return _adjuntar_extras([_formatear(f) for f in filas])
 
 
 def contar(**filtros) -> int:
@@ -165,7 +228,7 @@ def agenda_barbero(id_barbero: int, fecha: str) -> list[dict]:
            ORDER BY hora_inicio""",
         (id_barbero, fecha),
     )
-    return [_formatear(f) for f in filas]
+    return _adjuntar_extras([_formatear(f) for f in filas])
 
 
 def proximas_del_cliente(id_cliente: int, limite: int = 5) -> list[dict]:
@@ -177,7 +240,7 @@ def proximas_del_cliente(id_cliente: int, limite: int = 5) -> list[dict]:
            LIMIT %s""",
         (id_cliente, limite),
     )
-    return [_formatear(f) for f in filas]
+    return _adjuntar_extras([_formatear(f) for f in filas])
 
 
 # ----------------------------------------------------------------------
@@ -313,18 +376,21 @@ def crear(datos: dict, actor: Any = None, contexto: dict | None = None) -> dict:
     if not barberos_service.presta_servicio(id_barbero, int(servicio["id_servicio"])):
         raise DatosInvalidos("El barbero seleccionado no presta ese servicio")
 
+    extras = _validar_extras(datos.get("extras", []))
     fecha = _a_fecha(datos["fecha"])
     inicio = _a_time(datos["hora_inicio"])
-    fin = (
-        _a_time(datos["hora_fin"])
-        if datos.get("hora_fin")
-        else _sumar_minutos(inicio, int(servicio["duracion_minutos"]))
+    fin_esperado = _sumar_minutos(
+        inicio, int(servicio["duracion_minutos"]) + _minutos_de_extras(extras)
     )
+    if datos.get("hora_fin") and _a_time(datos["hora_fin"]) != fin_esperado:
+        raise DatosInvalidos("La hora de fin no coincide con la duración del servicio y sus extras")
+    fin = fin_esperado
     if fin <= inicio:
         raise DatosInvalidos("La hora de fin debe ser posterior a la de inicio")
 
     _validar_fecha_futura(fecha, inicio)
     _validar_horario_laboral(id_barbero, fecha, inicio, fin)
+    agenda_service.validar_horario_negocio(fecha, inicio, fin)
     _validar_bloqueos(id_barbero, fecha, inicio, fin)
 
     fecha_txt, inicio_txt, fin_txt = fecha.isoformat(), inicio.strftime("%H:%M:%S"), fin.strftime("%H:%M:%S")
@@ -349,7 +415,7 @@ def crear(datos: dict, actor: Any = None, contexto: dict | None = None) -> dict:
             f"Ya tienes una cita agendada en ese horario ({choque_cliente['codigo_reserva']})"
         )
 
-    precio = _precio_para(id_barbero, servicio)
+    precio = _precio_para(id_barbero, servicio) + _precio_de_extras(extras)
     puntos_a_canjear = int(datos.get("puntos_a_canjear") or 0)
     descuento = 0.0
     if puntos_a_canjear:
@@ -380,6 +446,14 @@ def crear(datos: dict, actor: Any = None, contexto: dict | None = None) -> dict:
             ),
         )
         id_cita = cursor.lastrowid
+
+        for nombre_extra in extras:
+            precio_extra, minutos_extra = EXTRAS_CATALOGO[nombre_extra]
+            cursor.execute(
+                """INSERT INTO cita_extras (id_cita, nombre, precio, duracion_minutos)
+                   VALUES (%s, %s, %s, %s)""",
+                (id_cita, nombre_extra, precio_extra, minutos_extra),
+            )
 
         if puntos_a_canjear:
             puntos_service.aplicar_movimiento(
@@ -436,13 +510,20 @@ def actualizar(id_cita: int, datos: dict, actor: Any = None, contexto: dict | No
     id_barbero = int(datos.get("id_barbero") or cita["id_barbero"])
     id_servicio = int(datos.get("id_servicio") or cita["id_servicio"])
     servicio = _obtener_servicio(id_servicio)
+    extras = _validar_extras(cita.get("extras", []))
+    fin_esperado = _sumar_minutos(
+        _a_time(datos.get("hora_inicio") or cita["hora_inicio"]),
+        int(servicio["duracion_minutos"]) + _minutos_de_extras(extras),
+    )
 
     fecha = _a_fecha(datos.get("fecha") or cita["fecha"])
     inicio = _a_time(datos.get("hora_inicio") or cita["hora_inicio"])
     if datos.get("hora_fin"):
         fin = _a_time(datos["hora_fin"])
+        if fin != fin_esperado:
+            raise DatosInvalidos("La hora de fin no coincide con la duración del servicio y sus extras")
     elif datos.get("hora_inicio") or datos.get("id_servicio"):
-        fin = _sumar_minutos(inicio, int(servicio["duracion_minutos"]))
+        fin = fin_esperado
     else:
         fin = _a_time(cita["hora_fin"])
 
@@ -451,6 +532,7 @@ def actualizar(id_cita: int, datos: dict, actor: Any = None, contexto: dict | No
 
     cambia_agenda = (
         id_barbero != int(cita["id_barbero"])
+        or id_servicio != int(cita["id_servicio"])
         or fecha.isoformat() != str(cita["fecha"])
         or inicio.strftime("%H:%M") != hhmm(cita["hora_inicio"])
         or fin.strftime("%H:%M") != hhmm(cita["hora_fin"])
@@ -462,6 +544,7 @@ def actualizar(id_cita: int, datos: dict, actor: Any = None, contexto: dict | No
             raise DatosInvalidos("El barbero seleccionado no presta ese servicio")
         _validar_fecha_futura(fecha, inicio)
         _validar_horario_laboral(id_barbero, fecha, inicio, fin)
+        agenda_service.validar_horario_negocio(fecha, inicio, fin)
         _validar_bloqueos(id_barbero, fecha, inicio, fin)
         conflicto = hay_solapamiento(
             id_barbero, fecha.isoformat(), inicio.strftime("%H:%M:%S"),
@@ -474,7 +557,7 @@ def actualizar(id_cita: int, datos: dict, actor: Any = None, contexto: dict | No
             )
 
     precio = (
-        _precio_para(id_barbero, servicio)
+        _precio_para(id_barbero, servicio) + _precio_de_extras(extras)
         if id_servicio != int(cita["id_servicio"]) or id_barbero != int(cita["id_barbero"])
         else float(cita["precio_total"])
     )
@@ -490,6 +573,15 @@ def actualizar(id_cita: int, datos: dict, actor: Any = None, contexto: dict | No
             datos.get("observaciones", cita.get("observaciones")), id_cita,
         ),
     )
+    if cambia_agenda:
+        execute(
+            """UPDATE recordatorios_citas
+               SET estado = 'pendiente', intentos = 0, enviado_en = NULL,
+                   claim_token = NULL,
+                   proximo_intento = DATE_SUB(TIMESTAMP(%s, %s), INTERVAL 24 HOUR)
+               WHERE id_cita = %s AND estado <> 'cancelado'""",
+            (fecha.isoformat(), inicio.strftime("%H:%M:%S"), id_cita),
+        )
 
     actualizada = obtener(id_cita)
     registrar_auditoria(
@@ -537,9 +629,17 @@ def cambiar_estado(
         return cancelar(id_cita, motivo, actor, contexto)
 
     with transaction() as cursor:
-        cursor.execute(
-            "UPDATE citas SET estado = %s WHERE id_cita = %s", (nuevo_estado, id_cita)
-        )
+        if nuevo_estado == "completada":
+            cursor.execute(
+                """UPDATE citas SET estado = %s, completada_en = NOW()
+                   WHERE id_cita = %s""",
+                (nuevo_estado, id_cita),
+            )
+        else:
+            cursor.execute(
+                "UPDATE citas SET estado = %s WHERE id_cita = %s",
+                (nuevo_estado, id_cita),
+            )
 
         if nuevo_estado == "completada":
             cursor.execute(
@@ -670,6 +770,20 @@ def cancelar(
         f"a las {actualizada['hora_inicio']} fue cancelada.",
         "cita",
     )
+    administradores = fetch_all(
+        """SELECT id_usuario FROM usuarios
+           WHERE id_rol = %s AND activo = 1""",
+        (settings.ROL_ADMINISTRADOR,),
+    )
+    for administrador in administradores:
+        notificaciones_service.crear_notificacion(
+            int(administrador["id_usuario"]),
+            "Cita cancelada",
+            f"La cita {actualizada['codigo_reserva']} de {actualizada['cliente_nombre']} "
+            f"fue cancelada para el {actualizada['fecha']} a las {actualizada['hora_inicio']}.",
+            "cita",
+            f"/citas/{id_cita}",
+        )
     email_service.enviar_cancelacion_cita(
         actualizada["cliente_correo"], actualizada["cliente_nombre"], actualizada, motivo,
         int(actualizada["id_usuario_cliente"]),
@@ -697,28 +811,41 @@ def _verificar_acceso(cita: dict, actor: Any, escritura: bool = False) -> None:
 # ----------------------------------------------------------------------
 
 def calcular_disponibilidad(
-    id_barbero: int, fecha: str, id_servicio: int | None = None, paso: int | None = None
+    id_barbero: int,
+    fecha: str,
+    id_servicio: int | None = None,
+    paso: int | None = None,
+    duracion_adicional_minutos: int = 0,
 ) -> dict:
     """Devuelve los slots libres del barbero para una fecha."""
-    barberos_service.obtener(id_barbero)
+    if not 0 <= duracion_adicional_minutos <= 180:
+        raise DatosInvalidos("La duración adicional debe estar entre 0 y 180 minutos")
+    barbero = barberos_service.obtener(id_barbero)
     dia = _a_fecha(fecha)
-
-    if dia < datetime.now().date():
-        return {
-            "id_barbero": id_barbero,
-            "fecha": dia.isoformat(),
-            "id_servicio": int(id_servicio) if id_servicio else None,
-            "duracion_minutos": 30,
-            "slots": [],
-        }
 
     duracion = 30
     if id_servicio is not None:
         servicio = _obtener_servicio(int(id_servicio))
         duracion = int(servicio["duracion_minutos"])
+    duracion += duracion_adicional_minutos
+
+    if (
+        dia < datetime.now().date()
+        or not barbero.get("activo")
+        or not barbero.get("disponible")
+        or agenda_service.hay_cierre_negocio(dia)
+    ):
+        return {
+            "id_barbero": id_barbero,
+            "fecha": dia.isoformat(),
+            "id_servicio": int(id_servicio) if id_servicio else None,
+            "duracion_minutos": duracion,
+            "slots": [],
+        }
 
     paso = int(paso or settings.SLOT_STEP_MINUTOS)
     franjas = barberos_service.horarios_del_dia(id_barbero, dia)
+    horarios_negocio = agenda_service.horarios_negocio_del_dia(dia)
     bloqueos = barberos_service.bloqueos_del_dia(id_barbero, dia)
 
     ocupadas = fetch_all(
@@ -743,6 +870,14 @@ def calcular_disponibilidad(
         cursor_min = inicio_franja
         while cursor_min + duracion <= fin_franja:
             fin_slot = cursor_min + duracion
+            dentro_horario_negocio = any(
+                _minutos(_a_time(horario["hora_inicio"])) <= cursor_min
+                and fin_slot <= _minutos(_a_time(horario["hora_fin"]))
+                for horario in horarios_negocio
+            )
+            if not dentro_horario_negocio:
+                cursor_min += paso
+                continue
             libre = not any(
                 cursor_min < ocupado_fin and fin_slot > ocupado_inicio
                 for ocupado_inicio, ocupado_fin in intervalos_ocupados

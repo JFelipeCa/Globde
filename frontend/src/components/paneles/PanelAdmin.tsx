@@ -6,13 +6,14 @@ import {
   Sun, Moon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita, UsuarioInternoCreate } from '../../types';
+import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita, Servicio, UsuarioInternoCreate } from '../../types';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
+  generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
 } from '../../utils/helpers';
 import { apiRequest } from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
+import { AgendaAdmin } from './AgendaAdmin';
 
 const POR_PAGINA = 6;
 const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia', 'nequi', 'daviplata', 'otro'] as const;
@@ -77,20 +78,44 @@ interface RespuestaPaginada<T> {
   total: number;
 }
 
+function mapServicioAdmin(registro: Record<string, unknown>, indice: number): Servicio {
+  return {
+    id_servicio: Number(registro.id_servicio ?? indice + 1),
+    nombre: String(registro.nombre ?? `Servicio ${indice + 1}`),
+    categoria: String(registro.categoria ?? 'Cortes') as CategoriaServicio,
+    descripcion: String(registro.descripcion ?? ''),
+    precio: Number(registro.precio ?? 0),
+    duracion_minutos: Number(registro.duracion_minutos ?? 0),
+    popular: Boolean(registro.popular),
+    icono: String(registro.icono ?? '✂️'),
+    imagen_url: typeof registro.imagen_url === 'string' ? registro.imagen_url : undefined,
+    puntos_otorga: Number(registro.puntos_otorga ?? 0),
+    activo: registro.activo !== false,
+  };
+}
+
 export const PanelAdmin: React.FC = () => {
   const { modoOscuro, alternarModo } = useTheme();
   const {
     usuario, irA, logout, citas, servicios, barberos, confirmarCita, cambiarEstadoCita,
-    cancelarCita, editarCita, agregarServicio, eliminarServicio,
+    cancelarCita, editarCita, agregarServicio,
+    cambiarEstadoServicio, actualizarPuntosServicio,
     actualizarNivelBarbero, difusionMasiva, verTicket, franjasOcupadas,
     crearCita, buscarClientes, descargarReporte, crearUsuarioInterno,
   } = useApp();
 
-  const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'avisos' | 'puntos' | 'facturacion'>('resumen');
+  const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'agenda' | 'avisos' | 'puntos' | 'facturacion'>('resumen');
   const [pagina, setPagina] = useState(1);
   const [busqueda, setBusqueda] = useState('');
   const [fBarbero, setFBarbero] = useState('todos');
   const [fEstado, setFEstado] = useState('todos');
+  const [fechaDesdeCitas, setFechaDesdeCitas] = useState('');
+  const [fechaHastaCitas, setFechaHastaCitas] = useState('');
+  const [citasPagina, setCitasPagina] = useState<Cita[]>([]);
+  const [totalCitasFiltradas, setTotalCitasFiltradas] = useState(0);
+  const [citasCargando, setCitasCargando] = useState(false);
+  const [errorCitas, setErrorCitas] = useState('');
+  const [revisionCitas, setRevisionCitas] = useState(0);
   const [aviso, setAviso] = useState('');
   const [reporteDescargando, setReporteDescargando] = useState<string | null>(null);
   const [facturas, setFacturas] = useState<FacturaAdmin[]>([]);
@@ -164,11 +189,20 @@ export const PanelAdmin: React.FC = () => {
   const [sCat, setSCat] = useState<CategoriaServicio>('Cortes');
   const [sPrecio, setSPrecio] = useState(25000);
   const [sDur, setSDur] = useState(30);
+  const [sPuntos, setSPuntos] = useState(25);
   const [sDesc, setSDesc] = useState('');
+  const [serviciosInactivos, setServiciosInactivos] = useState<Servicio[]>([]);
+  const [errorServiciosInactivos, setErrorServiciosInactivos] = useState('');
+  const [idEditandoPuntosServicio, setIdEditandoPuntosServicio] = useState<number | null>(null);
+  const [puntosServicioEditados, setPuntosServicioEditados] = useState('');
+  const [guardandoPuntosServicio, setGuardandoPuntosServicio] = useState(false);
 
   /* avisos */
   const [aTitulo, setATitulo] = useState('');
   const [aMensaje, setAMensaje] = useState('');
+  const [aRol, setARol] = useState<'todos' | '1' | '2' | '3'>('3');
+  const [aEnviarCorreo, setAEnviarCorreo] = useState(false);
+  const [aEnviando, setAEnviando] = useState(false);
 
   const [modalUsuario, setModalUsuario] = useState(false);
   const [uNombre, setUNombre] = useState('');
@@ -205,6 +239,60 @@ export const PanelAdmin: React.FC = () => {
   useEffect(() => {
     void cargarFacturas();
   }, [cargarFacturas]);
+
+  useEffect(() => {
+    if (seccion !== 'citas') return;
+    const controlador = new AbortController();
+    const parametros = new URLSearchParams({
+      pagina: String(pagina),
+      por_pagina: String(POR_PAGINA),
+    });
+    if (busqueda.trim()) parametros.set('buscar', busqueda.trim());
+    if (fBarbero !== 'todos') parametros.set('id_barbero', fBarbero);
+    if (fEstado !== 'todos') parametros.set('estado', fEstado);
+    if (fechaDesdeCitas) parametros.set('desde', fechaDesdeCitas);
+    if (fechaHastaCitas) parametros.set('hasta', fechaHastaCitas);
+
+    setCitasCargando(true);
+    setErrorCitas('');
+    apiRequest<RespuestaPaginada<Cita>>(`/citas?${parametros.toString()}`, {
+      signal: controlador.signal,
+    })
+      .then((resultado) => {
+        setCitasPagina(resultado.items);
+        setTotalCitasFiltradas(resultado.total);
+      })
+      .catch((error: unknown) => {
+        if (!controlador.signal.aborted) {
+          setErrorCitas(error instanceof Error ? error.message : 'No se pudieron cargar las citas.');
+        }
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setCitasCargando(false);
+      });
+    return () => controlador.abort();
+  }, [
+    seccion, pagina, busqueda, fBarbero, fEstado, fechaDesdeCitas,
+    fechaHastaCitas, revisionCitas,
+  ]);
+
+  useEffect(() => {
+    if (seccion !== 'servicios') return;
+    let vigente = true;
+    setErrorServiciosInactivos('');
+    apiRequest<Record<string, unknown>[]>('/servicios?activo=false')
+      .then((resultado) => {
+        if (vigente) {
+          setServiciosInactivos(resultado.map((servicio, indice) => mapServicioAdmin(servicio, indice)));
+        }
+      })
+      .catch((error: unknown) => {
+        if (vigente) {
+          setErrorServiciosInactivos(error instanceof Error ? error.message : 'No se pudieron cargar servicios inactivos.');
+        }
+      });
+    return () => { vigente = false; };
+  }, [seccion]);
 
   useEffect(() => {
     let vigente = true;
@@ -306,16 +394,46 @@ export const PanelAdmin: React.FC = () => {
     return () => { vigente = false; clearTimeout(temporizador); };
   }, [seccion, paginaFacturas, estadoFacturas, busquedaFacturas, revisionFacturas]);
 
-  const filtradas = citas.filter((c) => {
-    const t = busqueda.toLowerCase();
-    const okTexto = !t || c.cliente_nombre.toLowerCase().includes(t) || c.codigo_reserva.toLowerCase().includes(t) || c.servicio_nombre.toLowerCase().includes(t);
-    const okB = fBarbero === 'todos' || String(c.id_barbero) === fBarbero;
-    const okE = fEstado === 'todos' || c.estado === fEstado;
-    return okTexto && okB && okE;
-  });
-  const pag = paginar(filtradas, pagina, POR_PAGINA);
+  const totalPaginasCitas = Math.max(1, Math.ceil(totalCitasFiltradas / POR_PAGINA));
+  const serviciosAdmin = [...servicios, ...serviciosInactivos];
+  const pag = {
+    items: citasPagina,
+    total: totalCitasFiltradas,
+    pagina,
+    totalPaginas: totalPaginasCitas,
+    desde: totalCitasFiltradas ? (pagina - 1) * POR_PAGINA + 1 : 0,
+    hasta: Math.min(pagina * POR_PAGINA, totalCitasFiltradas),
+  };
+  const inicioVentanaPaginas = Math.max(1, Math.min(pagina - 2, totalPaginasCitas - 4));
+  const paginasCitas = Array.from(
+    { length: Math.min(5, totalPaginasCitas) },
+    (_, indice) => inicioVentanaPaginas + indice,
+  );
 
   const mostrar = (t: string) => { setAviso(t); setTimeout(() => setAviso(''), 4000); };
+  const confirmarDesdeAdmin = async (cita: Cita) => {
+    const resultado = await confirmarCita(cita.id_cita);
+    if (resultado.ok) {
+      mostrar(`Cita ${cita.codigo_reserva} confirmada.`);
+      setRevisionCitas((revision) => revision + 1);
+    } else {
+      mostrar(resultado.mensaje);
+    }
+  };
+  const cambiarEstadoDesdeAdmin = async (idCita: number, estado: EstadoCita) => {
+    const resultado = await cambiarEstadoCita(idCita, estado);
+    if (resultado.ok) setRevisionCitas((revision) => revision + 1);
+    else mostrar(resultado.mensaje);
+  };
+  const cancelarDesdeAdmin = async (cita: Cita) => {
+    const resultado = await cancelarCita(cita.id_cita, 'Cancelada por administración');
+    if (resultado.ok) {
+      mostrar('Cita cancelada.');
+      setRevisionCitas((revision) => revision + 1);
+    } else {
+      mostrar(resultado.mensaje);
+    }
+  };
 
   const guardarAjustePuntos = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -586,6 +704,7 @@ export const PanelAdmin: React.FC = () => {
     setNGuardando(false);
     if (!r.ok) { setNError(r.mensaje); return; }
     setModalCita(false);
+    setRevisionCitas((revision) => revision + 1);
     mostrar(`Cita agendada para ${nCliente.nombre}.`);
   };
 
@@ -596,7 +715,9 @@ export const PanelAdmin: React.FC = () => {
       id_servicio: eServicio, observaciones: eObs, estado: eEstado,
     });
     if (!r.ok) { setEError(r.mensaje); return; }
-    setEdit(null); mostrar('Cita actualizada correctamente.');
+    setEdit(null);
+    setRevisionCitas((revision) => revision + 1);
+    mostrar('Cita actualizada correctamente.');
   };
 
   const crearServicio = async (e: React.FormEvent) => {
@@ -604,10 +725,46 @@ export const PanelAdmin: React.FC = () => {
     const r = await agregarServicio({
       nombre: sNombre, categoria: sCat, descripcion: sDesc || 'Servicio profesional de barbería.',
       precio: Number(sPrecio), duracion_minutos: Number(sDur), icono: '✂️',
-      puntos_otorga: Math.round(Number(sPrecio) / 1000), activo: true,
+      puntos_otorga: Number(sPuntos), activo: true,
     });
     if (!r.ok) { alert(r.mensaje); return; }
     setModalServ(false); setSNombre(''); setSDesc('');
+  };
+
+  const alternarServicioAdmin = async (servicio: Servicio) => {
+    const nuevoEstado = !servicio.activo;
+    const resultado = await cambiarEstadoServicio(servicio.id_servicio, nuevoEstado);
+    if (!resultado.ok) {
+      mostrar(resultado.mensaje);
+      return;
+    }
+    if (nuevoEstado) {
+      setServiciosInactivos((prev) => prev.filter((item) => item.id_servicio !== servicio.id_servicio));
+    } else {
+      setServiciosInactivos((prev) => [...prev, { ...servicio, activo: false }]);
+    }
+    mostrar(resultado.mensaje);
+  };
+
+  const guardarPuntosServicio = async (servicio: Servicio) => {
+    const puntos = Number(puntosServicioEditados);
+    if (!Number.isInteger(puntos) || puntos < 0) {
+      mostrar('Los puntos deben ser un número entero igual o mayor que cero.');
+      return;
+    }
+    setGuardandoPuntosServicio(true);
+    const resultado = await actualizarPuntosServicio(servicio.id_servicio, puntos);
+    setGuardandoPuntosServicio(false);
+    if (!resultado.ok) {
+      mostrar(resultado.mensaje);
+      return;
+    }
+    setServiciosInactivos((prev) => prev.map((item) => (
+      item.id_servicio === servicio.id_servicio ? { ...item, puntos_otorga: puntos } : item
+    )));
+    setIdEditandoPuntosServicio(null);
+    setPuntosServicioEditados('');
+    mostrar(resultado.mensaje);
   };
 
   const tabs = [
@@ -615,6 +772,7 @@ export const PanelAdmin: React.FC = () => {
     { id: 'citas', t: `Citas (${dashboard?.total_citas ?? citas.length})`, i: CalendarDays },
     { id: 'servicios', t: 'Servicios', i: Scissors },
     { id: 'equipo', t: 'Equipo', i: Award },
+    { id: 'agenda', t: 'Agenda', i: CalendarDays },
     { id: 'avisos', t: 'Avisos y reportes', i: Send },
     { id: 'puntos', t: 'Club de puntos', i: Gift },
     { id: 'facturacion', t: 'Facturación', i: Receipt },
@@ -625,6 +783,7 @@ export const PanelAdmin: React.FC = () => {
     citas: 'Gestión de citas',
     servicios: 'Catálogo de servicios',
     equipo: 'Equipo interno',
+    agenda: 'Horarios y cierres',
     avisos: 'Avisos y reportes',
     puntos: 'Club de puntos',
     facturacion: 'Facturación',
@@ -868,7 +1027,7 @@ export const PanelAdmin: React.FC = () => {
                 <Plus className="h-4 w-4" /> Nueva cita
               </button>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <div className="relative flex-1">
                 <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#6B7A8C]" />
                 <input value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
@@ -884,6 +1043,29 @@ export const PanelAdmin: React.FC = () => {
                   <option key={e} value={e}>{estiloEstado(e).texto}</option>
                 ))}
               </select>
+              <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-[10px] font-semibold text-[#93A1B1]">
+                Desde
+                <input type="date" value={fechaDesdeCitas}
+                  max={fechaHastaCitas || undefined}
+                  onChange={(e) => { setFechaDesdeCitas(e.target.value); setPagina(1); }}
+                  className={input} />
+              </label>
+              <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-[10px] font-semibold text-[#93A1B1]">
+                Hasta
+                <input type="date" value={fechaHastaCitas}
+                  min={fechaDesdeCitas || undefined}
+                  onChange={(e) => { setFechaHastaCitas(e.target.value); setPagina(1); }}
+                  className={input} />
+              </label>
+              {(fechaDesdeCitas || fechaHastaCitas) && (
+                <button type="button" onClick={() => {
+                  setFechaDesdeCitas('');
+                  setFechaHastaCitas('');
+                  setPagina(1);
+                }} className="rounded-xl border border-white/12 px-3 py-2 text-xs font-bold text-[#93A1B1] hover:bg-white/5">
+                  Limpiar fechas
+                </button>
+              )}
             </div>
 
             <div className="card overflow-hidden">
@@ -897,7 +1079,13 @@ export const PanelAdmin: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/6">
-                    {pag.items.map((c) => {
+                    {citasCargando ? (
+                      <tr><td colSpan={7} className="p-10 text-center text-sm text-[#93A1B1]">Cargando citas…</td></tr>
+                    ) : errorCitas ? (
+                      <tr><td colSpan={7} role="alert" className="p-10 text-center text-sm text-rose-300">{errorCitas}</td></tr>
+                    ) : pag.items.length === 0 ? (
+                      <tr><td colSpan={7} className="p-10 text-center text-sm text-[#93A1B1]">No hay citas que coincidan con los filtros.</td></tr>
+                    ) : pag.items.map((c) => {
                       const est = estiloEstado(c.estado);
                       const completada = c.estado === 'completada';
                       const cerrada = completada || c.estado === 'cancelada';
@@ -923,7 +1111,7 @@ export const PanelAdmin: React.FC = () => {
                           <td className="p-4">
                             <div className="flex flex-wrap items-center justify-end gap-1.5">
                               {c.estado === 'pendiente' && (
-                                <button onClick={() => { confirmarCita(c.id_cita); mostrar(`Cita ${c.codigo_reserva} confirmada.`); }}
+                                <button onClick={() => void confirmarDesdeAdmin(c)}
                                   className="flex items-center gap-1 rounded-xl bg-emerald-400 px-3 py-1.5 text-[11px] font-black text-[#04211F] transition hover:bg-emerald-300">
                                   <Check className="h-3.5 w-3.5" /> Confirmar
                                 </button>
@@ -943,7 +1131,7 @@ export const PanelAdmin: React.FC = () => {
 
                               {!cerrada && (
                                 <>
-                                  <select value={c.estado} onChange={(e) => cambiarEstadoCita(c.id_cita, e.target.value as Cita['estado'])}
+                                  <select value={c.estado} onChange={(e) => void cambiarEstadoDesdeAdmin(c.id_cita, e.target.value as EstadoCita)}
                                     className="rounded-xl border border-white/12 bg-[#0F151C] px-2 py-1.5 text-[11px] font-semibold text-[#93A1B1] outline-none">
                                     <option value="pendiente">Pendiente</option>
                                     <option value="confirmada">Confirmada</option>
@@ -951,7 +1139,7 @@ export const PanelAdmin: React.FC = () => {
                                     <option value="completada">Completada</option>
                                     <option value="no_asistio">No asistió</option>
                                   </select>
-                                  <button onClick={() => { cancelarCita(c.id_cita, 'Cancelada por administración'); mostrar('Cita cancelada.'); }}
+                                  <button onClick={() => void cancelarDesdeAdmin(c)}
                                     className="rounded-xl border border-rose-400/30 p-1.5 text-rose-300 transition hover:bg-rose-400/10" title="Cancelar">
                                     <Ban className="h-3.5 w-3.5" />
                                   </button>
@@ -973,7 +1161,7 @@ export const PanelAdmin: React.FC = () => {
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPagina(pag.pagina - 1)} disabled={pag.pagina === 1}
                     className="rounded-xl border border-white/12 p-1.5 text-[#93A1B1] disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
-                  {Array.from({ length: pag.totalPaginas }, (_, i) => i + 1).map((n) => (
+                  {paginasCitas.map((n) => (
                     <button key={n} onClick={() => setPagina(n)}
                       className={`h-8 w-8 rounded-xl text-xs font-black ${n === pag.pagina ? 'bg-teal-400 text-[#04211F]' : 'border border-white/12 text-[#93A1B1]'}`}>{n}</button>
                   ))}
@@ -991,13 +1179,21 @@ export const PanelAdmin: React.FC = () => {
             <button onClick={() => setModalServ(true)} className="btn-primario flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-bold">
               <Plus className="h-4 w-4" /> Nuevo servicio
             </button>
+            {errorServiciosInactivos && (
+              <p role="alert" className="rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">{errorServiciosInactivos}</p>
+            )}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {servicios.map((s) => (
+              {serviciosAdmin.map((s) => (
                 <div key={s.id_servicio} className="card p-5">
                   <div className="flex items-start justify-between">
                     <span className="text-3xl">{s.icono}</span>
-                    <button onClick={() => eliminarServicio(s.id_servicio)} className="rounded-lg p-1.5 text-[#5A6878] transition hover:bg-rose-400/10 hover:text-rose-300">
-                      <Trash2 className="h-4 w-4" />
+                    <button onClick={() => void alternarServicioAdmin(s)}
+                      className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${
+                        s.activo
+                          ? 'text-rose-300 hover:bg-rose-400/10'
+                          : 'bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20'
+                      }`}>
+                      {s.activo ? <><Trash2 className="mr-1 inline h-3.5 w-3.5" />Desactivar</> : 'Reactivar'}
                     </button>
                   </div>
                   <h4 className="font-heading mt-2 text-base font-black text-[#EAF0F6]">{s.nombre}</h4>
@@ -1006,8 +1202,38 @@ export const PanelAdmin: React.FC = () => {
                     <span className="font-black text-teal-300">{formatoCOP(s.precio)}</span>
                     <span className="font-semibold text-[#93A1B1]">{duracionLegible(s.duracion_minutos)}</span>
                   </div>
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/8 pt-3">
+                    {idEditandoPuntosServicio === s.id_servicio ? (
+                      <>
+                        <label className="flex items-center gap-2 text-[10px] font-semibold text-[#93A1B1]">
+                          Puntos por cita completada
+                          <input type="number" min={0} step={1} value={puntosServicioEditados}
+                            onChange={(evento) => setPuntosServicioEditados(evento.target.value)}
+                            className="w-20 rounded-lg border border-white/10 bg-[#0F151C] px-2 py-1.5 text-xs text-[#EAF0F6]" />
+                        </label>
+                        <button type="button" disabled={guardandoPuntosServicio}
+                          onClick={() => void guardarPuntosServicio(s)}
+                          className="rounded-lg bg-teal-400 px-2.5 py-1.5 text-[10px] font-black text-[#04211F] disabled:opacity-50">
+                          Guardar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[10px] font-semibold text-[#93A1B1]">{s.puntos_otorga} puntos</span>
+                        <button type="button" onClick={() => {
+                          setIdEditandoPuntosServicio(s.id_servicio);
+                          setPuntosServicioEditados(String(s.puntos_otorga));
+                        }} className="rounded-lg border border-white/12 px-2.5 py-1.5 text-[10px] font-bold text-[#93A1B1] hover:bg-white/5">
+                          Configurar puntos
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
+              {serviciosAdmin.length === 0 && !errorServiciosInactivos && (
+                <p className="card col-span-full p-8 text-center text-sm text-[#93A1B1]">No hay servicios registrados.</p>
+              )}
             </div>
           </div>
         )}
@@ -1055,6 +1281,8 @@ export const PanelAdmin: React.FC = () => {
           </div>
         )}
 
+        {seccion === 'agenda' && <AgendaAdmin barberos={barberos} />}
+
         {/* AVISOS */}
         {seccion === 'avisos' && (
           <div className="anim-aparecer grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -1062,13 +1290,35 @@ export const PanelAdmin: React.FC = () => {
               <h3 className="font-heading flex items-center gap-2 text-lg font-black text-[#EAF0F6]">
                 <Send className="h-5 w-5 text-violet-300" /> Notificación masiva
               </h3>
-              <p className="mt-1 text-xs text-[#93A1B1]">Envía promociones o recordatorios a todos los clientes.</p>
-              <form onSubmit={async (e) => { e.preventDefault(); const r = await difusionMasiva(aTitulo, aMensaje); if (r.ok) { setATitulo(''); setAMensaje(''); } mostrar(r.mensaje); }}
+              <p className="mt-1 text-xs text-[#93A1B1]">Elige destinatarios y define si también se envía por correo.</p>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setAEnviando(true);
+                const rol = aRol === 'todos' ? null : Number(aRol);
+                const r = await difusionMasiva(aTitulo, aMensaje, rol, aEnviarCorreo);
+                setAEnviando(false);
+                if (r.ok) { setATitulo(''); setAMensaje(''); }
+                mostrar(r.mensaje);
+              }}
                 className="mt-4 space-y-3">
+                <select value={aRol} onChange={(e) => setARol(e.target.value as typeof aRol)} className={input}>
+                  <option value="3">Clientes</option>
+                  <option value="2">Barberos</option>
+                  <option value="1">Administradores</option>
+                  <option value="todos">Todos los usuarios activos</option>
+                </select>
                 <input value={aTitulo} onChange={(e) => setATitulo(e.target.value)} required placeholder="Título del aviso" className={input} />
                 <textarea rows={3} value={aMensaje} onChange={(e) => setAMensaje(e.target.value)} required
-                  placeholder="Mensaje para tus clientes…" className={input + ' resize-none'} />
-                <button type="submit" className="btn-primario w-full rounded-2xl py-2.5 text-sm font-bold">Enviar difusión</button>
+                  placeholder="Mensaje para los destinatarios…" className={input + ' resize-none'} />
+                <label className="flex items-center gap-2 text-xs font-semibold text-[#93A1B1]">
+                  <input type="checkbox" checked={aEnviarCorreo} onChange={(e) => setAEnviarCorreo(e.target.checked)}
+                    className="h-4 w-4 accent-cyan-500" />
+                  Enviar también por correo electrónico
+                </label>
+                <button type="submit" disabled={aEnviando}
+                  className="btn-primario w-full rounded-2xl py-2.5 text-sm font-bold disabled:cursor-wait disabled:opacity-50">
+                  {aEnviando ? 'Enviando…' : 'Enviar difusión'}
+                </button>
               </form>
             </div>
 
@@ -1660,6 +1910,12 @@ export const PanelAdmin: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <input type="number" value={sPrecio} onChange={(e) => setSPrecio(Number(e.target.value))} placeholder="Precio" className={input} />
                 <input type="number" value={sDur} onChange={(e) => setSDur(Number(e.target.value))} placeholder="Duración (min)" className={input} />
+                <label className="text-xs font-semibold text-[#93A1B1]">
+                  Puntos que otorga al completar
+                  <input type="number" min={0} step={1} value={sPuntos}
+                    onChange={(e) => setSPuntos(Number(e.target.value))}
+                    className={`${input} mt-1`} />
+                </label>
               </div>
               <select value={sCat} onChange={(e) => setSCat(e.target.value as CategoriaServicio)} className={input}>
                 {['Cortes', 'Barba', 'Combos', 'Tratamientos', 'Infantil'].map((c) => <option key={c}>{c}</option>)}

@@ -1,3 +1,9 @@
+<!--
+  ¿Qué? Guía principal del sistema GLOBDE.
+  ¿Para qué? Documenta su arquitectura, instalación, uso y validación.
+  ¿Impacto? Orienta a los equipos que desarrollan y despliegan el proyecto.
+-->
+
 > **Proyecto formativo** — SENA | Programa ADSO (Análisis y Desarrollo de Software) — Febrero 2026
 
 # 💈 GLOBDE — Sistema Integral de Gestión de Citas y Barbería
@@ -18,7 +24,7 @@ Sistema web fullstack para la gestión integral de citas, barberos, clientes, fi
 | **Frontend ↔ Backend** | ✅ Conectado | Login/registro por JWT, catálogo y citas cargados desde la API, operaciones (crear/editar/cancelar/calificar/canjear) que **persisten en el backend**. Nada vuelve a datos ficticios al recargar. |
 | **Autenticación** | ✅ | Token persistido en `sessionStorage`, enviado como `Bearer` por `apiClient`. Autorización real por rol en el backend (`SoloAdmin`/`SoloBarbero`/`SoloCliente`); la interfaz solo oculta paneles. |
 | **Rutas legacy** | ✅ Apagadas | `ENABLE_LEGACY_ROUTES=false` por defecto. `GET /api/datos` ya no expone datos sin autenticación. |
-| **Seguridad** | ✅ | `bcrypt`, consultas parametrizadas, `DB_PASSWORD`/`JWT_SECRET` obligatorios (compose falla explícito), `.env` ignorado. |
+| **Seguridad** | ✅ | `bcrypt`, consultas parametrizadas, secretos fuera del Compose y archivos `.env` ignorados. |
 | **Dependencias** | ✅ Exactas | Backend y frontend 100 % pinados sin comodines (`starlette==1.6.0`, `python-multipart==0.0.32`, etc.). `pip-audit` + `pnpm audit` en el CI. |
 | **Requisitos** | 🟡 29/33 HUs | 29 historias implementadas. **4 documentadas como fuera de alcance**: HU-020 (recordatorio por correo), HU-028 (días no laborales), HU-032 (exportación), HU-033 (lista de espera). HU-022 (notificaciones masivas) está conectada al backend. Ver [matriz de trazabilidad](docs/requisitos/matriz-trazabilidad.md). |
 
@@ -61,9 +67,9 @@ Este repositorio contiene la arquitectura completa, el backend API REST, el fron
 | :--- | :--- | :--- |
 | **Backend** | Python 3.13+, FastAPI, Uvicorn, Pydantic v2, bcrypt | API REST de alto rendimiento, validación de esquemas y hashing seguro |
 | **Frontend** | React 19, TypeScript, Vite, Context API, Tailwind CSS 4 | SPA reactiva, tipado estático estricto, gestión de estado y persistencia |
-| **Base de Datos** | MySQL 8.0+ / MariaDB 10.5+, Alembic | Persistencia relacional (20 tablas, 4 vistas SQL, integridad referencial) y esquema versionado en migraciones |
+| **Base de Datos** | MySQL compatible / TiDB Cloud, Alembic | Persistencia relacional y esquema versionado en migraciones |
 | **Email (Dev/Prod)** | Python `smtplib` + MIME (Mailpit en local / SMTP TLS) | Envío de tokens seguros de recuperación de contraseña y alertas |
-| **Contenedores** | Docker 24+, Docker Compose v2 | Entorno aislado y reproducible para base de datos, backend y frontend |
+| **Contenedores** | Docker 24+, Docker Compose v2 | Backend y frontend en contenedores; conexión a la base configurada aparte |
 | **Estilos & UI** | Tailwind CSS v4 (`@tailwindcss/vite`), tokens `@theme`, `clsx` + `tailwind-merge` | Diseño responsive mobile-first con temática barbería premium |
 
 ---
@@ -80,7 +86,7 @@ Antes de comenzar, asegúrate de contar con el siguiente software instalado:
 | **pnpm** | 11+ | `pnpm --version` |
 | **Docker** | 24.0+ | `docker --version` |
 | **Docker Compose** | 2.20+ | `docker compose version` |
-| **MySQL Server** *(si no usas Docker)* | 8.0+ | `mysql --version` |
+| **Base de datos** | MySQL compatible o TiDB Cloud | Debe ser accesible desde el backend |
 | **Git** | 2.40+ | `git --version` |
 
 ### Instalar `uv`
@@ -105,25 +111,24 @@ instalarlo, o falta el `source` para que la terminal actual lo encuentre.
 
 ### Opción 1: Con Docker y Docker Compose (Recomendada)
 
-Levanta los tres servicios (MySQL, backend FastAPI y frontend Vite) en contenedores coordinados.
-El esquema de base de datos lo aplica **Alembic automáticamente** al arrancar el backend:
+Levanta el backend FastAPI y el frontend Vite. La base de datos no se levanta con
+este Compose: configura una instancia local o de pruebas en `backend/.env`.
+El backend aplica migraciones de Alembic al arrancar; no apuntes este entorno a una
+base compartida o de producción sin revisar y aprobar antes las migraciones.
 
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/JFelipeCa/Globde.git
 cd Globde
 
-# 2. Configurar variables de entorno del backend
-cd backend
-cp .env.example .env
-# OBLIGATORIO: definir DB_PASSWORD y JWT_SECRET (vienen vacías a propósito).
-#   python -c "import secrets; print(secrets.token_urlsafe(48))"   → JWT_SECRET
-cd ..
+# 2. Configurar variables privadas del backend
+cp backend/.env.example backend/.env
+# Completa DB_HOST, DB_PORT, DB_USER, DB_PASSWORD y DB_NAME para una base de pruebas.
+# Genera JWT_SECRET con: python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 # 3. Levantar contenedores
 docker compose up -d --build
-# El entrypoint del backend espera a MySQL y ejecuta 'alembic upgrade head',
-# creando las 20 tablas, 4 vistas y los datos semilla. No hay que correr ningún .sql.
+# El backend conecta a la base indicada en backend/.env y ejecuta Alembic al arrancar.
 
 # 4. Listo
 # → Frontend:  http://localhost:5173
@@ -131,8 +136,8 @@ docker compose up -d --build
 ```
 
 > [!IMPORTANT]
-> `DB_PASSWORD` y `JWT_SECRET` no tienen valor por defecto: el repositorio no incluye contraseñas.
-> Si `docker compose up` falla con *"define DB_PASSWORD en tu archivo .env"*, es que falta esa variable.
+> `backend/.env.example` contiene valores locales de ejemplo, no credenciales de la base
+> compartida. Docker Compose lee la configuración privada desde `backend/.env`.
 > Guía detallada y troubleshooting: [`docs/setup/con-docker.md`](docs/setup/con-docker.md).
 
 ### Opción 2: Instalación Manual (Sin Docker)
@@ -145,7 +150,7 @@ mysql -u root -p -e "CREATE DATABASE globde CHARACTER SET utf8mb4 COLLATE utf8mb
 # 2. Backend (FastAPI)
 cd backend
 uv sync                         # crea el entorno virtual e instala dependencias
-cp .env.example .env            # Configurar DB_HOST=127.0.0.1 y DB_PASSWORD
+cp .env.example .env            # Configurar DB_HOST, DB_NAME, DB_USER y DB_PASSWORD
 
 uv run alembic upgrade head     # crea las 20 tablas, 4 vistas y los datos semilla
 
@@ -170,7 +175,7 @@ pnpm run dev
 | **Backend REST API** | `http://localhost:8000` | Punto de entrada FastAPI con endpoints versionados `/api/` |
 | **Documentación Swagger** | `http://localhost:8000/docs` | Interfaz interactiva OpenAPI para pruebas de endpoints |
 | **Documentación ReDoc** | `http://localhost:8000/redoc` | Especificación técnica OpenAPI en formato ReDoc |
-| **Base de Datos MySQL** | `localhost:3307` | Base de datos `globde` (20 tablas + 4 vistas). El contenedor mapea `3307:3306` |
+| **Base de datos** | Según `backend/.env` | MySQL compatible o TiDB Cloud accesible desde el backend |
 
 ---
 
@@ -224,7 +229,7 @@ Globde/
 │   └── copilot-instructions.md       # Reglas de arquitectura, código, seguridad y commits
 ├── .github/workflows/ci.yml          # CI: pruebas con MySQL, cobertura y build del frontend
 ├── .gitignore                        # Archivos y secretos ignorados por Git
-├── docker-compose.yml                # Orquestación de MySQL (3307) + Backend (8000) + Frontend (5173)
+├── docker-compose.yml                # Orquestación de backend y frontend; la BD se configura aparte
 ├── README.md                         # Documento maestro del proyecto (este archivo)
 ├── database/
 │   └── database.sql                  # Referencia histórica del modelo (el esquema lo crea Alembic)
@@ -238,7 +243,7 @@ Globde/
 │   ├── alembic/                      # Migraciones: fuente de verdad del esquema de BD
 │   │   └── versions/                 # dd2ee59368e5 (20 tablas + 4 vistas) → b2c3d4e5f6a7 (semillas)
 │   ├── alembic.ini                   # Configuración de Alembic
-│   ├── docker-entrypoint.sh          # Espera a MySQL y ejecuta 'alembic upgrade head'
+│   ├── docker-entrypoint.sh          # Conecta a la BD configurada y ejecuta Alembic
 │   ├── tests/                        # pytest (132 tests: unitarias, reglas de negocio, API)
 │   ├── .env.example                  # Plantilla de variables de entorno seguras
 │   ├── Dockerfile                    # Imagen Docker de producción backend

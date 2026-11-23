@@ -84,16 +84,29 @@ def masiva(datos: NotificacionMasivaCreate, admin: SoloAdmin, contexto: DatosPet
         datos.id_rol, datos.titulo, datos.mensaje, datos.tipo, datos.url_accion
     )
     enviadas = len(destinatarios)
+    correos_enviados = 0
+    correos_fallidos = 0
 
     if datos.enviar_correo:
         for destinatario in destinatarios:
-            email_service.enviar_notificacion_generica(
+            enviado = email_service.enviar_notificacion_generica(
                 destinatario["correo"], destinatario["nombre"], datos.titulo, datos.mensaje,
                 int(destinatario["id_usuario"]),
             )
+            if enviado:
+                correos_enviados += 1
+            else:
+                correos_fallidos += 1
     registrar_auditoria(
         Accion.NOTIFICACION_MASIVA, "notificaciones", None, admin.id_usuario,
         contexto.get("ip"), contexto.get("user_agent"),
         {"id_rol": datos.id_rol, "enviadas": enviadas},
     )
-    return {"mensaje": "Notificaciones enviadas", "detalle": {"enviadas": enviadas}}
+    return {
+        "mensaje": "Notificaciones enviadas",
+        "detalle": {
+            "enviadas": enviadas,
+            "correos_enviados": correos_enviados,
+            "correos_fallidos": correos_fallidos,
+        },
+    }

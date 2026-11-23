@@ -240,10 +240,43 @@ def _valida_solapes_horarios(horarios: list[dict]) -> None:
         por_dia.setdefault(dia, []).append((inicio, fin))
 
 
+def _validar_citas_dentro_horario(id_barbero: int, horarios: list[dict]) -> None:
+    citas = fetch_all(
+        """SELECT codigo_reserva, fecha, hora_inicio, hora_fin
+           FROM citas
+           WHERE id_barbero = %s AND fecha >= CURDATE()
+             AND estado IN ('pendiente', 'confirmada', 'en_atencion')""",
+        (id_barbero,),
+    )
+    por_dia: dict[int, list[tuple[str, str]]] = {}
+    for horario in horarios:
+        if horario.get("activo", True):
+            por_dia.setdefault(int(horario["dia_semana"]), []).append(
+                (str(hhmm(horario["hora_inicio"])), str(hhmm(horario["hora_fin"])))
+            )
+
+    afectadas: list[str] = []
+    for cita in citas:
+        fecha = Fecha.fromisoformat(str(cita["fecha"])[:10])
+        inicio, fin = str(hhmm(cita["hora_inicio"])), str(hhmm(cita["hora_fin"]))
+        if not any(
+            apertura <= inicio and fin <= cierre
+            for apertura, cierre in por_dia.get(fecha.isoweekday(), [])
+        ):
+            afectadas.append(str(cita["codigo_reserva"]))
+    if afectadas:
+        codigos = ", ".join(afectadas[:5])
+        raise Conflicto(
+            f"El cambio dejaría {len(afectadas)} cita(s) activa(s) fuera de la jornada "
+            f"del barbero ({codigos}). Reprograma esas citas primero."
+        )
+
+
 def reemplazar_horarios(id_barbero: int, horarios: list[dict]) -> list[dict]:
     """Sustituye toda la agenda semanal del barbero."""
     obtener(id_barbero)
     _valida_solapes_horarios(horarios)
+    _validar_citas_dentro_horario(id_barbero, horarios)
 
     with transaction() as cursor:
         cursor.execute("DELETE FROM horarios_barbero WHERE id_barbero = %s", (id_barbero,))

@@ -26,9 +26,10 @@ cp backend/.env.example backend/.env   # y completa los valores
 docker compose up --build
 ```
 
-Levanta MySQL y la API. El contenedor del backend ejecuta
-`alembic upgrade head` al arrancar, así que el esquema y los datos semilla se
-crean solos la primera vez.
+Levanta el backend y el frontend. Compose no crea una base de datos: configura
+`backend/.env` con una instancia local o de pruebas accesible desde el backend.
+El contenedor ejecuta `alembic upgrade head` al arrancar; no lo conectes a una
+base compartida o de producción sin revisar y aprobar antes las migraciones.
 La API queda en <http://localhost:8000> y la documentación interactiva en
 <http://localhost:8000/docs>.
 

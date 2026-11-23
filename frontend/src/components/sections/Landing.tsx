@@ -285,7 +285,8 @@ export const Barberos: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <h3 className="font-heading text-xl font-black text-[#EAF0F6]">{b.nombre}</h3>
                   <span className="flex items-center gap-1 rounded-lg bg-amber-400/12 px-2 py-1 text-xs font-black text-amber-300">
-                    <Star className="h-3.5 w-3.5 fill-amber-300" /> {b.rating}
+                    <Star className="h-3.5 w-3.5 fill-amber-300" />
+                    {b.total_resenas > 0 ? b.rating.toFixed(1) : 'Sin calificaciones aún'}
                   </span>
                 </div>
                 <p className="text-xs font-bold text-[#6B7A8C]">{b.rol_titulo}</p>

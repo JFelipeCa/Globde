@@ -10,7 +10,7 @@ import {
 } from '../types';
 import {
   CATALOGO_CORTES, PREMIOS,
-  LISTA_ESPERA, FACTURAS, TESTIMONIOS, EXTRAS_SERVICIO,
+  FACTURAS, TESTIMONIOS, EXTRAS_SERVICIO,
 } from '../data/mockData';
 import {
   sumarMinutos, haySolape,
@@ -30,6 +30,7 @@ interface ConfigReserva {
   servicioId?: number;
   barberoId?: number;
   nombreCorte?: string;
+  reservarParaTercero?: boolean;
 }
 
 interface Resultado {
@@ -106,8 +107,8 @@ interface ContextoApp {
   crearUsuarioInterno: (datos: UsuarioInternoCreate) => Promise<Resultado>;
   buscarClientes: (texto: string) => Promise<ClienteBusqueda[]>;
   editarCita: (id: number, cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>) => Promise<Resultado>;
-  cambiarEstadoCita: (id: number, estado: EstadoCita) => void;
-  confirmarCita: (id: number) => void;
+  cambiarEstadoCita: (id: number, estado: EstadoCita) => Promise<Resultado>;
+  confirmarCita: (id: number) => Promise<Resultado>;
   cancelarCita: (id: number, motivo: string) => Promise<Resultado>;
   calificarCita: (id: number, rating: number, comentario: string, etiquetas: string[]) => Promise<Resultado>;
   actualizarAvatar: (archivo: File) => Promise<Resultado>;
@@ -115,13 +116,20 @@ interface ContextoApp {
   descargarReporte: (tipo: TipoReporte) => Promise<Resultado>;
 
   canjearPremio: (p: PremioFidelidad) => Promise<Resultado>;
-  unirseListaEspera: (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => void;
+  unirseListaEspera: (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => Promise<Resultado>;
+  actualizarListaEspera: () => Promise<Resultado>;
+  cancelarSolicitudEspera: (id: number) => Promise<Resultado>;
+  aceptarOfertaEspera: (id: number) => Promise<Resultado>;
   agregarServicio: (s: Omit<Servicio, 'id_servicio'>) => Promise<Resultado>;
   eliminarServicio: (id: number) => Promise<Resultado>;
+  cambiarEstadoServicio: (id: number, activo: boolean) => Promise<Resultado>;
+  actualizarPuntosServicio: (id: number, puntos: number) => Promise<Resultado>;
   actualizarNivelBarbero: (id: number, nivel: Barbero['nivel'], pct: number) => void;
   alternarDisponibilidad: (id: number) => void;
   notificar: (titulo: string, mensaje: string, tipo?: Notificacion['tipo']) => void;
-  difusionMasiva: (titulo: string, mensaje: string) => Promise<Resultado>;
+  difusionMasiva: (
+    titulo: string, mensaje: string, idRol: number | null, enviarCorreo: boolean
+  ) => Promise<Resultado>;
 }
 
 const Ctx = createContext<ContextoApp | undefined>(undefined);
@@ -196,13 +204,16 @@ function mapCitaApi(c: Record<string, unknown>): Cita {
     precio_total: Number(c.precio_total ?? 0),
     descuento_aplicado: Number(c.descuento_aplicado ?? 0),
     puntos_canjeados: Number(c.puntos_canjeados ?? 0),
+    completada_en: c.completada_en == null ? null : String(c.completada_en),
     fecha: String(c.fecha ?? hoyISO()),
     hora_inicio: inicio,
     hora_fin: fin,
-    duracion_minutos: Number(c.servicio_duracion_minutos ?? 30),
+    duracion_minutos: Number(c.duracion_minutos ?? c.servicio_duracion_minutos ?? 30),
     estado: (c.estado as EstadoCita) ?? 'pendiente',
     observaciones: String(c.observaciones ?? ''),
-    extras: [],
+    extras: Array.isArray(c.extras)
+      ? c.extras.filter((extra): extra is string => typeof extra === 'string')
+      : [],
     creado_en: String(c.creado_en ?? new Date().toLocaleString('es-CO')),
     metodo_pago: c.estado_pago ? 'Pagado en el local' : 'Por definir en el local',
   };
@@ -222,6 +233,37 @@ function mapServicioApi(s: Record<string, unknown>, index: number): Servicio {
     imagen_url: String(s.imagen_url ?? 'https://images.pexels.com/photos/34702982/pexels-photo-34702982.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp'),
     puntos_otorga: Number(s.puntos_otorga ?? 20),
     activo: s.activo !== false,
+  };
+}
+
+function mapListaEsperaApi(r: Record<string, unknown>): EntradaListaEspera {
+  const estado = r.estado;
+  if (
+    estado !== 'en_espera' && estado !== 'ofrecida' && estado !== 'reservando'
+    && estado !== 'convertida' && estado !== 'vencida' && estado !== 'cancelada'
+  ) {
+    throw new Error('El servidor devolvió un estado de lista de espera desconocido.');
+  }
+  const franja = r.franja_horaria;
+  if (franja !== 'manana' && franja !== 'tarde' && franja !== 'cualquiera') {
+    throw new Error('El servidor devolvió una franja de espera desconocida.');
+  }
+  return {
+    id_espera: Number(r.id_espera),
+    id_cliente: Number(r.id_cliente),
+    nombre_cliente: String(r.nombre_cliente ?? ''),
+    telefono: String(r.telefono ?? ''),
+    id_servicio: Number(r.id_servicio),
+    servicio_nombre: String(r.servicio_nombre ?? ''),
+    id_barbero: r.id_barbero == null ? undefined : Number(r.id_barbero),
+    barbero_nombre: typeof r.barbero_nombre === 'string' ? r.barbero_nombre : undefined,
+    fecha_deseada: String(r.fecha_deseada ?? ''),
+    franja_horaria: franja,
+    estado,
+    creado_en: String(r.creado_en ?? ''),
+    oferta_hora_inicio: typeof r.oferta_hora_inicio === 'string' ? r.oferta_hora_inicio : null,
+    oferta_hora_fin: typeof r.oferta_hora_fin === 'string' ? r.oferta_hora_fin : null,
+    oferta_expira: typeof r.oferta_expira === 'string' ? r.oferta_expira : null,
   };
 }
 
@@ -255,8 +297,8 @@ function mapBarberoApi(u: Record<string, unknown>, detalle: Record<string, unkno
     rol_titulo: String(u.titulo ?? 'Barbero certificado'),
     nivel: String(ranking?.nivel ?? (puntos >= 250 ? 'Oro' : 'Plata')) as Barbero['nivel'],
     experiencia_anos: Number(u.experiencia_anios ?? 4),
-    rating: Number(u.rating ?? 4.8),
-    total_resenas: Number(u.total_resenas ?? 120),
+    rating: Number(u.rating ?? 0),
+    total_resenas: Number(u.total_resenas ?? 0),
     especialidades,
     foto_url: String(u.foto_url ?? 'https://images.pexels.com/photos/12304510/pexels-photo-12304510.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=700&w=600&fm=webp'),
     disponible_hoy: Boolean(u.disponible ?? true),
@@ -276,7 +318,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [citas, setCitas] = useState<Cita[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [barberos, setBarberos] = useState<Barbero[]>([]);
-  const [listaEspera, setListaEspera] = useState<EntradaListaEspera[]>(LISTA_ESPERA);
+  const [listaEspera, setListaEspera] = useState<EntradaListaEspera[]>([]);
   const [facturas] = useState<Factura[]>(FACTURAS);
   const [testimonios, setTestimonios] = useState<Testimonio[]>(TESTIMONIOS);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
@@ -364,15 +406,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         // GET /citas aplica el filtro por rol en el backend: el cliente ve las
         // suyas, el barbero sus citas y el administrador todas.
-        const data = await apiRequest<Record<string, unknown>>('/citas?por_pagina=100');
-        const items = (Array.isArray(data.items) ? data.items : []) as Record<string, unknown>[];
-        if (items.length) setCitas(items.map(mapCitaApi));
+        const primera = await apiRequest<{
+          items: Record<string, unknown>[];
+          total: number;
+          total_paginas: number;
+        }>('/citas?pagina=1&por_pagina=100');
+        const items = [...primera.items];
+        const paginasNecesarias = usuario?.id_rol === ROL_ADMINISTRADOR
+          ? 1
+          : primera.total_paginas;
+        for (let pagina = 2; pagina <= paginasNecesarias; pagina += 1) {
+          const resultado = await apiRequest<{ items: Record<string, unknown>[] }>(
+            `/citas?pagina=${pagina}&por_pagina=100`,
+          );
+          items.push(...resultado.items);
+        }
+        setCitas(items.map(mapCitaApi));
       } catch (error) {
         console.warn('No se pudieron cargar las citas.', error);
       }
     };
     void cargarCitas();
-  }, [usuario?.id_usuario]);
+  }, [usuario?.id_usuario, usuario?.id_rol]);
+
+  useEffect(() => {
+    if (usuario?.id_rol !== ROL_CLIENTE || !obtenerAccessToken()) {
+      setListaEspera([]);
+      return;
+    }
+    let vigente = true;
+    const cargarLista = async () => {
+      try {
+        const respuesta = await apiRequest<Record<string, unknown>[]>('/lista-espera/mias');
+        if (vigente) setListaEspera(respuesta.map(mapListaEsperaApi));
+      } catch (error) {
+        if (vigente) console.error('No se pudo actualizar la lista de espera:', error);
+      }
+    };
+    void cargarLista();
+    const intervalo = window.setInterval(() => void cargarLista(), 30_000);
+    return () => {
+      vigente = false;
+      window.clearInterval(intervalo);
+    };
+  }, [usuario?.id_usuario, usuario?.id_rol]);
 
   useEffect(() => {
     const cargarNotificaciones = async () => {
@@ -435,13 +512,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const cerrarAuth = () => setModalAuth(false);
 
   const abrirReserva = (c: ConfigReserva = {}) => {
-    // El asistente publico de reserva (BookingWizard) esta pensado solo para
-    // clientes: no tiene forma de elegir a nombre de que cliente se agenda.
-    // Si un admin/barbero llega aqui (por cualquiera de los botones "Reservar
-    // cita" repartidos en Navbar/Landing/Extras), lo mandamos a su propio
-    // panel, donde ya existe un flujo de agendamiento manual con selector de
-    // cliente en vez de abrir un formulario que no va a poder completar.
-    if (usuario && usuario.id_rol !== ROL_CLIENTE) {
+    // Los flujos internos solo abren el asistente cuando incluyen selector de cliente.
+    if (usuario && usuario.id_rol !== ROL_CLIENTE && !c.reservarParaTercero) {
       irAPanel(usuario.id_rol);
       return;
     }
@@ -720,13 +792,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id_servicio: servicio.id_servicio,
           fecha: d.fecha,
           hora_inicio: d.hora_inicio,
+          hora_fin: horaFin,
+          extras: d.extras,
+          puntos_a_canjear: d.usar_puntos ? d.puntos_a_usar : 0,
           estado: 'confirmada',
           observaciones: d.observaciones,
         }),
       });
       const nueva: Cita = {
         id_cita: Number(response.id_cita ?? Date.now()),
-        codigo_reserva: `GLB-${String(response.id_cita ?? Date.now()).padStart(4, '0')}`,
+        codigo_reserva: String(response.codigo_reserva ?? `GLB-${String(response.id_cita ?? Date.now()).padStart(4, '0')}`),
         id_cliente: Number(response.id_cliente ?? idClienteFinal),
         cliente_nombre: d.nombre || usuario?.nombre || 'Cliente',
         cliente_telefono: d.telefono || usuario?.telefono || '',
@@ -735,16 +810,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         barbero_nombre: barbero.nombre,
         id_servicio: servicio.id_servicio,
         servicio_nombre: servicio.nombre,
-        precio_total: servicio.precio,
-        descuento_aplicado: 0,
-        puntos_canjeados: 0,
+        precio_total: Number(response.precio_total ?? servicio.precio),
+        descuento_aplicado: Number(response.descuento_aplicado ?? 0),
+        puntos_canjeados: Number(response.puntos_canjeados ?? 0),
         fecha: d.fecha,
         hora_inicio: d.hora_inicio,
-        hora_fin: horaFin,
+        hora_fin: String(response.hora_fin ?? horaFin),
         duracion_minutos: duracion,
         estado: 'confirmada',
         observaciones: d.observaciones,
-        extras: d.extras,
+        extras: Array.isArray(response.extras)
+          ? response.extras.filter((extra): extra is string => typeof extra === 'string')
+          : d.extras,
         creado_en: new Date().toLocaleString('es-CO'),
         metodo_pago: 'Por definir en el local',
       };
@@ -764,35 +841,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     id: number,
     cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>
   ): Promise<Resultado> => {
-    const actual = citas.find((c) => c.id_cita === id);
-    if (!actual) return { ok: false, mensaje: 'No se encontró la cita.' };
-    if (actual.estado === 'completada') return { ok: false, mensaje: 'Una cita completada no se puede editar; solo consultar su detalle.' };
-
-    const servicio = servicios.find((s) => s.id_servicio === (cambios.id_servicio ?? actual.id_servicio)) ?? servicios[0];
-    const barbero = barberos.find((b) => b.id_barbero === (cambios.id_barbero ?? actual.id_barbero)) ?? barberos[0];
-    const fecha = cambios.fecha ?? actual.fecha;
-    const inicio = cambios.hora_inicio ?? actual.hora_inicio;
-    const duracion = servicio.duracion_minutos;
-    const fin = sumarMinutos(inicio, duracion);
-
-    if (!franjaDisponible(fecha, barbero.id_barbero, inicio, duracion, id)) {
-      return { ok: false, mensaje: 'El barbero ya tiene otra cita en ese rango horario.' };
-    }
-
     try {
+      const actualLocal = citas.find((c) => c.id_cita === id);
+      const actual = actualLocal ?? mapCitaApi(await apiRequest<Record<string, unknown>>(`/citas/${id}`));
+      if (actual.estado === 'completada') {
+        return { ok: false, mensaje: 'Una cita completada no se puede editar; solo consultar su detalle.' };
+      }
+      const fecha = cambios.fecha ?? actual.fecha;
+      const inicio = cambios.hora_inicio ?? actual.hora_inicio;
       // Contrato v2: PUT /api/citas/{id} (CitaUpdate). Estado se gestiona por separado.
       const respuesta = await apiRequest<Record<string, unknown>>(`/citas/${id}`, {
         method: 'PUT',
         body: JSON.stringify({
-          id_barbero: barbero.id_barbero,
-          id_servicio: servicio.id_servicio,
+          id_barbero: cambios.id_barbero ?? actual.id_barbero,
+          id_servicio: cambios.id_servicio ?? actual.id_servicio,
           fecha,
           hora_inicio: inicio,
           observaciones: cambios.observaciones ?? actual.observaciones,
         }),
       });
-      setCitas((prev) => prev.map((c) => (c.id_cita === id ? mapCitaApi(respuesta) : c)));
-      notificar('Cita actualizada ✏️', `${actual.codigo_reserva} quedó para el ${fecha} de ${inicio} a ${fin}.`, 'cita');
+      const actualizada = mapCitaApi(respuesta);
+      setCitas((prev) => (
+        prev.some((c) => c.id_cita === id)
+          ? prev.map((c) => (c.id_cita === id ? actualizada : c))
+          : [actualizada, ...prev]
+      ));
+      notificar('Cita actualizada ✏️', `${actual.codigo_reserva} quedó para el ${fecha} de ${inicio} a ${actualizada.hora_fin}.`, 'cita');
       return { ok: true, mensaje: 'Cita actualizada correctamente' };
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No se pudo actualizar la cita';
@@ -802,7 +876,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // PATCH /api/citas/{id}/estado { estado, motivo }. La UI se sincroniza con la
   // respuesta del servidor; si el backend lo rechaza, se notifica y no se miente.
-  const cambiarEstadoCita = (id: number, estado: EstadoCita) => {
+  const cambiarEstadoCita = async (id: number, estado: EstadoCita): Promise<Resultado> => {
     const cita = citas.find((c) => c.id_cita === id);
     const texto = ({
       confirmada: 'Cita confirmada correctamente.',
@@ -812,34 +886,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       no_asistio: 'Se registró la inasistencia del cliente.',
     } as Record<string, string>)[estado] ?? 'Estado modificado.';
 
-    apiRequest<Record<string, unknown>>(`/citas/${id}/estado`, {
-      method: 'PATCH',
-      body: JSON.stringify({ estado, motivo: null }),
-    })
-      .then((respuesta) => {
-        setCitas((prev) => prev.map((c) => (c.id_cita === id ? mapCitaApi(respuesta) : c)));
-        notificar('Estado actualizado', texto, 'cita');
-      })
-      .catch((error) => {
-        notificar('No se pudo actualizar', error instanceof Error ? error.message : 'El servidor rechazó el cambio de estado.', 'error');
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>(`/citas/${id}/estado`, {
+        method: 'PATCH',
+        body: JSON.stringify({ estado, motivo: null }),
       });
+      const actualizada = mapCitaApi(respuesta);
+      setCitas((prev) => (
+        prev.some((c) => c.id_cita === id)
+          ? prev.map((c) => (c.id_cita === id ? actualizada : c))
+          : [actualizada, ...prev]
+      ));
+      notificar('Estado actualizado', texto, 'cita');
+      return { ok: true, mensaje: texto };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'El servidor rechazó el cambio de estado.';
+      notificar('No se pudo actualizar', mensaje, 'error');
+      return { ok: false, mensaje };
+    }
   };
 
-  const confirmarCita = (id: number) => {
-    apiRequest<Record<string, unknown>>(`/citas/${id}/confirmar`, { method: 'POST' })
-      .then((respuesta) => {
-        setCitas((prev) => prev.map((c) => (c.id_cita === id ? mapCitaApi(respuesta) : c)));
-        notificar('Cita confirmada ✅', 'Se notificó al cliente por correo y WhatsApp.', 'cita');
-      })
-      .catch((error) => {
-        notificar('No se pudo confirmar', error instanceof Error ? error.message : 'El servidor rechazó la confirmación.', 'error');
-      });
+  const confirmarCita = async (id: number): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>(`/citas/${id}/confirmar`, { method: 'POST' });
+      const actualizada = mapCitaApi(respuesta);
+      setCitas((prev) => (
+        prev.some((c) => c.id_cita === id)
+          ? prev.map((c) => (c.id_cita === id ? actualizada : c))
+          : [actualizada, ...prev]
+      ));
+      notificar('Cita confirmada ✅', 'Se notificó al cliente por correo y WhatsApp.', 'cita');
+      return { ok: true, mensaje: 'Cita confirmada correctamente.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'El servidor rechazó la confirmación.';
+      notificar('No se pudo confirmar', mensaje, 'error');
+      return { ok: false, mensaje };
+    }
   };
 
   const cancelarCita = async (id: number, motivo: string): Promise<Resultado> => {
     const cita = citas.find((c) => c.id_cita === id);
-    if (!cita) return { ok: false, mensaje: 'Cita no encontrada.' };
-    if (cita.estado === 'completada') return { ok: false, mensaje: 'No se puede cancelar una cita ya completada.' };
+    if (cita?.estado === 'completada') return { ok: false, mensaje: 'No se puede cancelar una cita ya completada.' };
 
     try {
       // Contrato v2: POST /api/citas/{id}/cancelar { motivo }.
@@ -847,8 +934,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         body: JSON.stringify({ motivo }),
       });
-      setCitas((prev) => prev.map((c) => (c.id_cita === id ? mapCitaApi(respuesta) : c)));
-      notificar('Cita cancelada', `${cita.codigo_reserva} liberó su turno. Sin penalidad.`, 'cita');
+      const cancelada = mapCitaApi(respuesta);
+      setCitas((prev) => (
+        prev.some((c) => c.id_cita === id)
+          ? prev.map((c) => (c.id_cita === id ? cancelada : c))
+          : [cancelada, ...prev]
+      ));
+      notificar('Cita cancelada', `${cita?.codigo_reserva ?? cancelada.codigo_reserva} liberó su turno.`, 'cita');
       return { ok: true, mensaje: 'Tu cita fue cancelada correctamente.' };
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No se pudo cancelar la cita';
@@ -961,10 +1053,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const unirseListaEspera = (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => {
-    setListaEspera((prev) => [{ ...d, id_espera: Date.now(), estado: 'en_espera', creado_en: new Date().toLocaleString('es-CO') }, ...prev]);
-    setEsperaAbierta(false);
-    notificar('Estás en la lista de espera ⏳', 'Te avisaremos apenas se libere un turno en tu franja.', 'sistema');
+  const actualizarListaEspera = async (): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>[]>('/lista-espera/mias');
+      setListaEspera(respuesta.map(mapListaEsperaApi));
+      return { ok: true, mensaje: 'Lista de espera actualizada.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo actualizar la lista de espera.';
+      return { ok: false, mensaje };
+    }
+  };
+
+  const unirseListaEspera = async (
+    d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>,
+  ): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>('/lista-espera', {
+        method: 'POST',
+        body: JSON.stringify({
+          id_servicio: d.id_servicio,
+          id_barbero: d.id_barbero ?? null,
+          fecha_deseada: d.fecha_deseada,
+          franja_horaria: d.franja_horaria,
+        }),
+      });
+      setListaEspera((prev) => [mapListaEsperaApi(respuesta), ...prev]);
+      setEsperaAbierta(false);
+      notificar('Estás en la lista de espera ⏳', 'Te avisaremos si se libera un turno que coincida con tu solicitud.', 'sistema');
+      return { ok: true, mensaje: 'Solicitud guardada en la lista de espera.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo guardar la solicitud.';
+      return { ok: false, mensaje };
+    }
+  };
+
+  const cancelarSolicitudEspera = async (id: number): Promise<Resultado> => {
+    try {
+      await apiRequest<Record<string, unknown>>(`/lista-espera/${id}`, { method: 'DELETE' });
+      setListaEspera((prev) => prev.map((solicitud) => (
+        solicitud.id_espera === id ? { ...solicitud, estado: 'cancelada' } : solicitud
+      )));
+      return { ok: true, mensaje: 'Solicitud cancelada.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo cancelar la solicitud.';
+      return { ok: false, mensaje };
+    }
+  };
+
+  const aceptarOfertaEspera = async (id: number): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>(`/lista-espera/${id}/aceptar`, {
+        method: 'POST',
+      });
+      const cita = mapCitaApi(respuesta);
+      setCitas((prev) => [cita, ...prev.filter((existente) => existente.id_cita !== cita.id_cita)]);
+      setListaEspera((prev) => prev.map((solicitud) => (
+        solicitud.id_espera === id ? { ...solicitud, estado: 'convertida' } : solicitud
+      )));
+      notificar('Turno confirmado', `${cita.codigo_reserva} · ${cita.fecha} de ${cita.hora_inicio} a ${cita.hora_fin}`, 'cita');
+      return { ok: true, mensaje: 'La oferta se convirtió en una cita confirmada.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo aceptar la oferta.';
+      return { ok: false, mensaje };
+    }
   };
 
   const agregarServicio = async (s: Omit<Servicio, 'id_servicio'>): Promise<Resultado> => {
@@ -1004,6 +1155,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const cambiarEstadoServicio = async (id: number, activo: boolean): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>(
+        `/servicios/${id}/estado?activo=${activo}`,
+        { method: 'PATCH' },
+      );
+      const servicioActualizado = mapServicioApi(respuesta, 0);
+      setServicios((prev) => (
+        activo
+          ? prev.some((servicio) => servicio.id_servicio === id)
+            ? prev.map((servicio) => servicio.id_servicio === id ? servicioActualizado : servicio)
+            : [...prev, servicioActualizado]
+          : prev.filter((servicio) => servicio.id_servicio !== id)
+      ));
+      return { ok: true, mensaje: activo ? 'Servicio reactivado.' : 'Servicio desactivado.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudo cambiar el estado del servicio.';
+      return { ok: false, mensaje };
+    }
+  };
+
+  const actualizarPuntosServicio = async (id: number, puntos: number): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>(`/servicios/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ puntos_otorga: puntos }),
+      });
+      const servicioActualizado = mapServicioApi(respuesta, 0);
+      setServicios((prev) => prev.map((servicio) => (
+        servicio.id_servicio === id ? servicioActualizado : servicio
+      )));
+      return { ok: true, mensaje: 'Puntos del servicio actualizados.' };
+    } catch (error) {
+      const mensaje = error instanceof Error ? error.message : 'No se pudieron actualizar los puntos del servicio.';
+      return { ok: false, mensaje };
+    }
+  };
+
   const actualizarNivelBarbero = (id: number, nivel: Barbero['nivel'], pct: number) => {
     setBarberos((prev) => prev.map((b) => (b.id_barbero === id ? { ...b, nivel, porcentaje_incremento: pct } : b)));
     notificar('Ranking actualizado 🏆', 'Se aplicó el nuevo nivel y comisión del barbero.', 'sistema');
@@ -1017,20 +1206,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // backend (POST /notificaciones/masiva) para que persista y se notifique a
   // todos los clientes, en lugar de solo mostrar un toast local.
   const difusionMasiva = useCallback(
-    async (titulo: string, mensaje: string): Promise<Resultado> => {
+    async (
+      titulo: string, mensaje: string, idRol: number | null, enviarCorreo: boolean
+    ): Promise<Resultado> => {
       try {
-        await apiRequest<Record<string, unknown>>('/notificaciones/masiva', {
+        const respuesta = await apiRequest<{
+          detalle?: { enviadas?: number; correos_enviados?: number; correos_fallidos?: number };
+        }>('/notificaciones/masiva', {
           method: 'POST',
           body: JSON.stringify({
-            id_rol: ROL_CLIENTE,
+            id_rol: idRol,
             tipo: 'sistema',
             titulo,
             mensaje,
-            enviar_correo: false,
+            enviar_correo: enviarCorreo,
           }),
         });
         notificar(`📢 ${titulo}`, mensaje, 'promo');
-        return { ok: true, mensaje: 'Aviso enviado a todos los clientes.' };
+        const cantidad = Number(respuesta.detalle?.enviadas ?? 0);
+        const correos = Number(respuesta.detalle?.correos_enviados ?? 0);
+        const fallidos = Number(respuesta.detalle?.correos_fallidos ?? 0);
+        const detalleCorreo = enviarCorreo
+          ? ` Correo: ${correos} enviados${fallidos ? `, ${fallidos} fallidos` : ''}.`
+          : '';
+        return { ok: true, mensaje: `Aviso enviado a ${cantidad} usuario(s).${detalleCorreo}` };
       } catch (error) {
         const detalle =
           error instanceof Error
@@ -1114,8 +1313,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         descargarReporte,
         canjearPremio,
         unirseListaEspera,
+        actualizarListaEspera,
+        cancelarSolicitudEspera,
+        aceptarOfertaEspera,
         agregarServicio,
         eliminarServicio,
+        cambiarEstadoServicio,
+        actualizarPuntosServicio,
         actualizarNivelBarbero,
         alternarDisponibilidad,
         notificar,

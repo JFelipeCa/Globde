@@ -82,8 +82,11 @@ def disponibilidad(
     fecha: date = Query(description="Fecha YYYY-MM-DD"),
     id_servicio: int | None = None,
     paso: int | None = Query(default=None, ge=5, le=120),
+    duracion_adicional_minutos: int = Query(default=0, ge=0, le=180),
 ):
-    return citas_service.calcular_disponibilidad(id_barbero, fecha, id_servicio, paso)
+    return citas_service.calcular_disponibilidad(
+        id_barbero, fecha, id_servicio, paso, duracion_adicional_minutos
+    )
 
 
 @router.get("/codigo/{codigo}", response_model=CitaOut, summary="Buscar por codigo de reserva")

@@ -159,23 +159,28 @@ export const QuizModal: React.FC = () => {
    ========================================================= */
 export const EsperaModal: React.FC = () => {
   const { esperaAbierta, setEsperaAbierta, servicios, barberos, usuario, unirseListaEspera } = useApp();
-  const [nombre, setNombre] = useState(usuario?.nombre ?? '');
-  const [tel, setTel] = useState(usuario?.telefono ?? '');
   const [servId, setServId] = useState(servicios[0]?.id_servicio ?? 1);
   const [barbId, setBarbId] = useState<number | ''>('');
   const [fecha, setFecha] = useState(hoyISO());
   const [franja, setFranja] = useState<'manana' | 'tarde' | 'cualquiera'>('tarde');
+  const [error, setError] = useState('');
+  const [guardando, setGuardando] = useState(false);
 
   if (!esperaAbierta) return null;
 
-  const enviar = (e: React.FormEvent) => {
+  const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!usuario?.id_cliente) {
+      setError('Inicia sesión con una cuenta de cliente para anotarte.');
+      return;
+    }
     const s = servicios.find((x) => x.id_servicio === Number(servId));
     const b = barberos.find((x) => x.id_barbero === Number(barbId));
-    unirseListaEspera({
-      id_cliente: usuario?.id_usuario ?? 999,
-      nombre_cliente: nombre || 'Cliente',
-      telefono: tel || '+57 300 000 0000',
+    setGuardando(true);
+    const resultado = await unirseListaEspera({
+      id_cliente: usuario.id_cliente,
+      nombre_cliente: usuario.nombre,
+      telefono: usuario.telefono,
       id_servicio: Number(servId),
       servicio_nombre: s?.nombre ?? '',
       id_barbero: barbId ? Number(barbId) : undefined,
@@ -183,6 +188,11 @@ export const EsperaModal: React.FC = () => {
       fecha_deseada: fecha,
       franja_horaria: franja,
     });
+    setGuardando(false);
+    if (!resultado.ok) {
+      setError(resultado.mensaje);
+      return;
+    }
   };
 
   const input = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-400/15';
@@ -201,11 +211,7 @@ export const EsperaModal: React.FC = () => {
         <form onSubmit={enviar} className="space-y-3 p-6">
           <div className="flex items-start gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/8 p-3 text-xs text-amber-700">
             <Bell className="mt-0.5 h-4 w-4 shrink-0" />
-            Si se libera un turno en tu franja, te avisamos de inmediato por WhatsApp.
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Tu nombre" required className={input} />
-            <input value={tel} onChange={(e) => setTel(e.target.value)} placeholder="WhatsApp" required className={input} />
+            Si se libera un turno que coincida con tu solicitud, te avisaremos por la app y por correo.
           </div>
           <select value={servId} onChange={(e) => setServId(Number(e.target.value))} className={input}>
             {servicios.map((s) => <option key={s.id_servicio} value={s.id_servicio}>{s.nombre}</option>)}
@@ -222,8 +228,11 @@ export const EsperaModal: React.FC = () => {
               <option value="cualquiera">Cualquier horario</option>
             </select>
           </div>
-          <button type="submit" className="btn-primario w-full rounded-2xl py-3 text-sm font-bold">
-            <span className="flex items-center justify-center gap-2"><Check className="h-4 w-4" /> Anotarme en la lista</span>
+          {error && <p role="alert" className="rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">{error}</p>}
+          <button type="submit" disabled={guardando} className="btn-primario w-full rounded-2xl py-3 text-sm font-bold disabled:opacity-50">
+            <span className="flex items-center justify-center gap-2">
+              <Check className="h-4 w-4" /> {guardando ? 'Guardando…' : 'Anotarme en la lista'}
+            </span>
           </button>
         </form>
       </div>

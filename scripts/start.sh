@@ -79,14 +79,26 @@ if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then
   fi
 fi
 
-# 4) Levantar el stack.
-echo "→ Levantando contenedores (docker compose up -d --build)..."
-docker compose --env-file backend/.env up -d --build
+# 4) Construir las imagenes y levantar el stack.
+echo "→ Construyendo imagenes..."
+if ! docker compose --env-file backend/.env build; then
+  # Un cache BuildKit local dañado puede impedir exportar capas. Reintentar
+  # con un builder aislado evita borrar la cache compartida de Docker.
+  echo "⚠️  Fallo la compilacion predeterminada; reintentando con un builder aislado..."
+  BUILDER="globde-start-fallback"
+  if ! docker buildx inspect "$BUILDER" >/dev/null 2>&1; then
+    docker buildx create --name "$BUILDER" --driver docker-container --bootstrap
+  fi
+  docker compose --env-file backend/.env build --builder "$BUILDER"
+fi
+
+echo "→ Levantando contenedores..."
+docker compose --env-file backend/.env up -d --no-build
 
 # 5) Esperar a que la API esté lista.
 echo "→ Esperando a que la API responda..."
 for i in $(seq 1 60); do
-  if curl -s http://localhost:8000/api/health 2>/dev/null | grep -q '"estado":"ok"'; then
+  if curl -fsS --max-time 3 http://127.0.0.1:8000/api/health 2>/dev/null | grep -q '"estado":"ok"'; then
     echo "✅ GLOBDE listo:"
     echo "   Frontend: http://localhost:5173"
     echo "   API/docs: http://localhost:8000/docs"

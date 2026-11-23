@@ -113,6 +113,7 @@ export interface Cita {
   observaciones: string;
   extras: string[];
   creado_en: string;
+  completada_en?: string | null;
   resena?: Resena;
   metodo_pago?: string;
 }
@@ -137,9 +138,12 @@ export interface EntradaListaEspera {
   barbero_nombre?: string;
   fecha_deseada: string;
   franja_horaria: 'manana' | 'tarde' | 'cualquiera';
-  estado: 'en_espera' | 'notificado' | 'convertido';
+  estado: 'en_espera' | 'ofrecida' | 'reservando' | 'convertida' | 'vencida' | 'cancelada';
   creado_en: string;
   observaciones?: string;
+  oferta_hora_inicio?: string | null;
+  oferta_hora_fin?: string | null;
+  oferta_expira?: string | null;
 }
 
 export interface Factura {

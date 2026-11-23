@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Scissors, CalendarDays, Star, Timer, ChevronLeft, ChevronRight,
-  ToggleLeft, ToggleRight, Coins, Users, LockKeyhole, QrCode, X, Trash2, Camera,
+  ToggleLeft, ToggleRight, Coins, Users, LockKeyhole, QrCode, X, Trash2, Camera, Plus,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { Cita } from '../../types';
@@ -12,6 +12,11 @@ import {
 } from '../../utils/helpers';
 
 const POR_PAGINA = 4;
+
+const desplazarFecha = (fecha: string, dias: number): string => {
+  const [anio, mes, dia] = fecha.split('-').map(Number);
+  return new Date(Date.UTC(anio, mes - 1, dia + dias)).toISOString().slice(0, 10);
+};
 
 interface BloqueoAgenda {
   id_bloqueo: number;
@@ -56,7 +61,7 @@ interface ConstructorDetectorQR {
 
 export const PanelBarbero: React.FC = () => {
   const {
-    usuario, citas, barberos, cambiarEstadoCita, alternarDisponibilidad,
+    usuario, citas, barberos, cambiarEstadoCita, alternarDisponibilidad, abrirReserva,
   } = useApp();
 
   const barbero = barberos.find((b) => b.id_usuario === usuario?.id_usuario) ?? barberos[0];
@@ -65,6 +70,7 @@ export const PanelBarbero: React.FC = () => {
 
   const [pagProx, setPagProx] = useState(1);
   const [filtro, setFiltro] = useState<'todas' | 'pendiente' | 'confirmada' | 'completada'>('todas');
+  const [fechaAgenda, setFechaAgenda] = useState(hoy);
   const [bloqueos, setBloqueos] = useState<BloqueoAgenda[]>([]);
   const [resenas, setResenas] = useState<ResenaBarbero[]>([]);
   const [modalBloqueo, setModalBloqueo] = useState(false);
@@ -101,13 +107,16 @@ export const PanelBarbero: React.FC = () => {
   const avanceComision = comisionProyectada > 0 ? Math.min(100, Math.round(comision * 100 / comisionProyectada)) : 0;
   const siguienteCita = deHoyTodas.find((c) => ['pendiente', 'confirmada', 'en_atencion'].includes(c.estado));
 
+  const citasDiaAgenda = mias
+    .filter((cita) => cita.fecha === fechaAgenda)
+    .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
   const franjasLibres = barbero ? franjasVigentes(
-    generarFranjasJornada(barbero, hoy, 30, 30), hoy,
+    generarFranjasJornada(barbero, fechaAgenda, 30, 30), fechaAgenda,
   )
     .map((ini) => ({ ini, fin: sumarMinutos(ini, 30) }))
     .filter((f) =>
-      !deHoyTodas.some((c) => !['cancelada', 'no_asistio'].includes(c.estado) && haySolape(f.ini, f.fin, c.hora_inicio, c.hora_fin))
-      && !bloqueos.some((b) => b.fecha === hoy && haySolape(f.ini, f.fin, b.hora_inicio, b.hora_fin)),
+      !citasDiaAgenda.some((c) => !['cancelada', 'no_asistio'].includes(c.estado) && haySolape(f.ini, f.fin, c.hora_inicio, c.hora_fin))
+      && !bloqueos.some((b) => b.fecha === fechaAgenda && haySolape(f.ini, f.fin, b.hora_inicio, b.hora_fin)),
     ) : [];
 
   const diasDesdeLunes = (new Date(`${hoy}T12:00:00`).getDay() + 6) % 7;
@@ -149,7 +158,7 @@ export const PanelBarbero: React.FC = () => {
   }, [idBarbero, hoy]);
 
   const abrirBloqueo = (franja?: { ini: string; fin: string }) => {
-    setFechaBloqueo(hoy);
+    setFechaBloqueo(fechaAgenda);
     const inicio = franja?.ini ?? barbero?.hora_apertura ?? '08:00';
     setInicioBloqueo(inicio);
     setFinBloqueo(franja?.fin ?? sumarMinutos(inicio, 30));
@@ -291,8 +300,8 @@ export const PanelBarbero: React.FC = () => {
 
   const filasAgenda = [
     ...(filtro === 'todas' ? franjasLibres.slice(0, 2).map((franja) => ({ tipo: 'libre' as const, ...franja })) : []),
-    ...(filtro === 'todas' ? bloqueos.filter((bloqueo) => bloqueo.fecha === hoy).map((bloqueo) => ({ tipo: 'bloqueo' as const, bloqueo, ini: bloqueo.hora_inicio })) : []),
-    ...deHoyTodas
+    ...(filtro === 'todas' ? bloqueos.filter((bloqueo) => bloqueo.fecha === fechaAgenda).map((bloqueo) => ({ tipo: 'bloqueo' as const, bloqueo, ini: bloqueo.hora_inicio })) : []),
+    ...citasDiaAgenda
       .filter((cita) => filtro === 'todas' || cita.estado === filtro)
       .map((cita) => ({ tipo: 'cita' as const, cita, ini: cita.hora_inicio })),
   ].sort((a, b) => a.ini.localeCompare(b.ini));
@@ -342,6 +351,10 @@ export const PanelBarbero: React.FC = () => {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => abrirReserva({ barberoId: idBarbero, reservarParaTercero: true })}
+              className="flex items-center gap-1 rounded-lg bg-[#55d7e5] px-3 py-2 text-[9px] font-black text-[#12383c] transition hover:bg-[#45cbd9]">
+              <Plus className="h-3 w-3" /> Nueva cita
+            </button>
             <button onClick={() => void cambiarDisponibilidad()} className="rounded-lg border border-[#d9e2e0] bg-white px-2.5 py-2 text-[9px] font-bold text-[#263532] hover:border-[#55d7e5]" title="Cambiar disponibilidad">
               {barbero.disponible_hoy ? <ToggleRight className="inline h-4 w-4 text-emerald-600" /> : <ToggleLeft className="inline h-4 w-4 text-[#65716d]" />} Disponibilidad
             </button>
@@ -378,8 +391,24 @@ export const PanelBarbero: React.FC = () => {
           <div className="space-y-3">
             <section className="overflow-hidden rounded-xl border border-[#e6e9e3] bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#edf0ec] px-3.5 py-2.5">
-                <div>
-                  <h2 className="font-heading text-xs font-black text-[#172124]">Agenda de hoy · {fechaLarga(hoy)}</h2>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setFechaAgenda((fecha) => desplazarFecha(fecha, -1))}
+                    aria-label="Día anterior" className="rounded-md border border-[#dce4e1] p-1 text-[#394642] hover:bg-[#f1f5f2]">
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <label className="flex items-center gap-2">
+                    <span className="font-heading text-xs font-black text-[#172124]">{fechaLarga(fechaAgenda)}</span>
+                    <input type="date" value={fechaAgenda} onChange={(evento) => setFechaAgenda(evento.target.value)}
+                      className="max-w-[135px] rounded-md border border-[#dce4e1] px-2 py-1 text-[9px] text-[#263532]" />
+                  </label>
+                  <button type="button" onClick={() => setFechaAgenda((fecha) => desplazarFecha(fecha, 1))}
+                    aria-label="Día siguiente" className="rounded-md border border-[#dce4e1] p-1 text-[#394642] hover:bg-[#f1f5f2]">
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                  {fechaAgenda !== hoy && (
+                    <button type="button" onClick={() => setFechaAgenda(hoy)}
+                      className="rounded-md px-2 py-1 text-[8px] font-bold text-[#18889c] hover:bg-[#f1f5f2]">Hoy</button>
+                  )}
                 </div>
                 <div className="flex gap-1">
                   {(['todas', 'pendiente', 'confirmada', 'completada'] as const).map((estado) => (
@@ -447,7 +476,7 @@ export const PanelBarbero: React.FC = () => {
                   })}
                 </div>
               ) : (
-                <p className="px-4 py-7 text-center text-[10px] text-[#65716d]">{deHoyTodas.length ? 'No hay citas para este filtro.' : 'No tienes citas agendadas para hoy.'}</p>
+                <p className="px-4 py-7 text-center text-[10px] text-[#65716d]">{citasDiaAgenda.length ? 'No hay citas para este filtro.' : `No tienes citas para el ${fechaLarga(fechaAgenda)}.`}</p>
               )}
             </section>
 

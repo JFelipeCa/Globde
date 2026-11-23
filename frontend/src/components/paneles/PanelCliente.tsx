@@ -35,14 +35,36 @@ interface SaldoFidelizacion {
   progreso_nivel: number;
 }
 
+interface MovimientoFidelizacion {
+  id_movimiento: number;
+  tipo: string;
+  puntos: number;
+  saldo_resultante: number | null;
+  descripcion: string | null;
+  creado_en: string | null;
+}
+
+interface RespuestaMovimientos {
+  items: MovimientoFidelizacion[];
+  total: number;
+}
+
 export const PanelCliente: React.FC = () => {
   const {
     usuario, citas, servicios, barberos, abrirReserva, verTicket, cancelarCita,
     editarCita, calificarCita, actualizarAvatar, setEsperaAbierta, irA, listaEspera, franjasOcupadas,
+    aceptarOfertaEspera, cancelarSolicitudEspera,
     setQuizAbierto, actualizarBarberoFavorito, premios,
   } = useApp();
 
-  const [tab, setTab] = useState<'resumen' | 'proximas' | 'historial' | 'espera'>('resumen');
+  const [tab, setTab] = useState<'resumen' | 'proximas' | 'historial' | 'puntos' | 'espera'>('resumen');
+  const [movimientosPuntos, setMovimientosPuntos] = useState<MovimientoFidelizacion[]>([]);
+  const [totalMovimientosPuntos, setTotalMovimientosPuntos] = useState(0);
+  const [paginaMovimientos, setPaginaMovimientos] = useState(1);
+  const [revisionMovimientos, setRevisionMovimientos] = useState(0);
+  const [cargandoMovimientos, setCargandoMovimientos] = useState(false);
+  const [errorMovimientos, setErrorMovimientos] = useState('');
+  const porPaginaMovimientos = 10;
   const [saldoFidelizacion, setSaldoFidelizacion] = useState<SaldoFidelizacion | null>(null);
   const [errorSaldo, setErrorSaldo] = useState('');
   const [aCancelar, setACancelar] = useState<Cita | null>(null);
@@ -86,6 +108,30 @@ export const PanelCliente: React.FC = () => {
     return () => { vigente = false; };
   }, [idUsuario, rolUsuario]);
 
+  useEffect(() => {
+    if (rolUsuario !== 3 || tab !== 'puntos') return;
+    const controlador = new AbortController();
+    setCargandoMovimientos(true);
+    setErrorMovimientos('');
+    apiRequest<RespuestaMovimientos>(
+      `/puntos/movimientos?pagina=${paginaMovimientos}&por_pagina=${porPaginaMovimientos}`,
+      { signal: controlador.signal },
+    )
+      .then((respuesta) => {
+        setMovimientosPuntos(respuesta.items);
+        setTotalMovimientosPuntos(respuesta.total);
+      })
+      .catch((causa: unknown) => {
+        if (!controlador.signal.aborted) {
+          setErrorMovimientos(causa instanceof Error ? causa.message : 'No se pudo cargar el historial de puntos.');
+        }
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setCargandoMovimientos(false);
+      });
+    return () => controlador.abort();
+  }, [rolUsuario, tab, paginaMovimientos, revisionMovimientos]);
+
   const mias = citas.filter((c) => c.id_cliente === usuario?.id_usuario || c.cliente_correo === usuario?.correo);
   const proximas = mias.filter((c) => ['pendiente', 'confirmada', 'en_atencion'].includes(c.estado));
   const proximasOrdenadas = [...proximas].sort((a, b) =>
@@ -97,7 +143,7 @@ export const PanelCliente: React.FC = () => {
     `${b.fecha} ${b.hora_inicio}`.localeCompare(`${a.fecha} ${a.hora_inicio}`),
   );
   const historialReciente = historialOrdenado.slice(0, 2);
-  const misEsperas = listaEspera.filter((e) => e.id_cliente === usuario?.id_usuario);
+  const misEsperas = listaEspera.filter((e) => e.id_cliente === usuario?.id_cliente);
   const barberoFavorito = barberos.find((b) => b.id_barbero === usuario?.id_barbero_favorito);
   const barberoTarjeta = barberoFavorito
     ?? barberos.find((b) => b.id_barbero === citaProxima?.id_barbero)
@@ -147,11 +193,14 @@ export const PanelCliente: React.FC = () => {
   const confirmarCancelacion = async () => {
     if (!aCancelar) return;
     const r = await cancelarCita(aCancelar.id_cita, motivo);
-    setACancelar(null);
+    if (r.ok) setACancelar(null);
     mostrarAviso(r.ok ? `Cita ${aCancelar.codigo_reserva} cancelada. ${r.mensaje}` : r.mensaje);
   };
 
   const barberoRep = barberos.find((b) => b.id_barbero === aReprogramar?.id_barbero) ?? barberos[0];
+  const horasParaCita = aCancelar
+    ? (new Date(`${aCancelar.fecha}T${aCancelar.hora_inicio}:00`).getTime() - Date.now()) / 3_600_000
+    : null;
   const ocupadasRep = aReprogramar ? franjasOcupadas(nFecha, aReprogramar.id_barbero) : [];
   const franjasRep = aReprogramar
     ? franjasVigentes(
@@ -408,6 +457,7 @@ export const PanelCliente: React.FC = () => {
           {[
             { id: 'proximas', t: `Próximas (${proximas.length})`, i: CalendarDays },
             { id: 'historial', t: `Historial (${historial.length})`, i: History },
+            { id: 'puntos', t: 'Movimientos de puntos', i: Sparkles },
             { id: 'espera', t: `Lista de espera (${misEsperas.length})`, i: Hourglass },
           ].map((x) => (
             <button key={x.id} onClick={() => setTab(x.id as typeof tab)}
@@ -560,6 +610,64 @@ export const PanelCliente: React.FC = () => {
           </div>
         )}
 
+        {tab === 'puntos' && (
+          <section className="card overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 p-4">
+              <div>
+                <h2 className="font-heading text-base font-black text-[#EAF0F6]">Historial de puntos</h2>
+                <p className="mt-1 text-xs text-[#93A1B1]">Consulta tus puntos ganados, canjeados y ajustes.</p>
+              </div>
+              <span className="rounded-xl bg-amber-400/10 px-3 py-2 text-sm font-black text-amber-300">
+                Saldo: {saldoActual} pts
+              </span>
+            </div>
+            {errorMovimientos && (
+              <div role="alert" className="m-4 flex items-center justify-between gap-3 rounded-xl bg-rose-400/10 p-3 text-xs text-rose-300">
+                {errorMovimientos}
+                <button onClick={() => setRevisionMovimientos((revision) => revision + 1)} className="font-bold underline">Reintentar</button>
+              </div>
+            )}
+            {cargandoMovimientos ? (
+              <p className="p-8 text-center text-sm text-[#93A1B1]">Cargando movimientos…</p>
+            ) : !errorMovimientos && movimientosPuntos.length === 0 ? (
+              <p className="p-8 text-center text-sm text-[#93A1B1]">Todavía no tienes movimientos de puntos.</p>
+            ) : (
+              <div className="divide-y divide-white/6">
+                {movimientosPuntos.map((movimiento) => (
+                  <article key={movimiento.id_movimiento} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-[#EAF0F6]">{movimiento.descripcion || movimiento.tipo}</p>
+                      <p className="mt-1 text-[11px] text-[#6B7A8C]">
+                        {movimiento.creado_en ? new Date(movimiento.creado_en).toLocaleString('es-CO') : 'Fecha no disponible'}
+                        {' · '}{movimiento.tipo}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-heading text-base font-black ${movimiento.puntos >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                        {movimiento.puntos > 0 ? '+' : ''}{movimiento.puntos} pts
+                      </p>
+                      {movimiento.saldo_resultante !== null && (
+                        <p className="text-[10px] text-[#6B7A8C]">Saldo: {movimiento.saldo_resultante}</p>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t border-white/8 px-4 py-3 text-xs text-[#93A1B1]">
+              <span>{totalMovimientosPuntos} movimiento(s) · Página {paginaMovimientos} de {Math.max(1, Math.ceil(totalMovimientosPuntos / porPaginaMovimientos))}</span>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setPaginaMovimientos((pagina) => Math.max(1, pagina - 1))}
+                  disabled={paginaMovimientos <= 1 || cargandoMovimientos}
+                  className="rounded-lg border border-white/12 px-3 py-1.5 font-bold disabled:opacity-40">Anterior</button>
+                <button type="button" onClick={() => setPaginaMovimientos((pagina) => pagina + 1)}
+                  disabled={paginaMovimientos >= Math.ceil(totalMovimientosPuntos / porPaginaMovimientos) || cargandoMovimientos}
+                  className="rounded-lg border border-white/12 px-3 py-1.5 font-bold disabled:opacity-40">Siguiente</button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* LISTA DE ESPERA */}
         {tab === 'espera' && (
           <div className="space-y-4">
@@ -572,10 +680,47 @@ export const PanelCliente: React.FC = () => {
                 <div key={e.id_espera} className="card p-5">
                   <div className="flex items-center justify-between">
                     <h4 className="font-heading font-black text-[#EAF0F6]">{e.servicio_nombre}</h4>
-                    <span className="rounded-full bg-neutral-500/15 px-3 py-1 text-[11px] font-black text-neutral-800">En espera</span>
+                    <span className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                      e.estado === 'ofrecida' ? 'bg-emerald-400/15 text-emerald-300'
+                      : ['convertida', 'cancelada', 'vencida'].includes(e.estado) ? 'bg-neutral-500/15 text-[#93A1B1]'
+                      : 'bg-amber-400/15 text-amber-300'
+                    }`}>
+                      {e.estado === 'en_espera' ? 'En espera'
+                        : e.estado === 'ofrecida' ? 'Turno disponible'
+                        : e.estado === 'reservando' ? 'Confirmando turno'
+                        : e.estado === 'convertida' ? 'Cita confirmada'
+                        : e.estado === 'vencida' ? 'Oferta vencida'
+                        : 'Cancelada'}
+                    </span>
                   </div>
                   <p className="mt-1 text-xs text-[#93A1B1]">{fechaLarga(e.fecha_deseada)} · franja {e.franja_horaria}</p>
                   {e.barbero_nombre && <p className="text-xs font-semibold text-amber-300">Con {e.barbero_nombre}</p>}
+                  {e.estado === 'ofrecida' && e.oferta_hora_inicio && e.oferta_hora_fin && (
+                    <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/8 p-3">
+                      <p className="text-xs font-bold text-emerald-200">
+                        Turno ofrecido: {rangoHorario(e.oferta_hora_inicio, e.oferta_hora_fin)}
+                      </p>
+                      {e.oferta_expira && (
+                        <p className="mt-1 text-[10px] text-[#93A1B1]">
+                          Disponible hasta {new Date(e.oferta_expira).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                      <button type="button" onClick={async () => {
+                        const resultado = await aceptarOfertaEspera(e.id_espera);
+                        mostrarAviso(resultado.mensaje);
+                      }} className="mt-2 rounded-lg bg-emerald-400 px-3 py-2 text-[11px] font-black text-[#052019]">
+                        Aceptar y confirmar cita
+                      </button>
+                    </div>
+                  )}
+                  {['en_espera', 'ofrecida'].includes(e.estado) && (
+                    <button type="button" onClick={async () => {
+                      const resultado = await cancelarSolicitudEspera(e.id_espera);
+                      mostrarAviso(resultado.mensaje);
+                    }} className="mt-3 rounded-lg border border-rose-400/30 px-3 py-1.5 text-[10px] font-bold text-rose-300">
+                      Cancelar solicitud
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -608,9 +753,15 @@ export const PanelCliente: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex items-start gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 text-[11px] font-semibold text-amber-800">
+              <div className={`flex items-start gap-2 rounded-2xl border p-3 text-[11px] font-semibold ${
+                horasParaCita !== null && horasParaCita < 2
+                  ? 'border-rose-400/30 bg-rose-400/10 text-rose-300'
+                  : 'border-amber-400/30 bg-amber-400/10 text-amber-800'
+              }`}>
                 <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                Cancelando con más de 2 horas de anticipación no se aplica ninguna penalidad y tus puntos se conservan.
+                {horasParaCita !== null && horasParaCita < 2
+                  ? 'Faltan menos de 2 horas para tu cita. Esta cancelación puede generar una penalidad según las condiciones del servicio.'
+                  : 'Al cancelar con 2 o más horas de anticipación no se aplica penalidad y tus puntos se conservan.'}
               </div>
 
               <div className="flex gap-2">

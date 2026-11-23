@@ -169,15 +169,39 @@ def emitir(datos: dict, actor: Any = None, contexto: dict | None = None) -> dict
     if obtener_por_cita(id_cita):
         raise Conflicto("Esta cita ya tiene una factura emitida")
 
-    lineas = datos.get("detalles") or [
-        {
-            "id_servicio": cita["id_servicio"],
-            "descripcion": cita["servicio_nombre"],
-            "cantidad": 1,
-            "precio_unitario": float(cita["precio_total"] or cita["servicio_precio"]),
-            "descuento": 0,
-        }
-    ]
+    lineas = datos.get("detalles")
+    if not lineas:
+        extras = fetch_all(
+            """SELECT nombre, precio FROM cita_extras
+               WHERE id_cita = %s ORDER BY id_cita_extra""",
+            (id_cita,),
+        )
+        precio_extras = sum(
+            (Decimal(str(extra["precio"])) for extra in extras),
+            start=Decimal("0"),
+        )
+        precio_servicio = max(
+            Decimal("0"),
+            Decimal(str(cita["precio_total"] or cita["servicio_precio"])) - precio_extras,
+        )
+        lineas = [
+            {
+                "id_servicio": cita["id_servicio"],
+                "descripcion": cita["servicio_nombre"],
+                "cantidad": 1,
+                "precio_unitario": precio_servicio,
+                "descuento": 0,
+            },
+            *(
+                {
+                    "descripcion": extra["nombre"],
+                    "cantidad": 1,
+                    "precio_unitario": extra["precio"],
+                    "descuento": 0,
+                }
+                for extra in extras
+            ),
+        ]
 
     subtotal = Decimal("0")
     filas_detalle = []
