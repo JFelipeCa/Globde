@@ -4,16 +4,24 @@ import {
   MapPin, QrCode, Timer, UserRound, Ban,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { ROL_BARBERO } from '../../types';
+import { ROL_BARBERO, ROL_CLIENTE } from '../../types';
 import { formatoCOP, fechaLarga, rangoHorario, duracionLegible } from '../../utils/helpers';
 import { CodigoQRReserva } from './CodigoQRReserva';
 
 export const TicketModal: React.FC = () => {
   const { citaTicket, esConfirmacionNueva, cerrarTicket, cancelarCita, usuario, catalogoCortes } = useApp();
   const [modoPase, setModoPase] = React.useState(false);
-  const [vistaBarbero, setVistaBarbero] = React.useState<'pase' | 'corte'>('pase');
+  const [vistaDigital, setVistaDigital] = React.useState<'pase' | 'corte'>('pase');
 
-  React.useEffect(() => { setModoPase(false); setVistaBarbero('pase'); }, [citaTicket]);
+  React.useEffect(() => { setModoPase(false); setVistaDigital('pase'); }, [citaTicket]);
+  React.useEffect(() => {
+    if (!citaTicket) return;
+    const cerrarConEscape = (evento: KeyboardEvent) => {
+      if (evento.key === 'Escape') cerrarTicket();
+    };
+    window.addEventListener('keydown', cerrarConEscape);
+    return () => window.removeEventListener('keydown', cerrarConEscape);
+  }, [citaTicket, cerrarTicket]);
 
   if (!citaTicket) return null;
   const c = citaTicket;
@@ -34,7 +42,7 @@ export const TicketModal: React.FC = () => {
     const nombreCorte = corte.nombre.trim().toLowerCase();
     return nombreServicio === nombreCorte || nombreServicio.includes(nombreCorte) || nombreCorte.includes(nombreServicio);
   });
-  const esVistaBarbero = usuario?.id_rol === ROL_BARBERO && !esConfirmacionNueva;
+  const mostrarDetallesCorte = usuario?.id_rol === ROL_BARBERO || usuario?.id_rol === ROL_CLIENTE;
   const imagenCorte = corteRelacionado?.imagen_url
     || 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1200&fm=webp';
 
@@ -126,11 +134,22 @@ export const TicketModal: React.FC = () => {
 
   /* ---------- Vista 2: PASE DIGITAL ---------- */
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm">
-      <div className={`anim-zoom card w-full ${esVistaBarbero && vistaBarbero === 'corte' ? 'max-w-2xl' : 'max-w-md'} overflow-hidden`}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+      onMouseDown={(evento) => {
+        if (evento.target === evento.currentTarget) cerrarTicket();
+      }}
+    >
+      <div className={`anim-zoom card w-full ${mostrarDetallesCorte && vistaDigital === 'corte' ? 'max-w-xl' : 'max-w-md'} overflow-hidden`}>
         <div className="relative bg-gradient-to-r from-neutral-900 to-neutral-800 px-6 py-5 text-white">
-          <button onClick={cerrarTicket} className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 transition hover:bg-white/20">
-            <X className="h-4 w-4" />
+          <button
+            type="button"
+            onClick={cerrarTicket}
+            aria-label="Cerrar pase digital"
+            title="Cerrar pase digital"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:border-cyan-300/60 hover:bg-cyan-300/15"
+          >
+            <X className="h-5 w-5" strokeWidth={2.5} />
           </button>
           <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300/90">Pase digital</span>
           <h3 className="font-heading text-2xl font-black">Globde Barber Studio</h3>
@@ -148,32 +167,32 @@ export const TicketModal: React.FC = () => {
         </div>
 
         <div className="space-y-4 p-6">
-          {esVistaBarbero && (
+          {mostrarDetallesCorte && (
             <div className="grid grid-cols-2 rounded-xl bg-[#0F151C] p-1" role="tablist" aria-label="Vistas de la reserva">
               <button
                 type="button"
                 role="tab"
-                aria-selected={vistaBarbero === 'pase'}
-                onClick={() => setVistaBarbero('pase')}
-                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${vistaBarbero === 'pase' ? 'bg-cyan-300 text-[#06232A]' : 'text-[#93A1B1] hover:text-white'}`}
+                aria-selected={vistaDigital === 'pase'}
+                onClick={() => setVistaDigital('pase')}
+                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${vistaDigital === 'pase' ? 'bg-cyan-300 text-[#06232A]' : 'text-[#93A1B1] hover:text-white'}`}
               >
                 Pase digital
               </button>
               <button
                 type="button"
                 role="tab"
-                aria-selected={vistaBarbero === 'corte'}
-                onClick={() => setVistaBarbero('corte')}
-                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${vistaBarbero === 'corte' ? 'bg-cyan-300 text-[#06232A]' : 'text-[#93A1B1] hover:text-white'}`}
+                aria-selected={vistaDigital === 'corte'}
+                onClick={() => setVistaDigital('corte')}
+                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${vistaDigital === 'corte' ? 'bg-cyan-300 text-[#06232A]' : 'text-[#93A1B1] hover:text-white'}`}
               >
                 Detalles del corte
               </button>
             </div>
           )}
 
-          {esVistaBarbero && vistaBarbero === 'corte' ? (
+          {mostrarDetallesCorte && vistaDigital === 'corte' ? (
             <section role="tabpanel" aria-label="Detalles del corte" className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F151C]">
-              <div className="h-56 overflow-hidden bg-[#141A21] sm:h-80">
+              <div className="h-64 overflow-hidden bg-[#141A21] sm:h-72">
                 <img
                   src={imagenCorte}
                   alt={corteRelacionado?.nombre ?? c.servicio_nombre}
