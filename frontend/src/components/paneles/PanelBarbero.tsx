@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Scissors, CalendarDays, Star, Timer, ChevronLeft, ChevronRight,
+  CalendarDays, Star, Timer, ChevronLeft, ChevronRight,
   ToggleLeft, ToggleRight, Coins, Users, LockKeyhole, QrCode, X, Trash2, Camera, Plus, XCircle,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -10,6 +10,7 @@ import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
   hoyISO, sumarDiasISO, paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape,
 } from '../../utils/helpers';
+import { BarberoFoto } from '../ui/BarberoFoto';
 
 const POR_PAGINA = 4;
 
@@ -366,7 +367,13 @@ export const PanelBarbero: React.FC = () => {
           <div className="flex min-w-0 items-center gap-3">
             <div className="relative shrink-0">
               <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg bg-[#3d2c22]">
-                {barbero.foto_url ? <img src={barbero.foto_url} alt="" className="h-full w-full object-cover" /> : <Scissors className="h-5 w-5 text-white" />}
+                <BarberoFoto
+                  idBarbero={barbero.id_barbero}
+                  nombre={barbero.nombre}
+                  fotoUrl={barbero.foto_url}
+                  className="h-full w-full object-cover"
+                  iconClassName="h-5 w-5 text-white"
+                />
               </span>
               <label
                 title="Subir foto de perfil"

@@ -28,6 +28,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
       - /app/node_modules
     depends_on:

@@ -6,6 +6,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { formatoCOP, duracionLegible, hora12 } from '../../utils/helpers';
 import type { CatalogoCorte, PremioFidelidad } from '../../types';
+import { BarberoFoto } from '../ui/BarberoFoto';
 
 /* ---------------------------------------------------------------
    HERO
@@ -156,10 +157,14 @@ export const Barberos: React.FC = () => {
         <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
           {barberos.map((b, i) => (
             <article key={b.id_barbero} className={`card card-hover anim-aparecer retraso-${i + 1} overflow-hidden`}>
-              <div className="relative h-64 overflow-hidden">
-                {b.foto_url
-                  ? <img src={b.foto_url} alt={b.nombre} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
-                  : <div className="flex h-full w-full items-center justify-center bg-[#1B2024] text-[#D4AF37]"><Scissors className="h-14 w-14" aria-hidden="true" /></div>}
+              <div className="relative flex h-64 items-center justify-center overflow-hidden bg-[#1B2024] text-[#D4AF37]">
+                <BarberoFoto
+                  idBarbero={b.id_barbero}
+                  nombre={b.nombre}
+                  fotoUrl={b.foto_url}
+                  className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+                  iconClassName="h-14 w-14"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#141A21] via-transparent to-transparent" />
                 <span className="absolute right-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-black text-white shadow" style={{ backgroundColor: b.color }}>
                   Nivel {b.nivel}

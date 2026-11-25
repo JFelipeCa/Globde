@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   X, Check, ArrowRight, ArrowLeft, Clock, Star, Crown, Timer,
-  CalendarDays, Sparkles, CircleAlert, Plus, Scissors,
+  CalendarDays, Sparkles, CircleAlert, Plus,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { ClienteBusqueda } from '../../types';
@@ -11,6 +11,7 @@ import {
   sumarMinutos, hora12, duracionLegible, fechaLarga,
 } from '../../utils/helpers';
 import { apiRequest } from '../../utils/apiClient';
+import { BarberoFoto } from './BarberoFoto';
 
 const PASOS = ['Servicio', 'Barbero', 'Fecha y hora', 'Confirmar'];
 
@@ -313,9 +314,13 @@ export const BookingWizard: React.FC = () => {
                   className={`card card-hover flex w-full items-center gap-4 p-4 text-left ${idBarbero === b.id_barbero ? 'seleccionada' : ''}`}
                 >
                   <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
-                    {b.foto_url
-                      ? <img src={b.foto_url} alt={b.nombre} className="h-full w-full object-cover" />
-                      : <Scissors className="h-7 w-7" aria-hidden="true" />}
+                    <BarberoFoto
+                      idBarbero={b.id_barbero}
+                      nombre={b.nombre}
+                      fotoUrl={b.foto_url}
+                      className="h-full w-full object-cover"
+                      iconClassName="h-7 w-7"
+                    />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">

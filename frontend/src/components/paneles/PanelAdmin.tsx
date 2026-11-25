@@ -14,6 +14,7 @@ import {
 import { apiRequest } from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 import { AgendaAdmin } from './AgendaAdmin';
+import { BarberoFoto } from '../ui/BarberoFoto';
 
 const POR_PAGINA = 6;
 const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia', 'nequi', 'daviplata', 'otro'] as const;
@@ -1255,9 +1256,13 @@ export const PanelAdmin: React.FC = () => {
               <div key={b.id_barbero} className="card p-6">
                 <div className="flex items-center gap-3">
                   <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
-                    {b.foto_url
-                      ? <img src={b.foto_url} alt="" className="h-full w-full object-cover" />
-                      : <Scissors className="h-6 w-6" aria-hidden="true" />}
+                    <BarberoFoto
+                      idBarbero={b.id_barbero}
+                      nombre={b.nombre}
+                      fotoUrl={b.foto_url}
+                      className="h-full w-full object-cover"
+                      iconClassName="h-6 w-6"
+                    />
                   </span>
                   <div>
                     <h4 className="font-heading text-base font-black text-[#EAF0F6]">{b.nombre}</h4>

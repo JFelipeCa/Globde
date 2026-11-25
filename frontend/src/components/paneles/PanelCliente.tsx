@@ -11,6 +11,7 @@ import {
   hoyISO, sumarDiasISO, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape, desglosarFecha,
 } from '../../utils/helpers';
 import { CodigoQRReserva } from '../ui/CodigoQRReserva';
+import { BarberoFoto } from '../ui/BarberoFoto';
 
 const SERVICIOS_RAPIDOS = [
   'Mid Skin Fade + Crop Texturizado',
@@ -413,8 +414,14 @@ export const PanelCliente: React.FC = () => {
                   {barberoTarjeta && <p className="text-[9px] text-[#65716d]">{barberoTarjeta.rol_titulo}</p>}
                 </div>
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#74563f] text-sm font-black text-white">
-                  {barberoTarjeta?.foto_url
-                    ? <img src={barberoTarjeta.foto_url} alt="" className="h-full w-full object-cover" />
+                  {barberoTarjeta
+                    ? <BarberoFoto
+                      idBarbero={barberoTarjeta.id_barbero}
+                      nombre={barberoTarjeta.nombre}
+                      fotoUrl={barberoTarjeta.foto_url}
+                      className="h-full w-full object-cover"
+                      iconClassName="h-4 w-4"
+                    />
                     : <Scissors className="h-4 w-4" aria-hidden="true" />}
                 </span>
               </div>
