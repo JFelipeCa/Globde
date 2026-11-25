@@ -45,14 +45,14 @@ export const Hero: React.FC = () => {
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button onClick={() => abrirReserva()} className="btn-primario group flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-black">
-              <CalendarDays className="h-5 w-5" /> Reservar mi cita
+            <button onClick={() => abrirReserva()} className="btn-primario group inline-flex h-12 items-center gap-2 rounded-xl px-5 text-sm font-bold">
+              <CalendarDays className="h-4 w-4" /> Reservar cita
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </button>
-            <button onClick={() => irA('catalogo')} className="flex items-center gap-2 rounded-2xl border border-white/12 bg-[#141A21] px-6 py-4 text-sm font-bold text-[#C6D0DC] transition hover:-translate-y-0.5 hover:border-amber-400/50">
-              <Scissors className="h-4 w-4 text-amber-600" /> Ver catálogo de cortes
+            <button onClick={() => irA('catalogo')} className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-[#141A21] px-5 text-sm font-bold text-[#C6D0DC] transition hover:-translate-y-0.5 hover:border-amber-400/50">
+              <Scissors className="h-4 w-4 text-amber-600" /> Catálogo de servicios
             </button>
-            <button onClick={() => setQuizAbierto(true)} className="flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-4 text-sm font-bold text-amber-700 transition hover:-translate-y-0.5 hover:bg-amber-400/20">
+            <button onClick={() => setQuizAbierto(true)} className="inline-flex h-12 items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-5 text-sm font-bold text-amber-700 transition hover:-translate-y-0.5 hover:bg-amber-400/20">
               <Sparkles className="h-4 w-4" /> Asesor de estilo
             </button>
           </div>
@@ -86,7 +86,7 @@ export const Beneficios: React.FC = () => {
   const items = [
     { i: CalendarDays, t: 'Reserva por rangos horarios', d: 'Ves la hora exacta de inicio y fin de tu cita según la duración real del servicio.' },
     { i: QrCode, t: 'Pase digital con QR', d: 'Recibes un comprobante con código único para validar tu turno al llegar.' },
-    { i: Bell, t: 'Lista de espera inteligente', d: 'Si se libera un turno antes, te avisamos de inmediato por WhatsApp.' },
+    { i: Bell, t: 'Lista de espera inteligente', d: 'Si se libera un turno que coincide con tu solicitud, te avisamos en la aplicación.' },
     { i: Crown, t: 'Puntos que se canjean', d: 'Acumula en cada visita y cámbialos por servicios, productos o descuentos.' },
     { i: Award, t: 'Ranking de barberos', d: 'Nivel Master, Oro y Plata según desempeño, puntualidad y calificaciones.' },
     { i: ShieldCheck, t: 'Seguridad y bioseguridad', d: 'Contraseñas cifradas, navaja de un solo uso y esterilización UV certificada.' },
@@ -154,9 +154,9 @@ export const Barberos: React.FC = () => {
           </h2>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {barberos.map((b, i) => (
-            <article key={b.id_barbero} className={`card card-hover anim-aparecer retraso-${i + 1} overflow-hidden`}>
+            <article key={b.id_barbero} className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} overflow-hidden`}>
               <div className="relative flex h-64 items-center justify-center overflow-hidden bg-[#1B2024] text-[#D4AF37]">
                 <BarberoFoto
                   idBarbero={b.id_barbero}
@@ -226,13 +226,13 @@ export const Catalogo: React.FC = () => {
         <div className="flex flex-col items-start justify-between gap-5 md:flex-row md:items-end">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-[#141A21] px-4 py-1.5 text-xs font-bold text-amber-700 ring-1 ring-white/8">
-              <Scissors className="h-3.5 w-3.5" /> Lookbook 2026
+              <Scissors className="h-3.5 w-3.5" /> Catálogo de servicios
             </span>
             <h2 className="font-heading mt-3 text-3xl font-black text-[#EAF0F6] sm:text-4xl">
               Encuentra tu <span className="text-aqua">estilo ideal</span>
             </h2>
             <p className="mt-2 max-w-xl text-sm text-[#93A1B1]">
-              Explora resultados reales, mira la duración estimada y agenda con un clic.
+              Explora los servicios disponibles, consulta su duración y precio y reserva con un clic.
             </p>
           </div>
           <button onClick={() => setQuizAbierto(true)} className="flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-2.5 text-sm font-bold text-amber-700 transition hover:bg-amber-400/20">
@@ -254,7 +254,13 @@ export const Catalogo: React.FC = () => {
             <button key={c.id_corte} onClick={() => setDetalle(c)}
               className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} group overflow-hidden text-left`}>
               <div className="relative h-60 overflow-hidden">
-                <img src={c.imagen_url} alt={c.nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                {c.imagen_url ? (
+                  <img src={c.imagen_url} alt={c.nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                ) : (
+                  <span className="flex h-full items-center justify-center bg-[#1B2024] text-amber-400">
+                    <Scissors className="h-12 w-12" aria-hidden="true" />
+                  </span>
+                )}
                 <div className="absolute inset-0 flex items-center justify-center bg-[#0B0F14]/0 opacity-0 transition group-hover:bg-[#0B0F14]/60 group-hover:opacity-100">
                   <span className="flex items-center gap-1.5 rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-[#1A1400]">
                     <Eye className="h-4 w-4" /> Ver detalle
@@ -272,6 +278,11 @@ export const Catalogo: React.FC = () => {
                   </span>
                   <span className="font-black text-[#EAF0F6]">{formatoCOP(c.precio_sugerido)}</span>
                 </div>
+                {!lista.length && (
+                  <p className="mt-8 rounded-2xl border border-white/10 bg-[#141A21] p-6 text-center text-sm text-[#C6D0DC]">
+                    No hay servicios activos en esta categoría por ahora.
+                  </p>
+                )}
               </div>
             </button>
           ))}
@@ -282,7 +293,13 @@ export const Catalogo: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
           <div className="anim-zoom card w-full max-w-lg overflow-hidden">
             <div className="relative h-64">
-              <img src={detalle.imagen_url} alt={detalle.nombre} className="h-full w-full object-cover" />
+              {detalle.imagen_url ? (
+                <img src={detalle.imagen_url} alt={detalle.nombre} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full items-center justify-center bg-[#1B2024] text-amber-400">
+                  <Scissors className="h-14 w-14" aria-hidden="true" />
+                </div>
+              )}
               <button onClick={() => setDetalle(null)} className="absolute right-4 top-4 rounded-full border border-white/10 bg-[#0B0F14]/85 p-2 text-[#EAF0F6] backdrop-blur"><X className="h-4 w-4" /></button>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#141A21] to-transparent p-4">
                 <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-[#1A1400]">{detalle.categoria}</span>
@@ -465,9 +482,9 @@ export const Resenas: React.FC = () => {
                 <blockquote className="mt-3 text-sm italic leading-relaxed text-[#C6D0DC]">“{t.texto}”</blockquote>
               </div>
               <figcaption className="mt-5 flex items-center gap-3 border-t border-white/8 pt-4">
-                {t.avatar_url
-                  ? <img src={t.avatar_url} alt={t.nombre} className="h-10 w-10 rounded-full object-cover" />
-                  : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B2024] text-amber-400"><UserRound className="h-5 w-5" aria-hidden="true" /></span>}
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B2024] text-amber-400">
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                </span>
                 <div className="min-w-0">
                   <p className="truncate text-xs font-black text-[#EAF0F6]">{t.nombre}</p>
                   <p className="truncate text-[11px] text-[#6B7A8C]">{t.rol}</p>

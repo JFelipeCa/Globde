@@ -243,7 +243,15 @@ export const PanelBarbero: React.FC = () => {
   };
 
   const validarCodigoQR = useCallback(async (codigo: string) => {
-    const normalizado = codigo.trim().toUpperCase();
+    let textoEscaneado = codigo.trim();
+    try {
+      const enlace = new URL(textoEscaneado);
+      textoEscaneado = enlace.searchParams.get('text') ?? textoEscaneado;
+    } catch {
+      // El escáner también acepta el código escrito manualmente.
+    }
+    const codigoEnMensaje = textoEscaneado.match(/\b(?:GB|GLB|GLOBDE)-[A-Z0-9]+\b/i)?.[0];
+    const normalizado = (codigoEnMensaje ?? textoEscaneado).trim().toUpperCase();
     if (!normalizado) {
       setErrorQR('Escribe o escanea el código de la reserva.');
       return;

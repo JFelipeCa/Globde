@@ -66,49 +66,48 @@ export const BARBEROS: Barbero[] = [
   },
 ];
 
-// Servicios agendables = los mismos 6 cortes del catálogo (mismo nombre, precio y
-// duración). El nombre es la llave con la que AppContext enlaza catálogo y agenda.
+// Servicios locales de respaldo; en producción, el catálogo se alimenta de la API.
 export const SERVICIOS: Servicio[] = [
   {
     id_servicio: 1, nombre: 'Mid Skin Fade + Crop Texturizado', categoria: 'Cortes',
     descripcion: 'Degradado medio limpio a navaja con parte superior desfilada para volumen y textura.',
     precio: 25000, duracion_minutos: 40, popular: true, icono: '💈',
-    imagen_url: 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    imagen_url: '/images/cortes/mid-skin-fade-crop.jpg',
     puntos_otorga: 25, activo: true,
   },
   {
     id_servicio: 2, nombre: 'Low Taper con Barba Integrada', categoria: 'Cortes',
     descripcion: 'Transición suave en patillas y nuca que se fusiona con una barba densa y perfilada.',
     precio: 35000, duracion_minutos: 50, icono: '🧔',
-    imagen_url: 'https://images.pexels.com/photos/12706272/pexels-photo-12706272.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    imagen_url: '/images/cortes/low-taper-barba.jpg',
     puntos_otorga: 35, activo: true,
   },
   {
     id_servicio: 3, nombre: 'Pompadour Moderno con Drop Fade', categoria: 'Cortes',
     descripcion: 'Inspiración clásica de los 50 reinventada con caída curva y fijación mate duradera.',
     precio: 28000, duracion_minutos: 45, popular: true, icono: '🪒',
-    imagen_url: 'https://images.pexels.com/photos/14564834/pexels-photo-14564834.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    imagen_url: '/images/cortes/pompadour-drop-fade.jpg',
     puntos_otorga: 28, activo: true,
   },
   {
     id_servicio: 4, nombre: 'Buzz Cut con Line-up a Navaja', categoria: 'Cortes',
     descripcion: 'Corte rasurado al ras con contornos rectilíneos y diseño geométrico minimalista.',
     precio: 22000, duracion_minutos: 30, popular: true, icono: '✂️',
-    imagen_url: 'https://images.pexels.com/photos/14781974/pexels-photo-14781974.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    imagen_url: '/images/cortes/buzz-cut-lineup.jpg',
     puntos_otorga: 22, activo: true,
   },
   {
     id_servicio: 5, nombre: 'Modern Mullet con Fade Lateral', categoria: 'Cortes',
     descripcion: 'Estilo vanguardista con laterales despejados y parte trasera fluida, el más viral del año.',
     precio: 27000, duracion_minutos: 45, icono: '💇',
-    imagen_url: 'https://images.pexels.com/photos/15418106/pexels-photo-15418106.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    imagen_url: '/images/cortes/modern-mullet-fade.jpg',
     puntos_otorga: 27, activo: true,
   },
   {
     id_servicio: 6, nombre: 'Platinado Polar con High Fade', categoria: 'Cortes',
     descripcion: 'Decoloración tono hielo con matizador anti-amarillo y degradado alto ultra pulido.',
     precio: 60000, duracion_minutos: 90, icono: '🎨',
-    imagen_url: 'https://images.pexels.com/photos/7045174/pexels-photo-7045174.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp',
+    imagen_url: '/images/cortes/platinado-high-fade.jpg',
     puntos_otorga: 60, activo: true,
   },
 ];
@@ -157,6 +156,17 @@ export const CATALOGO_CORTES: CatalogoCorte[] = [
     barbero_recomendado: 'Ricardo Peña', duracion_minutos: 90, precio_sugerido: 60000,
   },
 ];
+
+export const imagenCatalogoServicio = (nombre: string): string | undefined => {
+  const normalizar = (valor: string) => valor.trim().toLocaleLowerCase();
+  const nombreNormalizado = normalizar(nombre);
+  const corte = CATALOGO_CORTES.find((item) => normalizar(item.nombre) === nombreNormalizado)
+    ?? CATALOGO_CORTES.find((item) => {
+      const nombreCorte = normalizar(item.nombre);
+      return nombreNormalizado.includes(nombreCorte) || nombreCorte.includes(nombreNormalizado);
+    });
+  return corte?.imagen_url;
+};
 
 export const PREMIOS: PremioFidelidad[] = [
   { id_premio: 1, titulo: 'Café expreso o bebida de cortesía', descripcion: 'Disfruta una bebida premium durante tu servicio.', costo_puntos: 40, icono: '☕', categoria: 'cortesia' },
@@ -281,8 +291,8 @@ export const TESTIMONIOS: Testimonio[] = [
 ];
 
 export const EXTRAS_SERVICIO = [
-  { id: 'Lavado premium', precio: 6000, minutos: 10 },
-  { id: 'Toalla caliente', precio: 6000, minutos: 10 },
-  { id: 'Mascarilla de carbón', precio: 6000, minutos: 10 },
-  { id: 'Perfilado de cejas', precio: 6000, minutos: 5 },
+  { id: 'Lavado premium', nombre: 'Lavado premium', precio: 6000, minutos: 10 },
+  { id: 'Toalla caliente', nombre: 'Toalla caliente', precio: 6000, minutos: 10 },
+  { id: 'Mascarilla de carbón', nombre: 'Mascarilla de carbón', precio: 6000, minutos: 10 },
+  { id: 'Perfilado de cejas', nombre: 'Perfilado de cejas', precio: 6000, minutos: 5 },
 ];

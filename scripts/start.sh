@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# start.sh — Levanta GLOBDE (backend + frontend conectado a TiDB Cloud) con Docker.
+# start.sh — Levanta GLOBDE (MySQL + backend + frontend) con Docker.
 # Uso:  bash scripts/start.sh
 # El instructor solo ejecuta `bash scripts/start.sh` y el sistema queda arriba.
 set -euo pipefail
@@ -18,10 +18,21 @@ if [ ! -f "$ENV_FILE" ]; then
   cp "$ENV_EXAMPLE" "$ENV_FILE"
 fi
 
-# 2) Generar secretos de autenticación si faltan (JWT_SECRET).
+# 2) Generar secretos locales si faltan. Se conservan entre reinicios.
 set_secret() {
   local key="$1"
-  if ! grep -qE "^${key}=.+" "$ENV_FILE"; then
+  if ! python3 - "$ENV_FILE" "$key" <<'PY' >/dev/null 2>&1
+from pathlib import Path
+import sys
+
+env_file, key = sys.argv[1:]
+for line in Path(env_file).read_text().splitlines():
+    name, separator, value = line.partition("=")
+    if separator and name.strip() == key:
+        sys.exit(0 if value.strip().strip("\"'").strip() else 1)
+sys.exit(1)
+PY
+  then
     local val
     val="$(python3 -c "import secrets; print(secrets.token_urlsafe(48))" 2>/dev/null || head -c 48 /dev/urandom | base64 | tr -d '/+=' | head -c 48)"
     if ! grep -qE "^${key}=" "$ENV_FILE"; then
@@ -32,28 +43,8 @@ set_secret() {
     echo "→ Generado ${key}."
   fi
 }
+set_secret "DB_PASSWORD"
 set_secret "JWT_SECRET"
-
-# SMTP: no sobrescribimos valores existentes. Si faltan, se completan con la
-# configuración de Gmail por defecto para evitar que el arranque falle al
-# intentar enviar correos de recuperación.
-ensure_smtp_var() {
-  local key="$1"
-  local value="$2"
-  if ! grep -qE "^${key}=" "$ENV_FILE"; then
-    printf '%s=%s\n' "$key" "$value" >> "$ENV_FILE"
-    echo "→ Generado ${key}."
-  fi
-}
-
-ensure_smtp_var "EMAIL_ENABLED" "true"
-ensure_smtp_var "SMTP_HOST" "smtp.gmail.com"
-ensure_smtp_var "SMTP_PORT" "587"
-ensure_smtp_var "SMTP_USER" "globde.2026@gmail.com"
-ensure_smtp_var "SMTP_PASSWORD" ""
-ensure_smtp_var "SMTP_FROM" "globde.2026@gmail.com"
-ensure_smtp_var "SMTP_STARTTLS" "true"
-ensure_smtp_var "SMTP_TIMEOUT" "15"
 
 # 3) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
 if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then
@@ -109,5 +100,5 @@ for i in $(seq 1 60); do
 done
 
 echo "⚠️  Contenedores arrancados pero la API aún no responde 'ok'."
-echo "    Revisa: docker compose logs backend   (o)  docker compose ps"
+echo "    Revisa: docker compose --env-file backend/.env logs backend   (o)  docker compose --env-file backend/.env ps"
 exit 1

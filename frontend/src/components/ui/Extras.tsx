@@ -10,7 +10,8 @@ import { formatoCOP, hoyISO, duracionLegible } from '../../utils/helpers';
    NOTIFICACIONES FLOTANTES
    ========================================================= */
 export const Toasts: React.FC = () => {
-  const { notificaciones } = useApp();
+  const { notificaciones, eliminarNotificacion } = useApp();
+  const [errorEliminar, setErrorEliminar] = useState('');
   if (!notificaciones.length) return null;
 
   const estilo: Record<string, string> = {
@@ -32,11 +33,26 @@ export const Toasts: React.FC = () => {
         <div key={n.id} className={`anim-derecha pointer-events-auto rounded-2xl border bg-[#141A21] p-3.5 shadow-[0_24px_50px_-25px_rgba(0,0,0,1)] ${estilo[n.tipo]}`}>
           <div className="flex items-start gap-2.5">
             <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${punto[n.tipo]}`} />
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-black text-[#EAF0F6]">{n.titulo}</p>
               <p className="mt-0.5 text-xs leading-snug text-[#93A1B1]">{n.mensaje}</p>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setErrorEliminar('');
+                void eliminarNotificacion(n.id).catch((error: unknown) => {
+                  setErrorEliminar(error instanceof Error ? error.message : 'No se pudo quitar el aviso.');
+                });
+              }}
+              aria-label="Quitar notificación"
+              title="Quitar notificación"
+              className="shrink-0 rounded-md p-1 text-[#93A1B1] transition hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
+          {errorEliminar && <p role="alert" className="mt-2 text-[11px] font-semibold text-rose-300">{errorEliminar}</p>}
         </div>
       ))}
     </div>
@@ -211,7 +227,7 @@ export const EsperaModal: React.FC = () => {
         <form onSubmit={enviar} className="space-y-3 p-6">
           <div className="flex items-start gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/8 p-3 text-xs text-amber-700">
             <Bell className="mt-0.5 h-4 w-4 shrink-0" />
-            Si se libera un turno que coincida con tu solicitud, te avisaremos por la app y por correo.
+            Si se libera un turno que coincida con tu solicitud, recibirás un aviso en la aplicación.
           </div>
           <select value={servId} onChange={(e) => setServId(Number(e.target.value))} className={input}>
             {servicios.map((s) => <option key={s.id_servicio} value={s.id_servicio}>{s.nombre}</option>)}
@@ -244,14 +260,19 @@ export const EsperaModal: React.FC = () => {
    PIE DE PÁGINA
    ========================================================= */
 export const Footer: React.FC = () => {
-  const { irA, abrirReserva, setEsperaAbierta, vista } = useApp();
+  const { irA, abrirReserva, setEsperaAbierta, vista, barberos } = useApp();
 
   if (vista === 'panel-cliente') {
     return (
       <footer className="panel-cliente-footer border-t border-[#e6e9e3] bg-white text-[#172124]">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:grid-cols-3 sm:px-6 lg:px-8">
           <div>
-            <p className="font-heading text-sm font-black leading-none">GLOBDE</p>
+            <div className="flex items-center gap-2">
+              <span className="logo-marco relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#141A21]">
+                <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
+              </span>
+              <p className="font-heading text-sm font-black leading-none">GLOBDE</p>
+            </div>
             <p className="mt-1 text-[8px] font-bold uppercase tracking-[0.2em] text-[#18899a]">Barber Gestor</p>
             <p className="mt-2 text-[9px] leading-relaxed text-[#65716d]">Estilo y cuidado personal en Bogotá.</p>
           </div>
@@ -293,7 +314,7 @@ export const Footer: React.FC = () => {
             <h4 className="font-heading mb-3 text-sm font-black uppercase tracking-wide text-[#EAF0F6]">Navegación</h4>
             <ul className="space-y-2 text-xs font-semibold text-[#93A1B1]">
               <li><button onClick={() => irA('inicio')} className="hover:text-amber-600">Inicio</button></li>
-              <li><button onClick={() => irA('catalogo')} className="hover:text-amber-600">Catálogo de cortes</button></li>
+              <li><button onClick={() => irA('catalogo')} className="hover:text-amber-600">Catálogo de servicios</button></li>
               <li><button onClick={() => irA('fidelizacion')} className="hover:text-amber-600">Club de puntos</button></li>
               <li><button onClick={() => setEsperaAbierta(true)} className="hover:text-amber-600">Lista de espera</button></li>
               <li><button onClick={() => abrirReserva()} className="font-black text-amber-600 hover:underline">Reservar cita</button></li>
@@ -316,7 +337,7 @@ export const Footer: React.FC = () => {
             <ul className="space-y-2 text-xs text-[#93A1B1]">
               <li className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 text-amber-600" /> Calle 85 #14-20, Zona Rosa, Bogotá</li>
               <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-amber-600" /> +57 312 456 7890</li>
-              <li className="flex items-center gap-2"><Scissors className="h-4 w-4 text-amber-600" /> 3 barberos certificados</li>
+              <li className="flex items-center gap-2"><Scissors className="h-4 w-4 text-amber-600" /> {barberos.length} {barberos.length === 1 ? 'barbero certificado' : 'barberos certificados'}</li>
             </ul>
           </div>
         </div>

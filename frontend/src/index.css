@@ -307,6 +307,9 @@ body { background: #FDFCFA; color: #0A0A0A; }
 [class*="text-[#C6D0DC]"] { color: #3F3F3F !important; }
 [class*="text-[#93A1B1]"] { color: #6B6B6B !important; }
 [class*="text-[#6B7A8C]"] { color: #9A9A9A !important; }
+.tema-claro .pase-digital-contenido :is(h1, h2, h3, h4, p, span, button, a, strong) {
+  color: #000000 !important;
+}
 
 /* Bordes → gris claro con matiz dorado */
 [class*="border-white/5"],

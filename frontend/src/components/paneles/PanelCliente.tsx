@@ -8,7 +8,7 @@ import type { Cita, Servicio, PremioFidelidad, NivelFidelizacion } from '../../t
 import { apiRequest } from '../../utils/apiClient';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  hoyISO, sumarDiasISO, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape, desglosarFecha,
+  hoyISO, sumarDiasISO, hora12, desglosarFecha,
 } from '../../utils/helpers';
 import { CodigoQRReserva } from '../ui/CodigoQRReserva';
 import { BarberoFoto } from '../ui/BarberoFoto';
@@ -50,10 +50,16 @@ interface RespuestaMovimientos {
   total: number;
 }
 
+interface SlotReprogramacion {
+  hora_inicio: string;
+  hora_fin: string;
+  disponible: boolean;
+}
+
 export const PanelCliente: React.FC = () => {
   const {
     usuario, citas, servicios, barberos, abrirReserva, verTicket, cancelarCita,
-    editarCita, calificarCita, actualizarAvatar, setEsperaAbierta, irA, listaEspera, franjasOcupadas,
+    editarCita, calificarCita, actualizarAvatar, setEsperaAbierta, irA, listaEspera,
     aceptarOfertaEspera, cancelarSolicitudEspera,
     setQuizAbierto, actualizarBarberoFavorito, premios,
   } = useApp();
@@ -73,6 +79,10 @@ export const PanelCliente: React.FC = () => {
   const [aReprogramar, setAReprogramar] = useState<Cita | null>(null);
   const [nFecha, setNFecha] = useState(hoyISO());
   const [nHora, setNHora] = useState('');
+  const [slotsReprogramacion, setSlotsReprogramacion] = useState<SlotReprogramacion[]>([]);
+  const [cargandoSlotsReprogramacion, setCargandoSlotsReprogramacion] = useState(false);
+  const [errorSlotsReprogramacion, setErrorSlotsReprogramacion] = useState('');
+  const [guardandoReprogramacion, setGuardandoReprogramacion] = useState(false);
   const [aCalificar, setACalificar] = useState<Cita | null>(null);
   const [rating, setRating] = useState(5);
   const [comentario, setComentario] = useState('');
@@ -133,7 +143,7 @@ export const PanelCliente: React.FC = () => {
     return () => controlador.abort();
   }, [rolUsuario, tab, paginaMovimientos, revisionMovimientos]);
 
-  const mias = citas.filter((c) => c.id_cliente === usuario?.id_usuario || c.cliente_correo === usuario?.correo);
+  const mias = citas.filter((c) => c.id_cliente === usuario?.id_cliente || c.cliente_correo === usuario?.correo);
   const proximas = mias.filter((c) => ['pendiente', 'confirmada', 'en_atencion'].includes(c.estado));
   const proximasOrdenadas = [...proximas].sort((a, b) =>
     `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`),
@@ -202,24 +212,54 @@ export const PanelCliente: React.FC = () => {
   const horasParaCita = aCancelar
     ? (new Date(`${aCancelar.fecha}T${aCancelar.hora_inicio}:00`).getTime() - Date.now()) / 3_600_000
     : null;
-  const ocupadasRep = aReprogramar ? franjasOcupadas(nFecha, aReprogramar.id_barbero) : [];
+  useEffect(() => {
+    if (!aReprogramar || !barberoRep) {
+      setSlotsReprogramacion([]);
+      return;
+    }
+
+    const controlador = new AbortController();
+    const servicio = servicios.find((item) => item.id_servicio === aReprogramar.id_servicio);
+    const minutosAdicionales = Math.max(0, aReprogramar.duracion_minutos - (servicio?.duracion_minutos ?? aReprogramar.duracion_minutos));
+    setCargandoSlotsReprogramacion(true);
+    setErrorSlotsReprogramacion('');
+    apiRequest<{ slots: SlotReprogramacion[] }>(
+      `/barberos/${barberoRep.id_barbero}/disponibilidad?fecha=${encodeURIComponent(nFecha)}&id_servicio=${aReprogramar.id_servicio}&duracion_adicional_minutos=${minutosAdicionales}`,
+      { signal: controlador.signal },
+    )
+      .then((respuesta) => {
+        if (!controlador.signal.aborted) setSlotsReprogramacion(respuesta.slots);
+      })
+      .catch((causa: unknown) => {
+        if (!controlador.signal.aborted) {
+          setSlotsReprogramacion([]);
+          setErrorSlotsReprogramacion(causa instanceof Error ? causa.message : 'No se pudieron consultar los horarios.');
+        }
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setCargandoSlotsReprogramacion(false);
+      });
+    return () => controlador.abort();
+  }, [aReprogramar, barberoRep, nFecha, servicios]);
+
   const franjasRep = aReprogramar
-    ? franjasVigentes(
-        generarFranjas(barberoRep.hora_apertura, barberoRep.hora_cierre, 15, aReprogramar.duracion_minutos),
-        nFecha,
-      ).map((ini) => {
-        const fin = sumarMinutos(ini, aReprogramar.duracion_minutos);
-        const propia = aReprogramar.fecha === nFecha && aReprogramar.hora_inicio === ini;
-        return { ini, fin, libre: propia || !ocupadasRep.some((o) => haySolape(ini, fin, o.inicio, o.fin)) };
+    ? slotsReprogramacion.map((slot) => {
+        const propia = aReprogramar.fecha === nFecha && aReprogramar.hora_inicio === slot.hora_inicio;
+        return { ini: slot.hora_inicio, fin: slot.hora_fin, libre: propia || slot.disponible };
       })
     : [];
 
   const guardarReprogramacion = async () => {
     if (!aReprogramar || !nHora) { setError('Selecciona una nueva franja horaria.'); return; }
-    const r = await editarCita(aReprogramar.id_cita, { fecha: nFecha, hora_inicio: nHora });
-    if (!r.ok) { setError(r.mensaje); return; }
-    setAReprogramar(null); setError(''); setNHora('');
-    mostrarAviso('Tu cita fue reprogramada correctamente.');
+    setGuardandoReprogramacion(true);
+    try {
+      const r = await editarCita(aReprogramar.id_cita, { fecha: nFecha, hora_inicio: nHora });
+      if (!r.ok) { setError(r.mensaje); return; }
+      setAReprogramar(null); setError(''); setNHora('');
+      mostrarAviso('Tu cita fue reprogramada correctamente.');
+    } finally {
+      setGuardandoReprogramacion(false);
+    }
   };
 
   const enviarResena = async () => {
@@ -297,7 +337,7 @@ export const PanelCliente: React.FC = () => {
                     <p className="truncate text-[10px] text-[#65716d]">Con {citaProxima.barbero_nombre} · {rangoHorario(citaProxima.hora_inicio, citaProxima.hora_fin)}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <button onClick={() => verTicket(citaProxima)} className="rounded-md bg-[#172124] px-2 py-1 text-[9px] font-bold text-white">Pase QR</button>
-                      <button onClick={() => { setAReprogramar(citaProxima); setNFecha(citaProxima.fecha); setNHora(''); setError(''); }} className="rounded-md border border-[#dce4e1] px-2 py-1 text-[9px] font-bold text-[#273532]">Reprogramar</button>
+                      <button onClick={() => { setAReprogramar(citaProxima); setNFecha(citaProxima.fecha); setNHora(''); setError(''); setErrorSlotsReprogramacion(''); }} className="rounded-md border border-[#dce4e1] px-2 py-1 text-[9px] font-bold text-[#273532]">Reprogramar</button>
                     </div>
                   </div>
                   <div className="hidden items-center justify-center pr-2 sm:flex">
@@ -802,7 +842,7 @@ export const PanelCliente: React.FC = () => {
                 {Array.from({ length: 8 }, (_, i) => sumarDiasISO(i)).map((d) => {
                   const inf = desglosarFecha(d);
                   return (
-                    <button key={d} onClick={() => { setNFecha(d); setNHora(''); }}
+                    <button key={d} onClick={() => { setNFecha(d); setNHora(''); setErrorSlotsReprogramacion(''); }}
                       className={`min-w-[68px] rounded-2xl border px-3 py-2 text-center transition ${
                         nFecha === d ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-white/10 bg-[#141A21] text-[#93A1B1]'
                       }`}>
@@ -813,6 +853,14 @@ export const PanelCliente: React.FC = () => {
                 })}
               </div>
 
+              {errorSlotsReprogramacion && (
+                <p role="alert" className="rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">
+                  {errorSlotsReprogramacion}
+                </p>
+              )}
+              {cargandoSlotsReprogramacion && (
+                <p role="status" className="text-center text-xs text-[#93A1B1]">Consultando disponibilidad…</p>
+              )}
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {franjasRep.map((f) => (
                   <button key={f.ini} disabled={!f.libre} onClick={() => setNHora(f.ini)}
@@ -826,9 +874,18 @@ export const PanelCliente: React.FC = () => {
                   </button>
                 ))}
               </div>
+              {!cargandoSlotsReprogramacion && !errorSlotsReprogramacion && franjasRep.length === 0 && (
+                <p className="rounded-xl bg-[#0F151C] p-3 text-center text-xs text-[#93A1B1]">
+                  No hay horarios disponibles para esta fecha.
+                </p>
+              )}
 
-              <button onClick={guardarReprogramacion} className="btn-primario w-full rounded-2xl py-3 text-sm font-black">
-                Guardar nuevo horario
+              <button
+                onClick={guardarReprogramacion}
+                disabled={guardandoReprogramacion || !nHora}
+                className="btn-primario w-full rounded-2xl py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {guardandoReprogramacion ? 'Guardando…' : 'Guardar nuevo horario'}
               </button>
             </div>
           </div>

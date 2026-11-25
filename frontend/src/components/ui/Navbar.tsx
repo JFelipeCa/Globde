@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Scissors, CalendarDays, Crown, Sparkles, Menu, X, LogOut,
-  LayoutDashboard, ChevronDown, Clock, UserRound, MapPin, Sun, Moon,
+  LayoutDashboard, Clock, UserRound, MapPin, Sun, Moon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE } from '../../types';
@@ -49,13 +49,12 @@ export const Navbar: React.FC = () => {
   const esBarbero = usuario?.id_rol === ROL_BARBERO;
   const esCliente = usuario?.id_rol === ROL_CLIENTE;
   const esPanelCliente = esCliente && vista === 'panel-cliente';
-  const esPanelBarbero = esBarbero && vista === 'panel-barbero';
-  const esPanelDashboard = esPanelCliente || esPanelBarbero;
+  const esPanelDashboard = esPanelCliente || (esBarbero && vista === 'panel-barbero');
 
   const enlaces: { v: Vista; texto: string; icono: React.ElementType }[] =
     (!usuario || esCliente) ? [
       { v: 'inicio', texto: 'Inicio', icono: MapPin },
-      { v: 'catalogo', texto: 'Catálogo de cortes', icono: Scissors },
+      { v: 'catalogo', texto: 'Catálogo de servicios', icono: Scissors },
       { v: 'fidelizacion', texto: 'Club de puntos', icono: Crown },
     ] : [];
 
@@ -82,42 +81,29 @@ export const Navbar: React.FC = () => {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           {/* Marca */}
           <button onClick={() => ir('inicio')} className="group flex items-center gap-3">
-            {esPanelDashboard ? (
-              <span className="text-left leading-none">
-                <span className="font-heading block text-lg font-black tracking-tight text-[#111111]">
-                  GLOBDE
-                </span>
-                <span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.22em] text-[#1189a5]">
-                  BARBER GESTOR
-                </span>
+            <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-neutral-900/30">
+              <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
+            </span>
+            <span className="text-left leading-none">
+              <span className="font-heading block text-xl font-black tracking-tight text-[#EAF0F6]">
+                GLOB<span className="text-amber-500">DE</span>
               </span>
-            ) : (
-              <>
-                <span className="poste-barberia logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21] shadow-md ring-1 ring-neutral-900/30">
-                  <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
-                </span>
-                <span className="text-left leading-none">
-                  <span className="font-heading block text-xl font-black tracking-tight text-[#EAF0F6]">
-                    GLOB<span className="text-amber-500">DE</span>
-                  </span>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-600">
-                    BARBER GESTOR
-                  </span>
-                </span>
-              </>
-            )}
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-600">
+                BARBER GESTOR
+              </span>
+            </span>
           </button>
 
           {/* Navegación escritorio */}
-          <nav className={`hidden items-center lg:flex ${esPanelDashboard ? 'gap-1' : 'flex-1 justify-end gap-1'}`}>
+          <nav className="hidden flex-1 items-center justify-end gap-1 lg:flex">
             {enlaces.map((e) => (
               <button
                 key={e.v}
                 onClick={() => ir(e.v)}
-                className={`rounded-lg px-2 py-2 text-[10px] font-medium transition ${
+                className={`inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-xl px-3 text-xs font-semibold transition sm:text-sm ${
                   esPanelDashboard
-                    ? 'px-3 text-sm text-[#111111] hover:bg-[#f1f5f4]'
-                    : `rounded-xl px-3.5 text-sm font-semibold ${vista === e.v
+                    ? 'text-[#111111] hover:bg-[#f1f5f4]'
+                    : `${vista === e.v
                       ? 'bg-amber-400/12 text-amber-700 ring-1 ring-neutral-900/30'
                       : 'text-[#93A1B1] hover:bg-black/5 hover:text-[#0A0A0A]'}`
                 }`}
@@ -127,10 +113,12 @@ export const Navbar: React.FC = () => {
             ))}
             {esPanelCliente && (
               <>
-                <button onClick={() => setQuizAbierto(true)} className="rounded-lg bg-[#55d7e5] px-4 py-2.5 text-sm font-bold text-[#101719] transition hover:bg-[#42c8d8]">
+                <button onClick={() => setQuizAbierto(true)} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 text-xs font-semibold text-amber-700 transition hover:bg-amber-400/20 sm:text-sm">
+                  <Sparkles className="h-4 w-4" />
                   Asesor de estilo
                 </button>
-                <button onClick={() => ir('panel-cliente')} className="rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-bold text-white">
+                <button onClick={() => ir('panel-cliente')} className="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#111111] px-3 text-xs font-semibold text-white sm:text-sm">
+                  <LayoutDashboard className="h-4 w-4" />
                   Mis citas
                 </button>
               </>
@@ -138,7 +126,7 @@ export const Navbar: React.FC = () => {
             {!esPanelCliente && esCliente && (
               <button
                 onClick={() => setQuizAbierto(true)}
-                className="ml-1 flex items-center gap-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-400/20"
+                className="ml-1 inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 text-xs font-semibold text-amber-700 transition hover:bg-amber-400/20 sm:text-sm"
               >
                 <Sparkles className="h-4 w-4" /> Asesor de estilo
               </button>
@@ -146,15 +134,13 @@ export const Navbar: React.FC = () => {
             {!esPanelCliente && usuario && (
               <button
                 onClick={() => ir(panelDelRol)}
-                className={esPanelBarbero
-                  ? 'rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-bold text-white'
-                  : `ml-1 flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                    vista.startsWith('panel')
-                      ? 'bg-neutral-900 text-white'
-                      : 'text-[#93A1B1] hover:bg-black/5 hover:text-[#0A0A0A]'
-                  }`}
+                className={`ml-1 inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3 text-xs font-semibold transition sm:text-sm ${
+                  vista.startsWith('panel')
+                    ? 'bg-neutral-900 text-white'
+                    : 'text-[#93A1B1] hover:bg-black/5 hover:text-[#0A0A0A]'
+                }`}
               >
-                {!esPanelBarbero && <LayoutDashboard className="h-4 w-4" />}
+                <LayoutDashboard className="h-4 w-4" />
                 {usuario.id_rol === ROL_ADMINISTRADOR ? 'Panel admin' : usuario.id_rol === ROL_BARBERO ? 'Mi agenda' : 'Mis citas'}
               </button>
             )}
@@ -162,23 +148,14 @@ export const Navbar: React.FC = () => {
 
           {/* Acciones */}
           <div className="flex items-center gap-2">
-            {esCliente && !esPanelCliente && (
-              <button
-                onClick={() => ir('fidelizacion')}
-                className="hidden items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-400/20 sm:flex"
-              >
-                <Crown className="h-3.5 w-3.5" /> {usuario.puntos} pts · {usuario.nivel_fidelizacion}
-              </button>
-            )}
-
             {(!usuario || esCliente) && (
               <button
                 onClick={() => abrirReserva()}
                 className={esPanelDashboard
-                  ? 'rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#303030]'
-                  : 'btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold'}
+                  ? 'inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#111111] px-4 text-xs font-semibold text-white transition hover:bg-[#303030] sm:text-sm'
+                  : 'btn-primario inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl px-4 text-xs font-semibold sm:text-sm'}
               >
-                {!esPanelCliente && <CalendarDays className="h-4 w-4" />}
+                <CalendarDays className="h-4 w-4" />
                 <span className="hidden sm:inline">Reservar cita</span>
                 <span className="sm:hidden">Reservar</span>
               </button>
@@ -190,8 +167,8 @@ export const Navbar: React.FC = () => {
               aria-label={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
               title={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
               className={esPanelDashboard
-                ? 'rounded-full border border-[#b8e9ed] bg-white p-2 text-[#16879a] transition hover:bg-[#e9fbfc]'
-                : 'rounded-2xl border border-white/12 bg-[#141A21] p-2.5 text-[#C6D0DC] transition hover:border-amber-400/50 hover:text-amber-600'}
+                ? 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#b8e9ed] bg-white text-[#16879a] transition hover:bg-[#e9fbfc]'
+                : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/12 bg-[#141A21] text-[#C6D0DC] transition hover:border-amber-400/50 hover:text-amber-600'}
             >
               {modoOscuro ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -201,15 +178,14 @@ export const Navbar: React.FC = () => {
                 <button
                   onClick={() => setPerfil(!perfil)}
                   className={esPanelDashboard
-                    ? 'flex items-center rounded-lg border border-[#d9e2e0] bg-white p-1 transition hover:border-[#55d7e5]'
-                    : 'flex items-center gap-2 rounded-2xl border border-white/10 bg-[#141A21] p-1.5 pr-2.5 transition hover:border-amber-400/50'}
+                    ? 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#d9e2e0] bg-white p-1 transition hover:border-[#55d7e5]'
+                    : 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#141A21] p-1 transition hover:border-amber-400/50'}
                 >
                   {usuario.avatar_url
-                    ? <img src={usuario.avatar_url} alt={usuario.nombre} className="h-8 w-8 rounded-xl object-cover" />
+                    ? <img src={usuario.avatar_url} alt={usuario.nombre} className="h-8 w-8 rounded-lg object-cover" />
                     : esPanelDashboard
-                      ? <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#55d7e5] text-[#101719]"><UserRound className="h-4 w-4" aria-hidden="true" /></span>
-                      : <span className="avatar-respaldo flex h-8 w-8 items-center justify-center rounded-xl text-[#06232A]"><UserRound className="h-4 w-4" strokeWidth={2.5} /></span>}
-              {!esPanelDashboard && <ChevronDown className="h-3.5 w-3.5 text-[#6B7A8C]" />}
+                      ? <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#55d7e5] text-[#101719]"><UserRound className="h-4 w-4" aria-hidden="true" /></span>
+                      : <span className="avatar-respaldo flex h-8 w-8 items-center justify-center rounded-lg text-[#06232A]"><UserRound className="h-4 w-4" strokeWidth={2.5} /></span>}
                 </button>
 
                 {perfil && (
@@ -245,15 +221,16 @@ export const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={() => abrirAuth('login')}
-                className="rounded-2xl border border-white/12 bg-[#141A21] px-3.5 py-2.5 text-xs font-bold text-[#C6D0DC] transition hover:border-amber-400/50 hover:text-amber-600"
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-white/12 bg-[#141A21] px-3 text-xs font-semibold text-[#C6D0DC] transition hover:border-amber-400/50 hover:text-amber-600 sm:text-sm"
               >
+                <UserRound className="h-4 w-4" />
                 Ingresar
               </button>
             )}
 
             <button
               onClick={() => setMenu(!menu)}
-              className="rounded-2xl border border-white/12 bg-[#141A21] p-2.5 text-[#93A1B1] lg:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/12 bg-[#141A21] text-[#93A1B1] lg:hidden"
               aria-label="Menú"
             >
               {menu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

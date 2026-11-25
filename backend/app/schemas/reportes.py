@@ -19,6 +19,9 @@ class DashboardAdminOut(ModeloBase):
     citas_canceladas: int = 0
     citas_no_asistio: int = 0
     ingresos_pagados: float = 0
+    ingresos_pendientes: float = 0
+    facturas_pagadas: int = 0
+    facturas_pendientes: int = 0
     correos_fallidos: int = 0
     generado_en: str | None = None
 

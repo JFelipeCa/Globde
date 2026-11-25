@@ -4,7 +4,7 @@
 #
 # Uso:
 #   cp backend/.env.example backend/.env   # y define DB_PASSWORD + JWT_SECRET
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose --env-file backend/.env -f docker-compose.prod.yml up -d --build
 #
 # Endpoints:
 #   - Frontend:  http://localhost:80
@@ -19,6 +19,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}"
       MYSQL_DATABASE: ${DB_NAME:-globde}
+      MYSQL_USER: ${DB_USER:-globde_dev}
+      MYSQL_PASSWORD: "${DB_PASSWORD:?Error: define DB_PASSWORD en tu archivo .env antes de levantar el proyecto}"
       TZ: ${TZ:-America/Bogota}
     # En produccion NO se expone el puerto al host: la comunicacion es solo
     # interna (backend). Se quito el `ports:` del compose de desarrollo.

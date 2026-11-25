@@ -33,6 +33,18 @@ def dashboard_admin() -> dict:
     inicio_mes = hoy.replace(day=1)
 
     datos: dict[str, Any] = dict(kpis)
+    facturacion = fetch_one(
+        """SELECT
+               COUNT(CASE WHEN estado_pago = 'pagada' THEN 1 END) AS facturas_pagadas,
+               COUNT(CASE WHEN estado_pago = 'pendiente' THEN 1 END) AS facturas_pendientes,
+               COALESCE(SUM(CASE WHEN estado_pago = 'pendiente' THEN total ELSE 0 END), 0)
+                   AS ingresos_pendientes
+           FROM facturas"""
+    ) or {}
+    datos["facturas_pagadas"] = int(facturacion.get("facturas_pagadas") or 0)
+    datos["facturas_pendientes"] = int(facturacion.get("facturas_pendientes") or 0)
+    datos["ingresos_pendientes"] = float(facturacion.get("ingresos_pendientes") or 0)
+
     datos["citas_hoy"] = int(
         fetch_value("SELECT COUNT(*) FROM citas WHERE fecha = %s", (hoy.isoformat(),), por_defecto=0) or 0
     )

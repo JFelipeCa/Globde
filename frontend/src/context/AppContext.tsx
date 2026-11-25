@@ -9,7 +9,7 @@ import {
   ROL_ADMINISTRADOR, ROL_BARBERO, ROL_CLIENTE,
 } from '../types';
 import {
-  CATALOGO_CORTES, SERVICIOS, PREMIOS,
+  CATALOGO_CORTES, SERVICIOS, PREMIOS, imagenCatalogoServicio,
   FACTURAS, TESTIMONIOS, EXTRAS_SERVICIO,
 } from '../data/mockData';
 import {
@@ -39,6 +39,52 @@ interface Resultado {
 }
 
 type TipoReporte = 'ingresos' | 'citas' | 'clientes';
+
+interface RespuestaPaginadaApi<T> {
+  items: T[];
+  total_paginas: number;
+}
+
+interface FacturaReporte {
+  id_factura: number;
+  numero_factura: string;
+  id_cita: number;
+  subtotal: number;
+  descuento: number;
+  impuestos: number;
+  total: number;
+  metodo_pago: string | null;
+  estado_pago: string;
+  fecha_emision: string | null;
+  pagado_en: string | null;
+  observaciones: string | null;
+  cliente_nombre: string | null;
+  barbero_nombre: string | null;
+  servicio_nombre: string | null;
+}
+
+interface CitaReporte extends Cita {
+  id_factura?: number | null;
+  numero_factura?: string | null;
+  estado_pago?: string | null;
+}
+
+const obtenerTodosLosRegistros = async <T,>(ruta: string): Promise<T[]> => {
+  const registros: T[] = [];
+  let pagina = 1;
+  let totalPaginas = 1;
+
+  do {
+    const respuesta = await apiRequest<RespuestaPaginadaApi<T>>(
+      `${ruta}?pagina=${pagina}&por_pagina=100`,
+    );
+    registros.push(...respuesta.items);
+    totalPaginas = respuesta.total_paginas;
+    pagina += 1;
+  } while (pagina <= totalPaginas);
+
+  return registros;
+};
 
 const descargarCSV = (nombre: string, filas: Record<string, unknown>[]) => {
   if (!filas.length) throw new Error('El reporte no contiene datos para descargar.');
@@ -127,6 +173,7 @@ interface ContextoApp {
   actualizarNivelBarbero: (id: number, nivel: Barbero['nivel'], pct: number) => void;
   alternarDisponibilidad: (id: number) => void;
   notificar: (titulo: string, mensaje: string, tipo?: Notificacion['tipo']) => void;
+  eliminarNotificacion: (id: string) => Promise<void>;
   difusionMasiva: (
     titulo: string, mensaje: string, idRol: number | null, enviarCorreo: boolean
   ) => Promise<Resultado>;
@@ -192,7 +239,7 @@ function mapCitaApi(c: Record<string, unknown>): Cita {
   const fin = String(c.hora_fin ?? sumarMinutos(inicio, Number(c.servicio_duracion_minutos ?? 30)));
   return {
     id_cita: Number(c.id_cita ?? 0),
-    codigo_reserva: String(c.codigo_reserva ?? `GLB-${String(c.id_cita ?? 0).padStart(4, '0')}`),
+    codigo_reserva: String(c.codigo_reserva ?? `GB-${String(c.id_cita ?? 0).padStart(6, '0')}`),
     id_cliente: Number(c.id_cliente ?? 0),
     cliente_nombre: String(c.cliente_nombre ?? 'Cliente Globde'),
     cliente_telefono: String(c.cliente_telefono ?? ''),
@@ -230,7 +277,7 @@ function mapServicioApi(s: Record<string, unknown>, index: number): Servicio {
     duracion_minutos: Number(s.duracion_minutos ?? 30),
     popular: Boolean(s.popular),
     icono: emojiDeIcono(s.icono),
-    imagen_url: String(s.imagen_url ?? 'https://images.pexels.com/photos/34702982/pexels-photo-34702982.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=420&w=640&fm=webp'),
+    imagen_url: String(s.imagen_url ?? CATALOGO_CORTES[index % CATALOGO_CORTES.length]?.imagen_url ?? ''),
     puntos_otorga: Number(s.puntos_otorga ?? 20),
     activo: s.activo !== false,
   };
@@ -452,6 +499,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [usuario?.id_usuario, usuario?.id_rol]);
 
   useEffect(() => {
+    if (usuario?.id_rol !== ROL_CLIENTE || !obtenerAccessToken()) return;
+    let vigente = true;
+    const cargarSaldo = async () => {
+      try {
+        const saldo = await apiRequest<{ puntos_saldo: number; nivel_fidelizacion: Usuario['nivel_fidelizacion'] }>('/puntos/saldo');
+        if (vigente) {
+          setUsuario((actual) => actual ? {
+            ...actual,
+            puntos: saldo.puntos_saldo,
+            nivel_fidelizacion: saldo.nivel_fidelizacion,
+          } : actual);
+        }
+      } catch (error) {
+        if (vigente) console.warn('No se pudo actualizar el saldo de puntos.', error);
+      }
+    };
+    void cargarSaldo();
+    const intervalo = window.setInterval(() => void cargarSaldo(), 30_000);
+    return () => {
+      vigente = false;
+      window.clearInterval(intervalo);
+    };
+  }, [usuario?.id_usuario, usuario?.id_rol]);
+
+  useEffect(() => {
+    let vigente = true;
     const cargarNotificaciones = async () => {
       if (!obtenerAccessToken()) {
         setNotificaciones([]);
@@ -464,25 +537,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }>('/notificaciones?solo_no_leidas=true&por_pagina=20');
         const items = Array.isArray(data.items) ? data.items : [];
         const persistidas: Notificacion[] = items.map((item) => ({
-            id: String(item.id_notificacion),
-            titulo: String(item.titulo ?? ''),
-            mensaje: String(item.mensaje ?? ''),
-            tipo: String(item.tipo ?? 'sistema') as Notificacion['tipo'],
-            fecha: String(item.creado_en ?? ''),
-          }));
-        setNotificaciones((actuales) => [
-          ...actuales.filter((notificacion) => notificacion.id.startsWith('n')),
-          ...persistidas,
-        ].slice(0, 4));
-        await Promise.all(
-          items.map((item) => apiRequest(`/notificaciones/${Number(item.id_notificacion)}/leida`, { method: 'PATCH' }))
-        );
+          id: String(item.id_notificacion),
+          titulo: String(item.titulo ?? ''),
+          mensaje: String(item.mensaje ?? ''),
+          tipo: String(item.tipo ?? 'sistema') as Notificacion['tipo'],
+          fecha: String(item.creado_en ?? ''),
+        }));
+        if (vigente) {
+          setNotificaciones((actuales) => [
+            ...actuales.filter((notificacion) => notificacion.id.startsWith('n')),
+            ...persistidas,
+          ].slice(0, 4));
+        }
       } catch (error) {
-        console.warn('No se pudieron cargar las notificaciones.', error);
+        if (vigente) console.warn('No se pudieron cargar las notificaciones.', error);
       }
     };
 
     void cargarNotificaciones();
+    const intervalo = window.setInterval(() => void cargarNotificaciones(), 30_000);
+    return () => {
+      vigente = false;
+      window.clearInterval(intervalo);
+    };
   }, [usuario?.id_usuario]);
 
   const notificar = useCallback(
@@ -501,6 +578,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     []
   );
+
+  const eliminarNotificacion = useCallback(async (id: string) => {
+    if (!id.startsWith('n')) {
+      await apiRequest(`/notificaciones/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    }
+    setNotificaciones((actuales) => actuales.filter((notificacion) => notificacion.id !== id));
+  }, []);
 
   const irA = (v: Vista) => {
     setVista(v);
@@ -624,7 +708,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setModalAuth(false);
       irA('panel-cliente');
       celebrar();
-      notificar('¡Bienvenido al Club Globde! 🎉', 'Recibiste 150 puntos de regalo por registrarte.', 'puntos');
+      notificar('¡Bienvenido al Club Globde! 🎉', 'Tu cuenta quedó lista. Consulta tu saldo de puntos en el panel.', 'sistema');
       return { ok: true, mensaje: 'Cuenta creada' };
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'No se pudo crear la cuenta';
@@ -801,7 +885,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       const nueva: Cita = {
         id_cita: Number(response.id_cita ?? Date.now()),
-        codigo_reserva: String(response.codigo_reserva ?? `GLB-${String(response.id_cita ?? Date.now()).padStart(4, '0')}`),
+        codigo_reserva: String(response.codigo_reserva ?? `GB-${String(response.id_cita ?? Date.now()).slice(-6).padStart(6, '0')}`),
         id_cliente: Number(response.id_cliente ?? idClienteFinal),
         cliente_nombre: d.nombre || usuario?.nombre || 'Cliente',
         cliente_telefono: d.telefono || usuario?.telefono || '',
@@ -915,7 +999,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? prev.map((c) => (c.id_cita === id ? actualizada : c))
           : [actualizada, ...prev]
       ));
-      notificar('Cita confirmada ✅', 'Se notificó al cliente por correo y WhatsApp.', 'cita');
+      notificar('Cita confirmada ✅', 'La reserva quedó confirmada en la agenda.', 'cita');
       return { ok: true, mensaje: 'Cita confirmada correctamente.' };
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'El servidor rechazó la confirmación.';
@@ -1251,11 +1335,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const descargarReporte = async (tipo: TipoReporte): Promise<Resultado> => {
     try {
       if (tipo === 'ingresos') {
-        const reporte = await apiRequest<{ periodos?: Record<string, unknown>[] }>('/reportes/ingresos');
-        descargarCSV('reporte-ingresos.csv', reporte.periodos ?? []);
+        const [citas, facturas] = await Promise.all([
+          obtenerTodosLosRegistros<CitaReporte>('/citas'),
+          obtenerTodosLosRegistros<FacturaReporte>('/facturas'),
+        ]);
+        const facturaPorCita = new Map(facturas.map((factura) => [factura.id_cita, factura]));
+        const filas = citas.map((cita) => {
+          const factura = facturaPorCita.get(cita.id_cita);
+          const estadoPago = factura?.estado_pago ?? cita.estado_pago ?? 'sin_factura';
+          return {
+            id_cita: cita.id_cita,
+            codigo_reserva: cita.codigo_reserva,
+            fecha_cita: cita.fecha,
+            hora_inicio: cita.hora_inicio,
+            cliente: cita.cliente_nombre,
+            barbero: cita.barbero_nombre,
+            servicio: cita.servicio_nombre,
+            extras: cita.extras.join(', '),
+            estado_cita: cita.estado,
+            valor_cita: cita.precio_total,
+            descuento_cita: cita.descuento_aplicado,
+            numero_factura: factura?.numero_factura ?? cita.numero_factura ?? '',
+            estado_pago: estadoPago,
+            metodo_pago: factura?.metodo_pago ?? cita.metodo_pago ?? '',
+            fecha_emision: factura?.fecha_emision ?? '',
+            subtotal_factura: factura?.subtotal ?? '',
+            descuento_factura: factura?.descuento ?? '',
+            impuestos: factura?.impuestos ?? '',
+            total_facturado: factura?.estado_pago === 'anulada' ? 0 : factura?.total ?? '',
+            monto_pagado: factura?.estado_pago === 'pagada' ? factura.total : 0,
+            monto_pendiente: factura?.estado_pago === 'pendiente' ? factura.total : 0,
+            monto_reembolsado: factura?.estado_pago === 'reembolsada' ? factura.total : 0,
+            pagado_en: factura?.pagado_en ?? '',
+            observaciones_factura: factura?.observaciones ?? '',
+          };
+        });
+        descargarCSV('reporte-ingresos-y-facturacion.csv', filas);
       } else if (tipo === 'citas') {
-        const reporte = await apiRequest<{ por_barbero?: Record<string, unknown>[] }>('/reportes/citas');
-        descargarCSV('reporte-citas-por-barbero.csv', reporte.por_barbero ?? []);
+        const citas = await obtenerTodosLosRegistros<CitaReporte>('/citas');
+        const filas = citas.map((cita) => ({
+          id_cita: cita.id_cita,
+          codigo_reserva: cita.codigo_reserva,
+          fecha: cita.fecha,
+          hora_inicio: cita.hora_inicio,
+          hora_fin: cita.hora_fin,
+          cliente: cita.cliente_nombre,
+          correo_cliente: cita.cliente_correo,
+          telefono_cliente: cita.cliente_telefono,
+          barbero: cita.barbero_nombre,
+          servicio: cita.servicio_nombre,
+          estado: cita.estado,
+          precio_total: cita.precio_total,
+          descuento_aplicado: cita.descuento_aplicado,
+          estado_pago: cita.estado_pago ?? 'sin_factura',
+          numero_factura: cita.numero_factura ?? '',
+        }));
+        descargarCSV('historial-completo-de-citas.csv', filas);
       } else {
         const reporte = await apiRequest<{ items?: Record<string, unknown>[] }>('/clientes?por_pagina=100');
         descargarCSV('clientes-y-puntos.csv', reporte.items ?? []);
@@ -1267,26 +1402,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Cada corte del catálogo se enlaza con el servicio que lo hace agendable.
-  // Se cruza por nombre contra los servicios activos (los de la API, o los mock
-  // si el backend no respondió, igual que hace BookingWizard). Si no hay un
-  // servicio con ese nombre, id_servicio queda en null: el corte se muestra pero
-  // no se puede agendar. Precio y duración salen del servicio para que el
-  // catálogo muestre lo mismo que se cobra al agendar.
+  // El catálogo público y el asistente de reserva comparten los servicios
+  // activos; los datos editoriales de cortes solo complementan sus imágenes y tags.
   const normalizarNombre = (t: string) => t.trim().toLowerCase();
   const serviciosAgendables = servicios.length ? servicios : SERVICIOS;
-  const catalogoCortes: CatalogoCorte[] = CATALOGO_CORTES.map((corte) => {
-    const servicio = serviciosAgendables.find(
-      (s) => s.activo && normalizarNombre(s.nombre) === normalizarNombre(corte.nombre),
-    );
-    if (!servicio) return { ...corte, id_servicio: null };
-    return {
-      ...corte,
-      id_servicio: servicio.id_servicio,
-      precio_sugerido: servicio.precio,
-      duracion_minutos: servicio.duracion_minutos,
-    };
-  });
+  const catalogoCortes: CatalogoCorte[] = serviciosAgendables
+    .filter((servicio) => servicio.activo)
+    .map((servicio) => {
+      const corte = CATALOGO_CORTES.find(
+        (item) => normalizarNombre(item.nombre) === normalizarNombre(servicio.nombre),
+      );
+      return {
+        id_corte: corte?.id_corte ?? -servicio.id_servicio,
+        id_servicio: servicio.id_servicio,
+        nombre: servicio.nombre,
+        categoria: servicio.categoria,
+        descripcion: servicio.descripcion,
+        imagen_url: imagenCatalogoServicio(servicio.nombre) || corte?.imagen_url || servicio.imagen_url || '',
+        tags: corte?.tags ?? [],
+        popularidad: corte?.popularidad ?? (servicio.popular ? 90 : 0),
+        barbero_recomendado: corte?.barbero_recomendado ?? 'Equipo Globde',
+        duracion_minutos: servicio.duracion_minutos,
+        precio_sugerido: servicio.precio,
+      };
+    });
 
   return (
     <Ctx.Provider
@@ -1350,6 +1489,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         actualizarNivelBarbero,
         alternarDisponibilidad,
         notificar,
+        eliminarNotificacion,
         difusionMasiva,
       }}
     >

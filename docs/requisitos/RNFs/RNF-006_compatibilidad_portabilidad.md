@@ -30,7 +30,7 @@ La aplicación web frontend debe ser 100% funcional y visualmente idéntica en l
 - Apple Safari (macOS e iOS)
 
 ### RNF-006.2 — Contenedorización con Docker y Docker Compose
-Todo el backend y la base de datos MySQL deben poder ejecutarse de forma idéntica en Linux, macOS y Windows a través de `docker compose up -d`, sin requerir la instalación manual de MySQL o librerías del sistema operativo anfitrión.
+Todo el backend y la base de datos MySQL deben poder ejecutarse de forma idéntica en Linux, macOS y Windows a través de `docker compose --env-file backend/.env up -d`, sin requerir la instalación manual de MySQL o librerías del sistema operativo anfitrión. Antes del primer arranque, se deben configurar los secretos locales en `backend/.env`.
 
 ### RNF-006.3 — Portabilidad de Base de Datos
 El esquema debe ser reproducible sobre cualquier instancia MySQL 8.0+ / MariaDB 10.5+, sea local, remota o en la nube (AWS RDS, GCP Cloud SQL, PlanetScale o VPS local), sin pasos manuales.

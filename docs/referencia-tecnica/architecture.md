@@ -120,7 +120,7 @@ A continuación se detalla el ciclo completo cuando un cliente agenda una nueva 
 | **MySQL como RDBMS** | MongoDB (NoSQL) | El dominio de agendamiento de citas exige estricta consistencia ACID, integridad referencial mediante claves foráneas y relaciones relacionales bien definidas. |
 | **React Context API en Frontend** | Redux Toolkit / estado local suelto | Permite compartir sesión, vista activa y datos entre paneles sin prop drilling, con mucho menos boilerplate que Redux para el tamaño actual de la aplicación. |
 | **Consultas con Vistas SQL** | Múltiples JOINs en código | Las vistas `vista_citas_detalle` e `vista_ingresos_barbero` trasladan la agregación a la base de datos, reduciendo el tráfico de red y el uso de memoria en el backend. |
-| **Docker Compose** | Despliegue manual local | Garantiza que cualquier miembro del equipo o instructor pueda levantar la base de datos y backend con un solo comando (`docker compose up -d`). |
+| **Docker Compose** | Despliegue manual local | Levanta MySQL, backend y frontend de forma reproducible después de configurar `backend/.env` (`docker compose --env-file backend/.env up -d`). |
 
 ---
 

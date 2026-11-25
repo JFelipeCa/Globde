@@ -43,8 +43,7 @@ export const TicketModal: React.FC = () => {
     return nombreServicio === nombreCorte || nombreServicio.includes(nombreCorte) || nombreCorte.includes(nombreServicio);
   });
   const mostrarDetallesCorte = usuario?.id_rol === ROL_BARBERO || usuario?.id_rol === ROL_CLIENTE;
-  const imagenCorte = corteRelacionado?.imagen_url
-    || 'https://images.pexels.com/photos/12464840/pexels-photo-12464840.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=900&w=1200&fm=webp';
+  const imagenCorte = corteRelacionado?.imagen_url || catalogoCortes[0]?.imagen_url || '';
 
   const compartir = () => {
     const txt = encodeURIComponent(
@@ -75,8 +74,8 @@ export const TicketModal: React.FC = () => {
               ¡Tu cita quedó <span className="text-oro">confirmada!</span>
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-base text-[#93A1B1] sm:text-lg">
-              Te esperamos, <strong className="text-[#EAF0F6]">{c.cliente_nombre.split(' ')[0]}</strong>. Enviamos el
-              comprobante a tu correo y te recordaremos por WhatsApp una hora antes.
+              Te esperamos, <strong className="text-[#EAF0F6]">{c.cliente_nombre.split(' ')[0]}</strong>.
+              Guarda tu pase digital para presentar el código al llegar.
             </p>
 
             {/* Datos grandes */}
@@ -110,7 +109,7 @@ export const TicketModal: React.FC = () => {
 
             {usuario && (
               <p className="mt-3 text-sm font-semibold text-amber-700">
-                🎉 Sumaste puntos Globde · Saldo actual: {usuario.puntos} pts
+                Los puntos de esta cita se acreditan cuando el servicio quede completado. Tu saldo actual es {usuario.puntos} pts.
               </p>
             )}
 
@@ -166,7 +165,7 @@ export const TicketModal: React.FC = () => {
           <span className="mx-1 flex-1 border-b-2 border-dashed border-white/10" />
         </div>
 
-        <div className="space-y-4 p-6">
+        <div className="pase-digital-contenido space-y-4 p-6">
           {mostrarDetallesCorte && (
             <div className="grid grid-cols-2 rounded-xl bg-[#0F151C] p-1" role="tablist" aria-label="Vistas de la reserva">
               <button

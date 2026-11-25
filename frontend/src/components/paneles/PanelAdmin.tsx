@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Coins, CalendarDays, Scissors, Award, Send, Download, Search, Check, X,
-  Pencil, Eye, Ban, ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, Users,
-  Gift, Receipt, UserRound, XCircle, LogOut,
+  Pencil, Eye, Ban, ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, TrendingUp, Users,
+  Gift, Receipt, UserRound, XCircle, LogOut, RefreshCw,
   Sun, Moon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -15,6 +15,7 @@ import { apiRequest } from '../../utils/apiClient';
 import { useTheme } from '../../hooks/useTheme';
 import { AgendaAdmin } from './AgendaAdmin';
 import { BarberoFoto } from '../ui/BarberoFoto';
+import { imagenCatalogoServicio } from '../../data/mockData';
 
 const POR_PAGINA = 6;
 const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia', 'nequi', 'daviplata', 'otro'] as const;
@@ -55,12 +56,26 @@ interface SaldoPuntos {
   nivel_fidelizacion: string;
 }
 
+interface UsuarioEquipo {
+  id_usuario: number;
+  id_rol: number;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  avatar_url: string | null;
+  activo: boolean;
+  creado_en: string | null;
+}
+
 interface DashboardAdmin {
   total_citas: number;
   citas_completadas: number;
   citas_pendientes: number;
   total_barberos_disponibles: number;
   ingresos_pagados: number;
+  ingresos_pendientes: number;
+  facturas_pagadas: number;
+  facturas_pendientes: number;
 }
 
 interface IngresoDia {
@@ -192,7 +207,9 @@ export const PanelAdmin: React.FC = () => {
   const [sDur, setSDur] = useState(30);
   const [sPuntos, setSPuntos] = useState(25);
   const [sDesc, setSDesc] = useState('');
+  const [sImagen, setSImagen] = useState('');
   const [serviciosInactivos, setServiciosInactivos] = useState<Servicio[]>([]);
+  const [mostrarServiciosArchivados, setMostrarServiciosArchivados] = useState(false);
   const [errorServiciosInactivos, setErrorServiciosInactivos] = useState('');
   const [idEditandoPuntosServicio, setIdEditandoPuntosServicio] = useState<number | null>(null);
   const [puntosServicioEditados, setPuntosServicioEditados] = useState('');
@@ -216,6 +233,10 @@ export const PanelAdmin: React.FC = () => {
   const [uBio, setUBio] = useState('');
   const [uError, setUError] = useState('');
   const [uGuardando, setUGuardando] = useState(false);
+  const [usuariosEquipo, setUsuariosEquipo] = useState<UsuarioEquipo[]>([]);
+  const [usuariosEquipoCargando, setUsuariosEquipoCargando] = useState(false);
+  const [errorUsuariosEquipo, setErrorUsuariosEquipo] = useState('');
+  const [revisionUsuariosEquipo, setRevisionUsuariosEquipo] = useState(0);
 
   const ingresos = dashboard?.ingresos_pagados ?? 0;
   const completadas = dashboard?.citas_completadas ?? citas.filter((c) => c.estado === 'completada').length;
@@ -294,6 +315,51 @@ export const PanelAdmin: React.FC = () => {
       });
     return () => { vigente = false; };
   }, [seccion]);
+
+  useEffect(() => {
+    if (seccion !== 'equipo') return;
+    let vigente = true;
+    const cargarUsuariosEquipo = async () => {
+      setUsuariosEquipoCargando(true);
+      setErrorUsuariosEquipo('');
+      try {
+        const [administradores, barberos] = await Promise.all(
+          [1, 2].map(async (idRol) => {
+            const registros: UsuarioEquipo[] = [];
+            let paginaUsuarios = 1;
+            let totalPaginas = 1;
+            do {
+              const respuesta = await apiRequest<RespuestaPaginada<UsuarioEquipo>>(
+                `/usuarios?id_rol=${idRol}&pagina=${paginaUsuarios}&por_pagina=100`,
+              );
+              registros.push(...respuesta.items);
+              totalPaginas = respuesta.total_paginas;
+              paginaUsuarios += 1;
+            } while (paginaUsuarios <= totalPaginas);
+            return registros;
+          }),
+        );
+        if (vigente) {
+          setUsuariosEquipo([...administradores, ...barberos].sort((a, b) => (
+            a.nombre.localeCompare(b.nombre, 'es')
+          )));
+        }
+      } catch (error) {
+        if (vigente) {
+          setErrorUsuariosEquipo(error instanceof Error ? error.message : 'No se pudieron cargar los perfiles del equipo.');
+        }
+      } finally {
+        if (vigente) setUsuariosEquipoCargando(false);
+      }
+    };
+
+    void cargarUsuariosEquipo();
+    const intervalo = window.setInterval(() => void cargarUsuariosEquipo(), 30_000);
+    return () => {
+      vigente = false;
+      window.clearInterval(intervalo);
+    };
+  }, [seccion, revisionUsuariosEquipo]);
 
   useEffect(() => {
     let vigente = true;
@@ -396,7 +462,23 @@ export const PanelAdmin: React.FC = () => {
   }, [seccion, paginaFacturas, estadoFacturas, busquedaFacturas, revisionFacturas]);
 
   const totalPaginasCitas = Math.max(1, Math.ceil(totalCitasFiltradas / POR_PAGINA));
-  const serviciosAdmin = [...servicios, ...serviciosInactivos];
+  const normalizarNombreServicio = (nombre: string) => nombre
+    .trim()
+    .toLocaleLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+  const nombresServiciosActivos = new Set(servicios.map((servicio) => normalizarNombreServicio(servicio.nombre)));
+  const nombresArchivadosAgregados = new Set<string>();
+  const serviciosArchivadosSinDuplicados = serviciosInactivos.filter((servicio) => {
+    const nombre = normalizarNombreServicio(servicio.nombre);
+    if (nombresServiciosActivos.has(nombre) || nombresArchivadosAgregados.has(nombre)) return false;
+    nombresArchivadosAgregados.add(nombre);
+    return true;
+  });
+  const serviciosAdmin = mostrarServiciosArchivados
+    ? [...servicios, ...serviciosArchivadosSinDuplicados]
+    : servicios;
   const pag = {
     items: citasPagina,
     total: totalCitasFiltradas,
@@ -632,6 +714,7 @@ export const PanelAdmin: React.FC = () => {
     const r = await crearUsuarioInterno(datos);
     setUGuardando(false);
     if (!r.ok) { setUError(r.mensaje); return; }
+    setRevisionUsuariosEquipo((revision) => revision + 1);
     setModalUsuario(false); mostrar(r.mensaje);
   };
 
@@ -726,10 +809,11 @@ export const PanelAdmin: React.FC = () => {
     const r = await agregarServicio({
       nombre: sNombre, categoria: sCat, descripcion: sDesc || 'Servicio profesional de barbería.',
       precio: Number(sPrecio), duracion_minutos: Number(sDur), icono: '✂️',
+      imagen_url: sImagen.trim() || undefined,
       puntos_otorga: Number(sPuntos), activo: true,
     });
     if (!r.ok) { alert(r.mensaje); return; }
-    setModalServ(false); setSNombre(''); setSDesc('');
+    setModalServ(false); setSNombre(''); setSDesc(''); setSImagen('');
   };
 
   const alternarServicioAdmin = async (servicio: Servicio) => {
@@ -796,6 +880,9 @@ export const PanelAdmin: React.FC = () => {
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="admin-sidebar flex flex-col bg-[#0B0B0B] p-4 text-white lg:sticky lg:top-0 lg:h-screen lg:min-h-[520px]">
           <button onClick={() => irA('inicio')} className="mb-5 flex items-center gap-3 px-2 text-left">
+            <span className="logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21]">
+              <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
+            </span>
             <div className="min-w-0">
               <p className="font-heading text-sm font-black tracking-wide">GLOBDE</p>
               <p className="mt-1 border border-cyan-400/60 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-cyan-300">Panel admin</p>
@@ -878,9 +965,10 @@ export const PanelAdmin: React.FC = () => {
           {/* RESUMEN */}
           {seccion === 'resumen' && (
             <div className="anim-aparecer space-y-4">
-              <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-5">
                 {[
-                  { t: 'Ingresos totales', v: dashboard ? formatoCOP(ingresos) : dashboardCargando ? '…' : '—', s: 'Facturas pagadas', i: Coins, color: 'bg-emerald-100 text-emerald-600' },
+                  { t: 'Recaudado total', v: dashboard ? formatoCOP(ingresos) : dashboardCargando ? '…' : '—', s: dashboard ? `${dashboard.facturas_pagadas} facturas pagadas` : 'Histórico', i: Coins, color: 'bg-emerald-100 text-emerald-600' },
+                  { t: 'Pendiente por cobrar', v: dashboard ? formatoCOP(dashboard.ingresos_pendientes) : dashboardCargando ? '…' : '—', s: dashboard ? `${dashboard.facturas_pendientes} facturas pendientes` : 'Histórico', i: Receipt, color: 'bg-amber-100 text-amber-700' },
                   { t: 'Citas registradas', v: dashboard ? String(totalCitasDashboard) : dashboardCargando ? '…' : String(citas.length), s: `${completadas} completadas`, i: CalendarDays, color: 'bg-emerald-100 text-emerald-600' },
                   { t: 'Efectividad', v: dashboardCargando ? '…' : `${efectividad}%`, s: 'Citas completadas', i: TrendingUp, color: 'bg-cyan-100 text-cyan-600' },
                   { t: 'Equipo activo', v: dashboard ? String(dashboard.total_barberos_disponibles) : dashboardCargando ? '…' : String(barberos.filter((b) => b.disponible_hoy).length), s: 'Barberos disponibles', i: Users, color: 'bg-cyan-50 text-cyan-600' },
@@ -1180,6 +1268,17 @@ export const PanelAdmin: React.FC = () => {
             <button onClick={() => setModalServ(true)} className="btn-primario flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-bold">
               <Plus className="h-4 w-4" /> Nuevo servicio
             </button>
+            {serviciosArchivadosSinDuplicados.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMostrarServiciosArchivados((mostrar) => !mostrar)}
+                aria-expanded={mostrarServiciosArchivados}
+                className="flex items-center gap-2 rounded-xl border border-white/12 px-3 py-2 text-xs font-semibold text-[#93A1B1] transition hover:bg-white/5"
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${mostrarServiciosArchivados ? 'rotate-180' : ''}`} />
+                {mostrarServiciosArchivados ? 'Ocultar archivados' : `Mostrar archivados (${serviciosArchivadosSinDuplicados.length})`}
+              </button>
+            )}
             {errorServiciosInactivos && (
               <p role="alert" className="rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">{errorServiciosInactivos}</p>
             )}
@@ -1187,7 +1286,9 @@ export const PanelAdmin: React.FC = () => {
               {serviciosAdmin.map((s) => (
                 <div key={s.id_servicio} className="card p-5">
                   <div className="flex items-start justify-between">
-                    <span className="text-3xl">{s.icono}</span>
+                    {imagenCatalogoServicio(s.nombre) || s.imagen_url
+                      ? <img src={imagenCatalogoServicio(s.nombre) || s.imagen_url} alt={s.nombre} className="h-16 w-16 rounded-xl object-cover" />
+                      : <span className="text-3xl">{s.icono}</span>}
                     <button onClick={() => void alternarServicioAdmin(s)}
                       className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${
                         s.activo
@@ -1245,47 +1346,93 @@ export const PanelAdmin: React.FC = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="font-heading text-xl font-black text-[#EAF0F6]">Equipo interno</h2>
-                <p className="text-xs text-[#93A1B1]">Crea accesos para administradores y barberos.</p>
+                <p className="text-xs text-[#93A1B1]">Perfiles de administradores y barberos del sistema.</p>
               </div>
-              <button onClick={abrirNuevoUsuario} className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold">
-                <Plus className="h-4 w-4" /> Crear perfil
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRevisionUsuariosEquipo((revision) => revision + 1)}
+                  disabled={usuariosEquipoCargando}
+                  className="flex items-center gap-2 rounded-xl border border-white/12 px-3 py-2 text-xs font-semibold text-[#93A1B1] transition hover:bg-white/5 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${usuariosEquipoCargando ? 'animate-spin' : ''}`} /> Actualizar
+                </button>
+                <button onClick={abrirNuevoUsuario} className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold">
+                  <Plus className="h-4 w-4" /> Crear perfil
+                </button>
+              </div>
             </div>
+            {errorUsuariosEquipo && (
+              <p role="alert" className="rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">
+                No se pudieron cargar los perfiles: {errorUsuariosEquipo}
+              </p>
+            )}
+            {usuariosEquipoCargando && usuariosEquipo.length === 0 && (
+              <p className="card p-6 text-center text-sm text-[#93A1B1]">Cargando perfiles del equipo…</p>
+            )}
             <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {barberos.map((b) => (
-              <div key={b.id_barbero} className="card p-6">
+            {usuariosEquipo.map((perfil) => {
+              const b = barberos.find((barbero) => barbero.id_usuario === perfil.id_usuario);
+              return (
+              <div key={perfil.id_usuario} className="card p-6">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
-                    <BarberoFoto
-                      idBarbero={b.id_barbero}
-                      nombre={b.nombre}
-                      fotoUrl={b.foto_url}
-                      className="h-full w-full object-cover"
-                      iconClassName="h-6 w-6"
-                    />
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
+                    {b ? (
+                      <BarberoFoto
+                        idBarbero={b.id_barbero}
+                        nombre={perfil.nombre}
+                        fotoUrl={b.foto_url}
+                        className="h-full w-full object-cover"
+                        iconClassName="h-6 w-6"
+                      />
+                    ) : perfil.avatar_url ? (
+                      <img src={perfil.avatar_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserRound className="h-6 w-6" aria-hidden="true" />
+                    )}
                   </span>
-                  <div>
-                    <h4 className="font-heading text-base font-black text-[#EAF0F6]">{b.nombre}</h4>
-                    <p className="text-xs font-semibold text-teal-300">{b.rol_titulo}</p>
+                  <div className="min-w-0">
+                    <h4 className="font-heading truncate text-base font-black text-[#EAF0F6]">{perfil.nombre}</h4>
+                    <p className="text-xs font-semibold text-teal-300">{perfil.id_rol === 1 ? 'Administrador' : 'Barbero'}</p>
                   </div>
                 </div>
-                <p className="mt-4 text-[11px] font-bold uppercase text-[#6B7A8C]">Nivel y comisión</p>
-                <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-                  {(['Plata', 'Oro', 'Master'] as const).map((n) => (
-                    <button key={n} onClick={() => actualizarNivelBarbero(b.id_barbero, n, n === 'Master' ? 20 : n === 'Oro' ? 10 : 0)}
-                      className={`rounded-xl py-1.5 text-[11px] font-black transition ${
-                        b.nivel === n ? 'bg-amber-400 text-[#2B1E04]' : 'bg-white/6 text-[#93A1B1] hover:bg-white/10'
-                      }`}>{n}</button>
-                  ))}
+                <div className="mt-4 space-y-1 rounded-2xl bg-[#0F151C] p-3 text-xs text-[#93A1B1]">
+                  <p className="truncate">Correo: <strong className="text-[#EAF0F6]">{perfil.correo}</strong></p>
+                  <p>Teléfono: <strong className="text-[#EAF0F6]">{perfil.telefono || 'No registrado'}</strong></p>
+                  <p>Estado: <strong className={perfil.activo ? 'text-emerald-300' : 'text-rose-300'}>{perfil.activo ? 'Activo' : 'Inactivo'}</strong></p>
+                  {b && (
+                    <>
+                      <p>Total citas: <strong className="text-[#EAF0F6]">{b.citas_completadas}</strong></p>
+                      <p>Rating: <strong className="text-[#EAF0F6]">⭐ {b.rating}</strong></p>
+                    </>
+                  )}
                 </div>
-                <div className="mt-3 space-y-1 rounded-2xl bg-[#0F151C] p-3 text-xs text-[#93A1B1]">
-                  <p>Comisión actual: <strong className="text-teal-300">{50 + b.porcentaje_incremento}%</strong></p>
-                  <p>Total citas: <strong className="text-[#EAF0F6]">{b.citas_completadas}</strong></p>
-                  <p>Rating: <strong className="text-[#EAF0F6]">⭐ {b.rating}</strong></p>
-                  <p>Jornada: <strong className="text-[#EAF0F6]">{hora12(b.hora_apertura)} – {hora12(b.hora_cierre)}</strong></p>
-                </div>
+                {b && (
+                  <>
+                    <p className="mt-4 text-[11px] font-bold uppercase text-[#6B7A8C]">Nivel y comisión</p>
+                    <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                      {(['Plata', 'Oro', 'Master'] as const).map((nivel) => (
+                        <button
+                          key={nivel}
+                          onClick={() => actualizarNivelBarbero(b.id_barbero, nivel, nivel === 'Master' ? 20 : nivel === 'Oro' ? 10 : 0)}
+                          className={`rounded-xl py-1.5 text-[11px] font-black transition ${
+                            b.nivel === nivel ? 'bg-amber-400 text-[#2B1E04]' : 'bg-white/6 text-[#93A1B1] hover:bg-white/10'
+                          }`}
+                        >
+                          {nivel}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-[#93A1B1]">
+                      Comisión actual: <strong className="text-teal-300">{50 + b.porcentaje_incremento}%</strong>
+                    </p>
+                  </>
+                )}
               </div>
-            ))}
+            );})}
+            {!usuariosEquipoCargando && !errorUsuariosEquipo && usuariosEquipo.length === 0 && (
+              <p className="card col-span-full p-8 text-center text-sm text-[#93A1B1]">No hay perfiles internos registrados.</p>
+            )}
             </div>
           </div>
         )}
@@ -1930,6 +2077,13 @@ export const PanelAdmin: React.FC = () => {
                 {['Cortes', 'Barba', 'Combos', 'Tratamientos', 'Infantil'].map((c) => <option key={c}>{c}</option>)}
               </select>
               <textarea rows={2} value={sDesc} onChange={(e) => setSDesc(e.target.value)} placeholder="Descripción" className={input + ' resize-none'} />
+              <input
+                type="url"
+                value={sImagen}
+                onChange={(e) => setSImagen(e.target.value)}
+                placeholder="URL de imagen (opcional)"
+                className={input}
+              />
               <button type="submit" className="btn-primario w-full rounded-2xl py-3 text-sm font-black">Guardar servicio</button>
             </form>
           </div>

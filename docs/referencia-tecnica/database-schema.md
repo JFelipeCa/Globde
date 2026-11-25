@@ -603,21 +603,21 @@ Una fila por cliente con su actividad acumulada.
 
 ```bash
 # Crear la base desde cero (contenedor backend ya lo hace en su entrypoint)
-docker compose exec backend alembic upgrade head
+docker compose --env-file backend/.env exec backend alembic upgrade head
 
 # Ver en qué revisión está la base
-docker compose exec backend alembic current
+docker compose --env-file backend/.env exec backend alembic current
 
 # Crear una migración nueva
-docker compose exec backend alembic revision -m "descripcion del cambio"
+docker compose --env-file backend/.env exec backend alembic revision -m "descripcion del cambio"
 # ...editar upgrade() y downgrade() a mano, luego:
-docker compose restart backend
+docker compose --env-file backend/.env restart backend
 
 # Adoptar una base que ya existía (creada antes con database.sql)
-docker compose exec backend alembic stamp head
+docker compose --env-file backend/.env exec backend alembic stamp head
 ```
 
 > [!WARNING]
 > MySQL **no revierte DDL dentro de una transacción**. Si una migración falla a mitad,
-> la base queda a medias: recréala (`docker compose down -v && docker compose up --build`)
+> la base queda a medias: recréala (`docker compose --env-file backend/.env down -v && docker compose --env-file backend/.env up --build`)
 > antes de reintentar.

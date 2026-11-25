@@ -432,10 +432,11 @@ export const BookingWizard: React.FC = () => {
                           on ? 'border-neutral-900 bg-amber-400/10 text-amber-700' : 'border-white/10 bg-[#141A21] text-[#93A1B1] hover:border-neutral-900'
                         }`}
                       >
-                        <span className="flex items-center gap-2 font-semibold">
+                        <span className="flex min-w-0 flex-col gap-1 font-semibold">
+                          <span className="text-sm font-bold text-[#EAF0F6]">{e.nombre}</span>
                           <span className="text-[10px] text-[#6B7A8C]">+{e.minutos} min</span>
                         </span>
-                        <span className="font-black text-[#EAF0F6]">+$6k</span>
+                        <span className="shrink-0 font-black text-[#EAF0F6]">+{formatoCOP(e.precio)}</span>
                       </button>
                     );
                   })}
@@ -537,7 +538,7 @@ export const BookingWizard: React.FC = () => {
                     <span className="font-heading text-2xl font-black text-[#EAF0F6]">{formatoCOP(total)}</span>
                   </div>
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
-                    <Sparkles className="h-3.5 w-3.5" /> Ganarás +{servicio.puntos_otorga} puntos Globde con esta cita.
+                    <Sparkles className="h-3.5 w-3.5" /> Al completar el servicio se acreditan +{servicio.puntos_otorga} puntos.
                   </p>
                 </div>
               </div>

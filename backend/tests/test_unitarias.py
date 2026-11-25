@@ -15,6 +15,7 @@ from app.services import (
     email_service,
     lista_espera_service,
     puntos_service,
+    reportes_service,
     recordatorios_service,
 )
 from app.utils.paginacion import offset_de, paginar
@@ -210,7 +211,7 @@ class TestRecuperacion:
 class TestCodigos:
     def test_codigo_reserva_tiene_formato(self):
         codigo = security.generar_codigo_reserva()
-        assert re.fullmatch(r"GB-[0-9A-F]{8}", codigo)
+        assert re.fullmatch(r"GB-[0-9A-F]{6}", codigo)
 
     def test_codigos_reserva_no_se_repiten(self):
         codigos = {security.generar_codigo_reserva() for _ in range(200)}
@@ -395,6 +396,35 @@ class TestRecordatoriosCitas:
 # ----------------------------------------------------------------------
 # Configuracion
 # ----------------------------------------------------------------------
+
+class TestDashboardAdmin:
+    def test_incluye_recaudo_y_saldo_pendiente_de_facturas(self, monkeypatch):
+        def consultar_uno(sql, *_args):
+            if "FROM facturas" in sql:
+                return {
+                    "facturas_pagadas": 3,
+                    "facturas_pendientes": 2,
+                    "ingresos_pendientes": 45000,
+                }
+            return {
+                "total_citas": 12,
+                "citas_completadas": 8,
+                "citas_canceladas": 1,
+                "citas_no_asistio": 1,
+                "ingresos_pagados": 120000,
+            }
+
+        monkeypatch.setattr(reportes_service, "fetch_one", consultar_uno)
+        monkeypatch.setattr(reportes_service, "fetch_value", lambda *_args, **_kwargs: 0)
+
+        resultado = reportes_service.dashboard_admin()
+
+        assert resultado["total_citas"] == 12
+        assert resultado["ingresos_pagados"] == 120000
+        assert resultado["facturas_pagadas"] == 3
+        assert resultado["facturas_pendientes"] == 2
+        assert resultado["ingresos_pendientes"] == 45000
+
 
 class TestConfiguracion:
     def test_niveles_ordenados(self, settings):
