@@ -6,8 +6,8 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:?Define DB_PASSWORD en backend/.env}"
-      MYSQL_DATABASE: ${DB_NAME:-globde_dev}
-      MYSQL_USER: ${DB_USER:-globde_dev}
+      MYSQL_DATABASE: globde_dev
+      MYSQL_USER: globde_dev
       MYSQL_PASSWORD: "${DB_PASSWORD:?Define DB_PASSWORD en backend/.env}"
       TZ: ${TZ:-America/Bogota}
     volumes:
@@ -30,6 +30,10 @@ services:
       # Hora de Colombia (citas / datetime.now)
       TZ: ${TZ:-America/Bogota}
       DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: globde_dev
+      DB_PASSWORD: "${DB_PASSWORD:?Define DB_PASSWORD en backend/.env}"
+      DB_NAME: globde_dev
     ports:
       - "8000:8000"
     volumes:
