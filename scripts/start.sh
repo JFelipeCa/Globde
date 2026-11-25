@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# start.sh — Levanta GLOBDE (MySQL + backend + frontend) con Docker.
+# start.sh — Levanta GLOBDE (backend + frontend conectado a TiDB Cloud) con Docker.
 # Uso:  bash scripts/start.sh
 # El instructor solo ejecuta `bash scripts/start.sh` y el sistema queda arriba.
 set -euo pipefail
@@ -43,7 +43,7 @@ PY
     echo "→ Generado ${key}."
   fi
 }
-set_secret "DB_PASSWORD"
+
 set_secret "JWT_SECRET"
 
 # 3) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
@@ -100,5 +100,5 @@ for i in $(seq 1 60); do
 done
 
 echo "⚠️  Contenedores arrancados pero la API aún no responde 'ok'."
-echo "    Revisa: docker compose --env-file backend/.env logs backend   (o)  docker compose --env-file backend/.env ps"
+echo "    Revisa: docker compose logs backend   (o)  docker compose ps"
 exit 1

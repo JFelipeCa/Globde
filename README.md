@@ -123,11 +123,12 @@ cd Globde
 
 # 2. Configurar variables privadas del backend
 cp backend/.env.example backend/.env
-# El script genera DB_PASSWORD y JWT_SECRET si están vacíos.
+# Completa DB_HOST, DB_PORT, DB_USER, DB_PASSWORD y DB_NAME para una base de pruebas.
+# Genera JWT_SECRET con: python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 # 3. Levantar contenedores
-bash scripts/start.sh
-# Genera los secretos que falten, espera a MySQL y valida que la API responda.
+docker compose up -d --build
+# El backend conecta a la base indicada en backend/.env y ejecuta Alembic al arrancar.
 
 # 4. Listo
 # → Frontend:  http://localhost:5173
@@ -192,7 +193,7 @@ uv run pytest --cov=app --cov-report=term-missing   # con cobertura (~70%)
 Con Docker, sin instalar nada en el host:
 
 ```bash
-docker compose --env-file backend/.env exec backend uv run pytest
+docker compose exec backend uv run pytest
 ```
 
 > [!NOTE]

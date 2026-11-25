@@ -22,15 +22,14 @@ migraciones de Alembic (`backend/alembic/`); el contrato está descrito en
 ### Con Docker (recomendado)
 
 ```bash
-cp backend/.env.example backend/.env
-bash scripts/start.sh                  # genera secretos faltantes y levanta todo
+cp backend/.env.example backend/.env   # y completa los valores
+docker compose up --build
 ```
 
-Levanta MySQL, el backend y el frontend. Compose espera a que MySQL esté listo
-antes de aplicar las migraciones y arrancar la API. Los datos de MySQL persisten
-en un volumen local; el script genera y guarda `DB_PASSWORD` y `JWT_SECRET` en
-`backend/.env` solo cuando faltan. Nunca uses estos valores con una base
-compartida o de producción.
+Levanta el backend y el frontend. Compose no crea una base de datos: configura
+`backend/.env` con una instancia local o de pruebas accesible desde el backend.
+El contenedor ejecuta `alembic upgrade head` al arrancar; no lo conectes a una
+base compartida o de producción sin revisar y aprobar antes las migraciones.
 La API queda en <http://localhost:8000> y la documentación interactiva en
 <http://localhost:8000/docs>.
 

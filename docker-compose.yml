@@ -1,46 +1,19 @@
 services:
 
-  mysql:
-    image: mysql:8.0
-    container_name: globde_mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:?Define DB_PASSWORD en backend/.env}"
-      MYSQL_DATABASE: globde_dev
-      MYSQL_USER: globde_dev
-      MYSQL_PASSWORD: "${DB_PASSWORD:?Define DB_PASSWORD en backend/.env}"
-      TZ: ${TZ:-America/Bogota}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASSWORD:?Define DB_PASSWORD en backend/.env}", "--silent"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 60s
-
   backend:
     build: ./backend
     container_name: globde_backend
     restart: unless-stopped
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio"]
+    # El bridge de Codespaces bloquea DNS/SMTP saliente; host permite Gmail.
+    network_mode: host
     env_file:
       - ./backend/.env
     environment:
       # Hora de Colombia (citas / datetime.now)
       TZ: ${TZ:-America/Bogota}
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: globde_dev
-      DB_PASSWORD: "${DB_PASSWORD:?Define DB_PASSWORD en backend/.env}"
-      DB_NAME: globde_dev
-    ports:
-      - "8000:8000"
     volumes:
       - avatars_data:/app/media
-    depends_on:
-      mysql:
-        condition: service_healthy
 
   frontend:
     build: ./frontend
@@ -50,16 +23,16 @@ services:
       - "5173:5173"
     environment:
       TZ: ${TZ:-America/Bogota}
-      VITE_PROXY_TARGET: http://backend:8000
+      VITE_PROXY_TARGET: http://host.docker.internal:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
       - /app/node_modules
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
 
 volumes:
-  mysql_data:
   avatars_data:

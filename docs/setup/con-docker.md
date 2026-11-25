@@ -8,8 +8,8 @@
 
 ## Requisitos
 
-- Docker Desktop o Docker Engine con Docker Compose v2. Compose inicia MySQL
-  junto con el backend y el frontend.
+- Docker Desktop o Docker Engine con Docker Compose v2.
+- Una base MySQL compatible accesible desde el backend. Compose **no** inicia una base de datos.
 
 ## Configurar el backend
 
@@ -19,10 +19,11 @@ Desde la raíz del repositorio:
 cp backend/.env.example backend/.env
 ```
 
-Edita `backend/.env` y revisa la configuración para una base **local o aislada
-para pruebas**:
+Edita `backend/.env` y configura una base **local o aislada para pruebas**:
 
 ```env
+DB_HOST=127.0.0.1
+DB_PORT=3306
 DB_USER=globde_dev
 DB_PASSWORD=
 DB_NAME=globde_dev
@@ -30,10 +31,15 @@ JWT_SECRET=
 EMAIL_ENABLED=false
 ```
 
-En Compose, el backend se conecta al servicio MySQL interno (`mysql`); no es
-necesario instalar MySQL en el equipo. `scripts/start.sh` genera valores
-seguros para `DB_PASSWORD` y `JWT_SECRET` si están vacíos y los guarda en este
-archivo local, que no se sube al repositorio.
+Completa los valores de conexión según tu entorno. `DB_HOST` debe ser accesible desde
+el contenedor del backend; para una base en la nube usa el hostname y puerto de esa
+instancia. El ejemplo no contiene credenciales ni apunta a la base compartida.
+
+Genera un `JWT_SECRET` de al menos 32 caracteres:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
 
 No compartas ni subas `backend/.env`. No pegues credenciales en `docker-compose.yml`.
 
@@ -45,11 +51,11 @@ No compartas ni subas `backend/.env`. No pegues credenciales en `docker-compose.
 ## Iniciar la aplicación
 
 ```bash
-bash scripts/start.sh
+docker compose up -d --build
+docker compose ps
 ```
 
-Compose espera a que MySQL esté saludable, aplica las migraciones y después
-inicia la API y el frontend. MySQL conserva sus datos en un volumen.
+Compose levanta el backend y el frontend. La base de datos se administra aparte.
 
 | Servicio | URL |
 |---|---|
@@ -60,20 +66,21 @@ inicia la API y el frontend. MySQL conserva sus datos en un volumen.
 ## Logs y migraciones
 
 ```bash
-docker compose --env-file backend/.env logs -f backend
-docker compose --env-file backend/.env logs -f frontend
-docker compose --env-file backend/.env exec backend alembic current
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose exec backend alembic current
 ```
 
 Para crear una migración, hazlo solo como parte de un cambio de esquema y revisa
 `upgrade()` y `downgrade()` antes de aplicarla:
 
 ```bash
-docker compose --env-file backend/.env exec backend alembic revision -m "descripcion del cambio"
+docker compose exec backend alembic revision -m "descripcion del cambio"
 ```
 
-No uses `docker compose down -v` para reiniciar: elimina el volumen local de
-MySQL y borra sus datos.
+No uses `docker compose down -v` como método de reinicio de la base: Compose no
+gestiona la base de datos y ese comando no revierte cambios ya aplicados a una
+instancia externa.
 
 ## Ejecutar pruebas
 
@@ -81,7 +88,7 @@ Las pruebas de integración requieren una base de datos aislada con el esquema
 aplicado. No las ejecutes contra datos compartidos:
 
 ```bash
-docker compose --env-file backend/.env exec backend uv run pytest
+docker compose exec backend uv run pytest
 ```
 
 Para más información consulta [la guía del backend](../../backend/README.md) y
