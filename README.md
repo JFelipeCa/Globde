@@ -20,7 +20,7 @@ Sistema web para organizar reservas, equipo y clientes de una barbería. Constru
 
 | Área | Estado | Detalle |
 | :--- | :---: | :--- |
-| **Backend** | 🟡 Implementado; validado | FastAPI con JWT por roles. OpenAPI publica 129 operaciones por defecto (131 con compatibilidad v1). El 26 de noviembre, CI pasó en `docs/project-documentation` con 160 pruebas en MySQL desechable; falta integrar los cambios a `develop`/`main` y validar una instancia TiDB aislada. |
+| **Backend** | 🟡 Implementado; validado | FastAPI con JWT por roles. OpenAPI publica 129 operaciones por defecto (131 con compatibilidad v1). El 26 de noviembre, [CI pasó](https://github.com/JFelipeCa/Globde/actions/runs/45907047850) en `docs/project-documentation` con 160 pruebas en MySQL desechable; falta integrar los cambios a `develop`/`main` y validar una instancia TiDB aislada. |
 | **Frontend ↔ Backend** | ✅ Conectado | Login/registro por JWT, catálogo y citas cargados desde la API, operaciones (crear/editar/cancelar/calificar/canjear) que **persisten en el backend**. Nada vuelve a datos ficticios al recargar. |
 | **Frontend** | 🟡 Verificado; rendimiento en revisión | TypeScript, ESLint y build de Vite pasan; el equipo reporta revisión visual manual completada. El análisis de carga continúa; los resultados diagnósticos y su contexto están en el [informe de pruebas](docs/pruebas/informe-ejecucion.md). |
 | **Base de datos** | 🟡 TiDB Cloud remota | La base está alojada en el servidor externo del proyecto. El equipo confirma que la aplicación carga usuarios y datos; las pruebas automatizadas se ejecutaron en MySQL desechable, no en una TiDB aislada. |

@@ -36,13 +36,13 @@ efectivo de correo depende de la configuración SMTP.
 |---|---|---|
 | Pruebas unitarias backend | 67 aprobadas | Ejecutadas localmente sin conexión a la base de datos. |
 | Suite backend completa | 160 aprobadas, 0 omitidas; cobertura 69% | Ejecutada el 26 de noviembre de 2026 contra MySQL 8.0.46 desechable, con migraciones y semillas. |
-| CI GitHub Actions | **Aprobado** en `0cd0bb5` | Jobs de backend y frontend verdes; incluye migraciones, 160 pruebas, tipos, build y auditorías configuradas. En frontend queda una alerta moderada bajo el umbral de bloqueo. |
+| CI GitHub Actions | **Aprobado** en `1f48d06` | [Run #45907047850](https://github.com/JFelipeCa/Globde/actions/runs/45907047850): jobs de backend y frontend verdes; incluye migraciones, 160 pruebas, tipos, build y auditorías configuradas. En frontend queda una alerta moderada bajo el umbral de bloqueo. |
 | Migraciones | `upgrade` y `downgrade` aprobados | La reversión a `base` dejó cero objetos; después se reaplicó hasta `h8b9c0d1e2f3`. |
 | Frontend | TypeScript, ESLint, build y preview HTTP aprobados | El equipo reporta revisión visual 10/10; no hay runner E2E configurado. |
 | OpenAPI | 129 operaciones por defecto; 131 con compatibilidad v1 | Contrato generado desde la aplicación. |
 | Inicio de API y persistencia | `/api/health` y `/docs`: HTTP 200 | Arranque local de Uvicorn con conexión a la base MySQL desechable. |
 | TiDB Cloud | El equipo reporta que la aplicación carga usuarios y datos | Se adjuntan capturas del clúster activo y una consulta agregada que contó 11 usuarios en 9 ms; no es una medición de la API ni reemplaza pruebas aisladas. |
-| Correo SMTP | Pendiente de verificación | Falta comprobar la recepción de un correo de prueba con credenciales SMTP de prueba. |
+| Correo SMTP | **Pendiente: autenticación y recepción** | La comprobación autorizada conectó con Gmail y negoció TLS, pero el servidor cerró la conexión durante AUTH tanto en 587 como en 465. No se envió ningún correo. Un compañero revisará la cuenta/credencial SMTP y luego se confirmará la recepción de un mensaje de prueba. |
 | Rendimiento web | Diagnóstico de carga en curso | Se conservaron las imágenes originales y se ajustó la prioridad de carga. Las mediciones realizadas en desarrollo y las siguientes validaciones están contextualizadas en el [informe técnico](pruebas/informe-ejecucion.md); no se presentan como métricas de producción. |
 | Configuración de despliegue | Compose válido; `.env` ignorado | El parseo no inicia Docker ni confirma despliegue con TiDB. |
 | Experiencia visual | Revisión manual reportada como completada por el equipo (10/10) | Se adjuntan capturas seleccionadas en el [informe de ejecución](pruebas/informe-ejecucion.md); esto no equivale a E2E automatizado ni acredita cada escenario funcional. |
@@ -68,8 +68,9 @@ reproducible, en el [plan de pruebas](pruebas/plan-pruebas.md).
 1. **Integración de ramas:** integrar los cambios desde `docs/project-documentation`
    a `develop`/`main` según el flujo acordado y confirmar CI verde en la rama
    destino. El CI actual usa MySQL efímero; no valida TiDB compartida.
-2. **Correo:** probar el envío y recepción SMTP con una cuenta y destinatario
-   de prueba; las credenciales se mantienen en el entorno local.
+2. **Correo:** el compañero revisará la autenticación de la cuenta SMTP sin
+   compartir credenciales; después, confirmar la recepción de un mensaje de
+   prueba dirigido a una cuenta autorizada.
 3. **Rendimiento:** validar una compilación de producción con Lighthouse antes
    de presentar métricas representativas del despliegue; no inferir el
    rendimiento de la aplicación desde una consulta SQL aislada.
@@ -95,7 +96,7 @@ reproducible, en el [plan de pruebas](pruebas/plan-pruebas.md).
   aislada.
 - La UI contiene colores literales y reglas CSS de compatibilidad pendientes de
   normalización gradual.
-- El workflow de CI está configurado para validar migraciones en MySQL 8.0. La
-  última corrida remota consultada falló en otra rama; falta un run verde del
-  commit que se publique. La validación en una instancia TiDB aislada también
-  queda pendiente.
+- El workflow de CI valida migraciones en MySQL 8.0; el último run verde está
+  en `docs/project-documentation`. Falta confirmar CI tras integrar los cambios
+  a `develop`/`main`. La validación en una instancia TiDB aislada también queda
+  pendiente.
