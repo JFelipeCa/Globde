@@ -44,7 +44,7 @@ Sistema web para organizar reservas, equipo y clientes de una barbería. Constru
 | Plan de pruebas | ✅ Disponible | Define alcance, niveles, entornos separados y ejecución segura en el [plan de pruebas](docs/pruebas/plan-pruebas.md). |
 | Pruebas automatizadas | ✅ 160 aprobadas | 67 unitarias y 93 de integración en MySQL desechable; cobertura registrada en el [informe](docs/pruebas/informe-ejecucion.md). |
 | Ejecución y seguimiento de defectos | 🟡 Documentado parcialmente | Hay [informe de ejecución](docs/pruebas/informe-ejecucion.md) e issues abiertos; falta completar severidad, estado y responsable donde corresponda. |
-| Frontend y experiencia visual | 🟡 Verificado parcialmente | Tipos, lint y build pasan; el equipo reporta revisión visual manual. La consola mostró dos respuestas 404 al cargar avatares, pendientes de revisar; no hay pruebas E2E automatizadas configuradas. |
+| Frontend y experiencia visual | 🟡 Verificado parcialmente | Tipos, lint y build pasan; el equipo reporta revisión visual manual. No hay pruebas E2E automatizadas configuradas. |
 | README, API y backend | ✅ Documentados | Esta guía enlaza la [referencia API](docs/referencia-tecnica/api-endpoints.md), operación y documentación técnica. |
 | Ramas y colaboración en Git | 🟡 En integración | El CI está verde en `docs/project-documentation`; falta integrar los cambios a `develop`/`main` y verificar CI allí. |
 | Feedback y distribución del trabajo | ⏳ Pendiente del equipo | Los compañeros reunirán evidencia de feedback, responsables y trabajo dividido. |
