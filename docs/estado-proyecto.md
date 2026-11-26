@@ -43,7 +43,7 @@ efectivo de correo depende de la configuración SMTP.
 | Inicio de API y persistencia | `/api/health` y `/docs`: HTTP 200 | Arranque local de Uvicorn con conexión a la base MySQL desechable. |
 | TiDB Cloud | El equipo reporta que la aplicación carga usuarios y datos | Se adjuntan capturas del clúster activo y una consulta agregada que contó 11 usuarios en 9 ms; no es una medición de la API ni reemplaza pruebas aisladas. |
 | Correo SMTP | **Pendiente: autenticación y recepción** | La comprobación autorizada conectó con Gmail y negoció TLS, pero el servidor cerró la conexión durante AUTH tanto en 587 como en 465. No se envió ningún correo. Un compañero revisará la cuenta/credencial SMTP y luego se confirmará la recepción de un mensaje de prueba. |
-| Rendimiento web | Diagnóstico de carga en curso | Se conservaron las imágenes originales y se ajustó la prioridad de carga. Las mediciones realizadas en desarrollo y las siguientes validaciones están contextualizadas en el [informe técnico](pruebas/informe-ejecucion.md); no se presentan como métricas de producción. |
+| Rendimiento web | Diagnóstico en desarrollo documentado | Se conservaron las imágenes originales y se ajustó la prioridad de carga. Los resultados y su contexto están en el [informe técnico](pruebas/informe-ejecucion.md); no se presentan como métricas de producción. No hay una nueva medición comprometida en este alcance. |
 | Configuración de despliegue | Compose válido; `.env` ignorado | El parseo no inicia Docker ni confirma despliegue con TiDB. |
 | Experiencia visual | Revisión manual reportada como completada por el equipo (10/10) | Se adjuntan capturas seleccionadas en el [informe de ejecución](pruebas/informe-ejecucion.md); esto no equivale a E2E automatizado ni acredita cada escenario funcional. |
 | Alternativas de backend | Comparación cualitativa documentada | Se comparan FastAPI, Django REST Framework, Flask y Express; FastAPI es el framework implementado. |
@@ -71,21 +71,17 @@ reproducible, en el [plan de pruebas](pruebas/plan-pruebas.md).
 2. **Correo:** el compañero revisará la autenticación de la cuenta SMTP sin
    compartir credenciales; después, confirmar la recepción de un mensaje de
    prueba dirigido a una cuenta autorizada.
-3. **Rendimiento:** validar una compilación de producción con Lighthouse antes
-   de presentar métricas representativas del despliegue; no inferir el
-   rendimiento de la aplicación desde una consulta SQL aislada.
-4. **Datos de despliegue:** definir cómo separar las semillas de prueba antes
+3. **Datos de despliegue:** definir cómo separar las semillas de prueba antes
    de desplegar con datos reales; actualmente forman parte de la cadena de
    migraciones aplicada con `upgrade head`.
-5. **TiDB:** si se requiere una verificación técnica independiente, ejecutar
+4. **TiDB:** si se requiere una verificación técnica independiente, ejecutar
    pruebas de integración solo en una instancia aislada, no en la base
    compartida.
-6. **Gestión del trabajo:** reunir backlog priorizado, actas de sprint,
-   estimaciones/planning poker, responsables, retrospectivas y feedback del
-   equipo. El historial de commits por sí solo no acredita estas prácticas;
-   las revisiones de PR #23 y las reglas de ramas también deben comprobarse en
-   GitHub; la consulta de protección de ramas no estuvo autorizada.
-7. **Seguimiento de defectos:** distinguir incidencias confirmadas de mejoras
+5. **Evidencias del equipo:** los compañeros reunirán los registros disponibles
+   de sprints, estimaciones, responsables, retrospectivas y feedback. El
+   historial de commits por sí solo no acredita estas prácticas; las revisiones
+   de PR #23 y las reglas de ramas también deben comprobarse en GitHub.
+6. **Seguimiento de defectos:** distinguir incidencias confirmadas de mejoras
    del backlog y definir severidad, estado y responsable para cada defecto.
 
 ## Riesgos y límites conocidos

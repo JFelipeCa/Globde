@@ -145,8 +145,8 @@ los cambios a `develop` o `main`.
 2. Pedir al compañero que revise la autenticación SMTP; luego confirmar la
    recepción de un correo de prueba y conservar evidencia sin exponer
    credenciales ni datos personales.
-3. Medir una compilación de producción con Lighthouse; registrar las métricas
-   y condiciones antes de presentar resultados representativos del despliegue.
+3. Se conserva el diagnóstico Lighthouse del entorno de desarrollo como
+   referencia; no se programa una nueva medición de producción en este alcance.
 4. Si se requiere validación técnica independiente de TiDB, ejecutar pruebas
    automatizadas solo en una instancia aislada.
 5. Registrar defectos nuevos en GitHub Issues con severidad y estado acordados;
