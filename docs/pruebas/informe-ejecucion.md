@@ -18,7 +18,7 @@
 | Backend unitario | **67 passed** | `uv run --group dev pytest tests/test_unitarias.py` desde `backend/` |
 | Backend integración | **93 passed** | Ejecutadas en MySQL 8.0.46 temporal con esquema y semillas; no se apuntó a la base externa |
 | Suite completa | **160 passed, 0 skipped** | `uv run pytest --cov=app --cov-report=term-missing`; cobertura total: **69%** |
-| CI GitHub Actions | **Passed** en [`1f48d06`](https://github.com/JFelipeCa/Globde/commit/1f48d06565fc83e28daa0ff6c854197d6ca65a66) | [Run #45907047850](https://github.com/JFelipeCa/Globde/actions/runs/45907047850): backend y frontend verdes; migraciones `upgrade`/`downgrade`, 160 pruebas en MySQL efímero, tipos, build y auditorías. La auditoría frontend conserva una alerta moderada bajo el umbral `high`. |
+| CI GitHub Actions | **Passed** en `docs/project-documentation` | [Run #45911749824](https://github.com/JFelipeCa/Globde/actions/runs/45911749824): backend y frontend verdes; migraciones `upgrade`/`downgrade`, 160 pruebas en MySQL efímero, tipos, build y auditorías. La auditoría frontend conserva una alerta moderada bajo el umbral `high`. |
 | Migraciones | **Passed** | `upgrade head` → `downgrade base` (cero objetos remanentes) → `upgrade head`; revisión final `h8b9c0d1e2f3` |
 | Inicio real de API + conexión de BD | **Passed** | Uvicorn en localhost; `/api/health` y `/docs` respondieron HTTP 200; DB conectada a MySQL 8.0.46 |
 | TypeScript frontend | **Passed** | `pnpm exec tsc -b --force` |
@@ -123,18 +123,18 @@ instancia TiDB aislada.
 
 ## Issues abiertos del repositorio
 
-Estos elementos son trabajo pendiente, no fallos descubiertos por esta
-ejecución. No tienen etiquetas de severidad en GitHub:
+Estos elementos son mejoras de producto abiertas, no fallos descubiertos por
+esta ejecución; no se clasifican como defectos:
 
-| Issue | Estado | Tema | Etiqueta de severidad / responsable |
+| Issue | Estado | Tema | Clasificación |
 |---|---|---|---|
-| [#21](https://github.com/JFelipeCa/Globde/issues/21) | Abierto | Decidir si migrar colores a tokens de Tailwind o simplificar la configuración | Sin etiqueta / sin asignar |
-| [#31](https://github.com/JFelipeCa/Globde/issues/31) | Abierto | Añadir notificaciones de citas por WhatsApp | Sin etiqueta / sin asignar |
+| [#21](https://github.com/JFelipeCa/Globde/issues/21) | Abierto | Decidir si migrar colores a tokens de Tailwind o simplificar la configuración | Mejora de diseño |
+| [#31](https://github.com/JFelipeCa/Globde/issues/31) | Abierto | Añadir notificaciones de citas por WhatsApp | Mejora funcional |
 
 El run [CI #43103892565](https://github.com/JFelipeCa/Globde/actions/runs/43103892565)
 falló el 11 de noviembre de 2026 en `feature/integration-test`; no correspondía
-a esta rama. Los runs posteriores [#45906866540](https://github.com/JFelipeCa/Globde/actions/runs/45906866540)
-y [#45907047850](https://github.com/JFelipeCa/Globde/actions/runs/45907047850)
+a esta rama. Los runs posteriores [#45911243861](https://github.com/JFelipeCa/Globde/actions/runs/45911243861)
+y [#45911749824](https://github.com/JFelipeCa/Globde/actions/runs/45911749824)
 pasaron en `docs/project-documentation`. Falta confirmar CI después de integrar
 los cambios a `develop` o `main`.
 

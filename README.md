@@ -36,7 +36,7 @@ Sistema web para organizar reservas, equipo y clientes de una barbería. Constru
 
 | Comprobación | Resultado |
 |---|---|
-| CI GitHub Actions | [Backend y frontend aprobados](https://github.com/JFelipeCa/Globde/actions/runs/45911243861). |
+| CI GitHub Actions | [Backend y frontend aprobados](https://github.com/JFelipeCa/Globde/actions/runs/45911749824). |
 | Pruebas backend | 160 aprobadas: 67 unitarias y 93 de integración en MySQL desechable; cobertura registrada del 69 %. |
 | Frontend | Verificaciones de TypeScript, ESLint y build aprobadas. |
 | Documentación | Requisitos, arquitectura, API, operación y pruebas organizados en el [índice documental](docs/README.md). |

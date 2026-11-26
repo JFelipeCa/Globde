@@ -35,18 +35,18 @@ efectivo de correo depende de la configuración SMTP.
 | Área | Estado | Evidencia y alcance / siguiente paso |
 |---|---|---|
 | Documentación de producto y modelos | **Documentada** | Requisitos, casos de uso, arquitectura, modelo ER, clases y diccionario de datos están en el [índice documental](README.md). |
-| Metodología y trabajo del equipo | **En recopilación** | Los compañeros reunirán evidencia disponible de backlog, sprints, estimaciones, tareas asignadas y retrospectivas. |
+| Metodología ágil | **Documentada parcialmente** | Organizar en un solo lugar las evidencias disponibles de backlog, sprints, estimaciones y retrospectivas. |
+| Feedback y distribución del trabajo | **Verificado por el equipo** | El equipo confirma que revisó feedback, distribución y asignación de tareas. |
 | Backend e inicialización | **Verificado** | `/api/health` y `/docs` respondieron HTTP 200 en local; las pruebas y CI pasaron. El correo se sigue por separado. |
-| Variables y despliegue | **Configuración documentada** | `.env` está ignorado y Compose es válido. Falta confirmar el despliegue conectado al entorno TiDB del equipo. |
+| Variables y despliegue | **Verificado por el equipo** | El equipo confirmó con las capturas compartidas que las variables y el despliegue de frontend/backend funcionan con el entorno TiDB. |
 | Arquitectura | **Documentada** | El diagrama de componentes y flujos está en la [referencia de arquitectura](referencia-tecnica/architecture.md). |
 | Plan de pruebas | **Disponible** | Define alcance, niveles, separación de entornos y procedimientos seguros en el [plan de pruebas](pruebas/plan-pruebas.md). |
 | Pruebas automatizadas | **160 aprobadas; 0 omitidas** | 67 unitarias y 93 de integración en MySQL 8.0.46 desechable; cobertura total registrada: 69 %. |
-| Ejecución y defectos | **Documentado parcialmente** | El [informe de ejecución](pruebas/informe-ejecucion.md) registra resultados. Completar severidad, estado y responsable de los issues que lo requieran. |
-| Frontend y experiencia visual | **Verificado parcialmente** | TypeScript, ESLint y build aprobados; el equipo reporta revisión manual 10/10. No hay runner E2E configurado. |
+| Ejecución y defectos | **Registrados; sin defectos abiertos conocidos** | El [informe de ejecución](pruebas/informe-ejecucion.md) registra FE-001 y FE-002 con severidad y estado corregido. [#21](https://github.com/JFelipeCa/Globde/issues/21) y [#31](https://github.com/JFelipeCa/Globde/issues/31) son mejoras de producto, no defectos. |
+| Frontend y experiencia visual | **Verificado por el equipo** | TypeScript, ESLint y build aprobados; revisión visual manual completada y las imágenes de avatar cargan correctamente según el equipo. |
 | README, API y backend | **Documentados** | Esta guía, la [referencia API](referencia-tecnica/api-endpoints.md) y la documentación técnica describen el sistema. |
 | Ramas y colaboración en Git | **En integración** | El CI está verde en `docs/project-documentation`; integrar a `develop`/`main` y confirmar allí. Revisar reglas y protecciones de ramas. |
-| Feedback y distribución del trabajo | **Pendiente del equipo** | Reunir evidencia de feedback, responsables y división de tareas. |
-| Alternativas tecnológicas y deuda técnica | **Documentadas** | Se comparan FastAPI, Django REST Framework, Flask y Express; la deuda técnica está priorizada. No se realizó benchmark. |
+| Alternativas tecnológicas y deuda técnica | **Completadas según el alcance acordado** | Se comparan FastAPI, Django REST Framework, Flask y Express; la deuda técnica está priorizada. |
 | Correo SMTP | **Pendiente: autenticación y recepción** | Gmail cerró la conexión durante AUTH tanto en 587 como en 465. No se envió ningún correo; un compañero revisará la cuenta y luego se confirmará la recepción de una prueba. |
 | TiDB Cloud | **Operativa según el equipo** | La aplicación carga usuarios y datos; las pruebas automatizadas se ejecutaron en MySQL desechable. Una validación independiente de TiDB requeriría una instancia aislada. |
 | Rendimiento web | **Diagnóstico conservado** | Lighthouse corresponde al entorno de desarrollo y no se presenta como métrica de producción; no hay otra medición comprometida actualmente. |
@@ -79,12 +79,12 @@ reproducible, en el [plan de pruebas](pruebas/plan-pruebas.md).
 4. **TiDB:** si se requiere una verificación técnica independiente, ejecutar
    pruebas de integración solo en una instancia aislada, no en la base
    compartida.
-5. **Evidencias del equipo:** los compañeros reunirán los registros disponibles
-   de sprints, estimaciones, responsables, retrospectivas y feedback. El
-   historial de commits por sí solo no acredita estas prácticas; las revisiones
-   de PR #23 y las reglas de ramas también deben comprobarse en GitHub.
-6. **Seguimiento de defectos:** distinguir incidencias confirmadas de mejoras
-   del backlog y definir severidad, estado y responsable para cada defecto.
+5. **Metodología ágil:** reunir en la documentación las evidencias disponibles
+   de backlog, sprints, estimaciones y retrospectivas. Las revisiones de PR #23
+   y las reglas de ramas también deben comprobarse en GitHub.
+6. **Seguimiento de defectos:** si se detectan nuevos defectos, registrarlos
+   con severidad y estado; mantener separadas las incidencias de las mejoras
+   del backlog.
 
 ## Riesgos y límites conocidos
 
