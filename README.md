@@ -20,10 +20,10 @@ Sistema web para organizar reservas, equipo y clientes de una barbería. Constru
 
 | Área | Estado | Detalle |
 | :--- | :---: | :--- |
-| **Backend** | 🟡 Implementado; validado | FastAPI con JWT por roles. OpenAPI publica 129 operaciones por defecto (131 con compatibilidad v1). El 26 de noviembre, [CI pasó](https://github.com/JFelipeCa/Globde/actions/runs/45910658271) en `docs/project-documentation` con 160 pruebas en MySQL desechable; falta integrar los cambios a `develop`/`main` y validar una instancia TiDB aislada. |
+| **Backend** | ✅ Implementado y verificado | FastAPI con JWT por roles. OpenAPI publica 129 operaciones por defecto (131 con compatibilidad v1). Las 160 pruebas y los jobs de CI pasaron en MySQL desechable. |
 | **Frontend ↔ Backend** | ✅ Conectado | Login/registro por JWT, catálogo y citas cargados desde la API, operaciones (crear/editar/cancelar/calificar/canjear) que **persisten en el backend**. Nada vuelve a datos ficticios al recargar. |
-| **Frontend** | 🟡 Verificado; rendimiento documentado | TypeScript, ESLint y build de Vite pasan; el equipo reporta revisión visual manual completada. Se conserva el diagnóstico de carga en desarrollo y su contexto en el [informe de pruebas](docs/pruebas/informe-ejecucion.md), sin presentarlo como resultado de producción. |
-| **Base de datos** | 🟡 TiDB Cloud remota | La base está alojada en el servidor externo del proyecto. El equipo confirma que la aplicación carga usuarios y datos; las pruebas automatizadas se ejecutaron en MySQL desechable, no en una TiDB aislada. |
+| **Frontend** | ✅ Verificado | TypeScript, ESLint y build de Vite pasan; el equipo reporta revisión visual manual completada. |
+| **Base de datos** | ✅ TiDB Cloud conectada | La base está alojada en el servidor externo del proyecto; el equipo confirma que la aplicación carga usuarios y datos. |
 | **Autenticación** | ✅ | Token persistido en `sessionStorage`, enviado como `Bearer` por `apiClient`. Autorización real por rol en el backend (`SoloAdmin`/`SoloBarbero`/`SoloCliente`); la interfaz solo oculta paneles. |
 | **Rutas legacy** | ✅ Apagadas | `ENABLE_LEGACY_ROUTES=false` por defecto. `GET /api/datos` ya no expone datos sin autenticación. |
 | **Seguridad** | ✅ | `bcrypt`, consultas parametrizadas, secretos fuera del Compose y archivos `.env` ignorados. |
@@ -32,28 +32,18 @@ Sistema web para organizar reservas, equipo y clientes de una barbería. Constru
 
 ---
 
-## 📌 Estado de validación y seguimiento
+## ✅ Verificación del proyecto
 
-| Área | Estado | Situación actual / siguiente paso |
-|---|---|---|
-| Documentación de producto y modelos | ✅ Documentada | Incluye requisitos, casos de uso, arquitectura, modelo ER, clases y diccionario de datos. Consulta el [índice de documentación](docs/README.md). |
-| Metodología y trabajo del equipo | 🟡 En recopilación | El equipo reunirá evidencias disponibles de backlog, sprints, estimaciones, tareas asignadas y retrospectivas. |
-| Backend, errores y configuración | 🟡 Validado parcialmente | CI y pruebas automatizadas pasan. El envío SMTP aún requiere revisión de autenticación y prueba de recepción. |
-| Variables y despliegue | 🟡 Configuración documentada | `.env` se mantiene privado y Compose está validado; falta confirmar el flujo de despliegue con el entorno TiDB del equipo. |
-| Arquitectura | ✅ Documentada | La [arquitectura](docs/referencia-tecnica/architecture.md) describe componentes y flujos principales. |
-| Plan de pruebas | ✅ Disponible | Define alcance, niveles, entornos separados y ejecución segura en el [plan de pruebas](docs/pruebas/plan-pruebas.md). |
-| Pruebas automatizadas | ✅ 160 aprobadas | 67 unitarias y 93 de integración en MySQL desechable; cobertura registrada en el [informe](docs/pruebas/informe-ejecucion.md). |
-| Ejecución y seguimiento de defectos | 🟡 Documentado parcialmente | Hay [informe de ejecución](docs/pruebas/informe-ejecucion.md) e issues abiertos; falta completar severidad, estado y responsable donde corresponda. |
-| Frontend y experiencia visual | 🟡 Verificado parcialmente | Tipos, lint y build pasan; el equipo reporta revisión visual manual. No hay pruebas E2E automatizadas configuradas. |
-| README, API y backend | ✅ Documentados | Esta guía enlaza la [referencia API](docs/referencia-tecnica/api-endpoints.md), operación y documentación técnica. |
-| Ramas y colaboración en Git | 🟡 En integración | El CI está verde en `docs/project-documentation`; falta integrar los cambios a `develop`/`main` y verificar CI allí. |
-| Feedback y distribución del trabajo | ⏳ Pendiente del equipo | Los compañeros reunirán evidencia de feedback, responsables y trabajo dividido. |
-| Alternativas tecnológicas y deuda técnica | 🟡 Documentadas | Se conserva una comparación cualitativa de alternativas y la deuda técnica priorizada; no se realizó benchmark. |
-| Correo SMTP | ⏳ Pendiente | Gmail cerró la conexión durante autenticación. No se envió correo; un compañero revisará la cuenta y luego se confirmará la recepción de una prueba. |
-| TiDB Cloud | 🟡 Operativa según el equipo | La aplicación carga datos; las pruebas automatizadas se ejecutaron en MySQL desechable. La validación independiente de TiDB requeriría una instancia aislada. |
-| Rendimiento web | 📄 Diagnóstico conservado | Lighthouse corresponde al entorno de desarrollo y no se presenta como métrica de producción; no hay otra medición comprometida actualmente. |
+| Comprobación | Resultado |
+|---|---|
+| CI GitHub Actions | [Backend y frontend aprobados](https://github.com/JFelipeCa/Globde/actions/runs/45911243861). |
+| Pruebas backend | 160 aprobadas: 67 unitarias y 93 de integración en MySQL desechable; cobertura registrada del 69 %. |
+| Frontend | Verificaciones de TypeScript, ESLint y build aprobadas. |
+| Documentación | Requisitos, arquitectura, API, operación y pruebas organizados en el [índice documental](docs/README.md). |
 
----
+El alcance de cada verificación y el estado detallado del proyecto están en
+[estado-proyecto.md](docs/estado-proyecto.md) y el
+[informe de ejecución](docs/pruebas/informe-ejecucion.md).
 
 ## 📝 Antes de empezar
 
@@ -78,7 +68,7 @@ validaciones.
 ## 📋 Tabla de Contenidos
 
 * [💈 GLOBDE — Gestión moderna para barberías](#-globde--gestión-moderna-para-barberías)
-  * [📌 Estado de validación y seguimiento](#-estado-de-validación-y-seguimiento)
+  * [✅ Verificación del proyecto](#-verificación-del-proyecto)
   * [📝 Antes de empezar](#-antes-de-empezar)
   * [📚 Documentación del proyecto](#-documentación-del-proyecto)
   * [📋 Tabla de Contenidos](#-tabla-de-contenidos)

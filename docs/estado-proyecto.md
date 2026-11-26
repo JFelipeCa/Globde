@@ -30,24 +30,26 @@ alcance implementado; no significa que cada flujo haya pasado pruebas de
 aceptación integrales. La exportación disponible es CSV, no XLSX. El envío
 efectivo de correo depende de la configuración SMTP.
 
-## Verificaciones registradas
+## Estado de validación y seguimiento
 
-| Área | Resultado registrado | Alcance |
+| Área | Estado | Evidencia y alcance / siguiente paso |
 |---|---|---|
-| Pruebas unitarias backend | 67 aprobadas | Ejecutadas localmente sin conexión a la base de datos. |
-| Suite backend completa | 160 aprobadas, 0 omitidas; cobertura 69% | Ejecutada el 26 de noviembre de 2026 contra MySQL 8.0.46 desechable, con migraciones y semillas. |
-| CI GitHub Actions | **Aprobado** en `1f48d06` | [Run #45907047850](https://github.com/JFelipeCa/Globde/actions/runs/45907047850): jobs de backend y frontend verdes; incluye migraciones, 160 pruebas, tipos, build y auditorías configuradas. En frontend queda una alerta moderada bajo el umbral de bloqueo. |
-| Migraciones | `upgrade` y `downgrade` aprobados | La reversión a `base` dejó cero objetos; después se reaplicó hasta `h8b9c0d1e2f3`. |
-| Frontend | TypeScript, ESLint, build y preview HTTP aprobados | El equipo reporta revisión visual 10/10; no hay runner E2E configurado. |
-| OpenAPI | 129 operaciones por defecto; 131 con compatibilidad v1 | Contrato generado desde la aplicación. |
-| Inicio de API y persistencia | `/api/health` y `/docs`: HTTP 200 | Arranque local de Uvicorn con conexión a la base MySQL desechable. |
-| TiDB Cloud | El equipo reporta que la aplicación carga usuarios y datos | Se adjuntan capturas del clúster activo y una consulta agregada que contó 11 usuarios en 9 ms; no es una medición de la API ni reemplaza pruebas aisladas. |
-| Correo SMTP | **Pendiente: autenticación y recepción** | La comprobación autorizada conectó con Gmail y negoció TLS, pero el servidor cerró la conexión durante AUTH tanto en 587 como en 465. No se envió ningún correo. Un compañero revisará la cuenta/credencial SMTP y luego se confirmará la recepción de un mensaje de prueba. |
-| Rendimiento web | Diagnóstico en desarrollo documentado | Se conservaron las imágenes originales y se ajustó la prioridad de carga. Los resultados y su contexto están en el [informe técnico](pruebas/informe-ejecucion.md); no se presentan como métricas de producción. No hay una nueva medición comprometida en este alcance. |
-| Configuración de despliegue | Compose válido; `.env` ignorado | El parseo no inicia Docker ni confirma despliegue con TiDB. |
-| Experiencia visual | Revisión manual reportada como completada por el equipo (10/10) | Se adjuntan capturas seleccionadas en el [informe de ejecución](pruebas/informe-ejecucion.md); esto no equivale a E2E automatizado ni acredita cada escenario funcional. |
-| Alternativas de backend | Comparación cualitativa documentada | Se comparan FastAPI, Django REST Framework, Flask y Express; FastAPI es el framework implementado. |
-| Colaboración en GitHub | PR #23 está fusionado a `develop`; hay ramas `main`, `develop` y `feature/*` | La consulta de protección de ramas no fue autorizada; falta comprobar revisiones y reglas en la configuración del repositorio. |
+| Documentación de producto y modelos | **Documentada** | Requisitos, casos de uso, arquitectura, modelo ER, clases y diccionario de datos están en el [índice documental](README.md). |
+| Metodología y trabajo del equipo | **En recopilación** | Los compañeros reunirán evidencia disponible de backlog, sprints, estimaciones, tareas asignadas y retrospectivas. |
+| Backend e inicialización | **Verificado** | `/api/health` y `/docs` respondieron HTTP 200 en local; las pruebas y CI pasaron. El correo se sigue por separado. |
+| Variables y despliegue | **Configuración documentada** | `.env` está ignorado y Compose es válido. Falta confirmar el despliegue conectado al entorno TiDB del equipo. |
+| Arquitectura | **Documentada** | El diagrama de componentes y flujos está en la [referencia de arquitectura](referencia-tecnica/architecture.md). |
+| Plan de pruebas | **Disponible** | Define alcance, niveles, separación de entornos y procedimientos seguros en el [plan de pruebas](pruebas/plan-pruebas.md). |
+| Pruebas automatizadas | **160 aprobadas; 0 omitidas** | 67 unitarias y 93 de integración en MySQL 8.0.46 desechable; cobertura total registrada: 69 %. |
+| Ejecución y defectos | **Documentado parcialmente** | El [informe de ejecución](pruebas/informe-ejecucion.md) registra resultados. Completar severidad, estado y responsable de los issues que lo requieran. |
+| Frontend y experiencia visual | **Verificado parcialmente** | TypeScript, ESLint y build aprobados; el equipo reporta revisión manual 10/10. No hay runner E2E configurado. |
+| README, API y backend | **Documentados** | Esta guía, la [referencia API](referencia-tecnica/api-endpoints.md) y la documentación técnica describen el sistema. |
+| Ramas y colaboración en Git | **En integración** | El CI está verde en `docs/project-documentation`; integrar a `develop`/`main` y confirmar allí. Revisar reglas y protecciones de ramas. |
+| Feedback y distribución del trabajo | **Pendiente del equipo** | Reunir evidencia de feedback, responsables y división de tareas. |
+| Alternativas tecnológicas y deuda técnica | **Documentadas** | Se comparan FastAPI, Django REST Framework, Flask y Express; la deuda técnica está priorizada. No se realizó benchmark. |
+| Correo SMTP | **Pendiente: autenticación y recepción** | Gmail cerró la conexión durante AUTH tanto en 587 como en 465. No se envió ningún correo; un compañero revisará la cuenta y luego se confirmará la recepción de una prueba. |
+| TiDB Cloud | **Operativa según el equipo** | La aplicación carga usuarios y datos; las pruebas automatizadas se ejecutaron en MySQL desechable. Una validación independiente de TiDB requeriría una instancia aislada. |
+| Rendimiento web | **Diagnóstico conservado** | Lighthouse corresponde al entorno de desarrollo y no se presenta como métrica de producción; no hay otra medición comprometida actualmente. |
 
 El detalle de resultados y defectos encontrados está en el
 [informe de ejecución](pruebas/informe-ejecucion.md); el procedimiento
