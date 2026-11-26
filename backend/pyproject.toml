@@ -16,7 +16,7 @@ dependencies = [
     "pydantic==2.10.4",
     "email-validator==2.2.0",
     "bcrypt==4.2.1",
-    "PyJWT==2.13.0",
+    "PyJWT==2.15.0",
     # >=0.0.22 corrige la CVE-2026-24486 (escritura de archivo arbitraria via
     # traversal de nombre). El proyecto no usa UPLOAD_DIR ni Form/File, pero
     # se mantiene al dia para que la auditoria de dependencias quede limpia.
