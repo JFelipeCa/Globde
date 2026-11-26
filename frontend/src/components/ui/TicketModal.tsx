@@ -139,7 +139,7 @@ export const TicketModal: React.FC = () => {
         if (evento.target === evento.currentTarget) cerrarTicket();
       }}
     >
-      <div className={`anim-zoom card w-full ${mostrarDetallesCorte && vistaDigital === 'corte' ? 'max-w-xl' : 'max-w-md'} overflow-hidden`}>
+      <div className={`anim-zoom card max-h-[calc(100dvh-2rem)] w-full overflow-y-auto ${mostrarDetallesCorte && vistaDigital === 'corte' ? 'max-w-lg' : 'max-w-md'}`}>
         <div className="relative bg-gradient-to-r from-neutral-900 to-neutral-800 px-6 py-5 text-white">
           <button
             type="button"
@@ -191,17 +191,17 @@ export const TicketModal: React.FC = () => {
 
           {mostrarDetallesCorte && vistaDigital === 'corte' ? (
             <section role="tabpanel" aria-label="Detalles del corte" className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F151C]">
-              <div className="h-64 overflow-hidden bg-[#141A21] sm:h-72">
+              <div className="h-40 overflow-hidden bg-[#141A21] sm:h-48">
                 <img
                   src={imagenCorte}
                   alt={corteRelacionado?.nombre ?? c.servicio_nombre}
                   className="h-full w-full object-cover"
                 />
               </div>
-              <div className="space-y-4 p-5 sm:p-7">
+              <div className="space-y-3 p-4 sm:p-5">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Detalle del servicio</p>
-                  <h2 className="mt-1 font-heading text-2xl font-black leading-tight text-[#EAF0F6] sm:text-3xl">
+                  <h2 className="mt-1 font-heading text-xl font-black leading-tight text-[#EAF0F6] sm:text-2xl">
                     {corteRelacionado?.nombre ?? c.servicio_nombre}
                   </h2>
                   <p className="mt-1 text-sm font-semibold text-[#93A1B1]">
@@ -223,8 +223,8 @@ export const TicketModal: React.FC = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-white/8 bg-[#141A21] p-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-white/8 bg-[#141A21] p-2.5">
                     <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">
                       <Timer className="h-3.5 w-3.5 text-cyan-300" /> Duración
                     </span>
@@ -232,7 +232,7 @@ export const TicketModal: React.FC = () => {
                       {duracionLegible(corteRelacionado?.duracion_minutos ?? c.duracion_minutos)}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-white/8 bg-[#141A21] p-3">
+                  <div className="rounded-xl border border-white/8 bg-[#141A21] p-2.5">
                     <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">
                       <Scissors className="h-3.5 w-3.5 text-cyan-300" /> Precio
                     </span>
@@ -240,7 +240,7 @@ export const TicketModal: React.FC = () => {
                       {formatoCOP(corteRelacionado?.precio_sugerido ?? c.precio_total)}
                     </p>
                   </div>
-                  <div className="col-span-2 rounded-xl border border-white/8 bg-[#141A21] p-3">
+                  <div className="col-span-2 rounded-xl border border-white/8 bg-[#141A21] p-2.5">
                     <span className="text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">Barbero asignado</span>
                     <p className="mt-1 text-sm font-black text-[#EAF0F6]">{c.barbero_nombre}</p>
                   </div>

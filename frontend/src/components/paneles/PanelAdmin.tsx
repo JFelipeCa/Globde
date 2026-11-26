@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Coins, CalendarDays, Scissors, Award, Send, Download, Search, Check, X,
   Pencil, Eye, Ban, ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, TrendingUp, Users,
-  Gift, Receipt, UserRound, XCircle, LogOut, RefreshCw,
+  Gift, Receipt, UserRound, XCircle, LogOut, RefreshCw, Banknote, CreditCard,
+  Landmark, Smartphone, WalletCards,
   Sun, Moon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
@@ -22,6 +23,24 @@ const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia', 'nequi', 'daviplat
 
 type EstadoFacturaAdmin = 'pendiente' | 'pagada' | 'anulada' | 'reembolsada';
 type MetodoPagoAdmin = (typeof METODOS_PAGO)[number];
+
+const ICONOS_METODO_PAGO: Record<MetodoPagoAdmin, React.ElementType> = {
+  efectivo: Banknote,
+  tarjeta: CreditCard,
+  transferencia: Landmark,
+  nequi: Smartphone,
+  daviplata: Smartphone,
+  otro: WalletCards,
+};
+
+const ETIQUETAS_METODO_PAGO: Record<MetodoPagoAdmin, string> = {
+  efectivo: 'Efectivo',
+  tarjeta: 'Tarjeta',
+  transferencia: 'Transferencia',
+  nequi: 'Nequi',
+  daviplata: 'DaviPlata',
+  otro: 'Otro medio',
+};
 
 interface FacturaAdmin {
   id_factura: number;
@@ -1110,56 +1129,70 @@ export const PanelAdmin: React.FC = () => {
 
         {/* CITAS */}
         {seccion === 'citas' && (
-          <div className="anim-aparecer space-y-4">
-            <div className="flex justify-end">
-              <button onClick={abrirNuevaCita} className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black">
-                <Plus className="h-4 w-4" /> Nueva cita
-              </button>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#6B7A8C]" />
-                <input value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
-                  placeholder="Buscar por cliente, código o servicio…" className={input + ' pl-10'} />
+          <div className="citas-admin anim-aparecer space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-800">Agenda de reservas</p>
+                <p className="mt-1 text-xs text-slate-500">Busca, filtra y administra las citas de tu equipo.</p>
               </div>
-              <select value={fBarbero} onChange={(e) => { setFBarbero(e.target.value); setPagina(1); }} className={input + ' sm:w-52'}>
-                <option value="todos">Todos los barberos</option>
-                {barberos.map((b) => <option key={b.id_barbero} value={b.id_barbero}>{b.nombre}</option>)}
-              </select>
-              <select value={fEstado} onChange={(e) => { setFEstado(e.target.value); setPagina(1); }} className={input + ' sm:w-48'}>
-                <option value="todos">Todos los estados</option>
-                {['pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada', 'no_asistio'].map((e) => (
-                  <option key={e} value={e}>{estiloEstado(e).texto}</option>
-                ))}
-              </select>
-              <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-[10px] font-semibold text-[#93A1B1]">
-                Desde
-                <input type="date" value={fechaDesdeCitas}
-                  max={fechaHastaCitas || undefined}
-                  onChange={(e) => { setFechaDesdeCitas(e.target.value); setPagina(1); }}
-                  className={input} />
-              </label>
-              <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-[10px] font-semibold text-[#93A1B1]">
-                Hasta
-                <input type="date" value={fechaHastaCitas}
-                  min={fechaDesdeCitas || undefined}
-                  onChange={(e) => { setFechaHastaCitas(e.target.value); setPagina(1); }}
-                  className={input} />
-              </label>
-              {(fechaDesdeCitas || fechaHastaCitas) && (
-                <button type="button" onClick={() => {
-                  setFechaDesdeCitas('');
-                  setFechaHastaCitas('');
-                  setPagina(1);
-                }} className="rounded-xl border border-white/12 px-3 py-2 text-xs font-bold text-[#93A1B1] hover:bg-white/5">
-                  Limpiar fechas
+              <div className="flex items-center gap-3">
+                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
+                  {pag.total} {pag.total === 1 ? 'cita' : 'citas'}
+                </span>
+                <button
+                  onClick={abrirNuevaCita}
+                  className="flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-[#06232A] shadow-sm shadow-cyan-900/10 transition hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2"
+                >
+                  <Plus className="h-4 w-4" /> Nueva cita
                 </button>
-              )}
+              </div>
+            </div>
+            <div className="card rounded-2xl p-3 shadow-sm sm:p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="relative min-w-[220px] flex-1">
+                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#6B7A8C]" />
+                  <input value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
+                    placeholder="Buscar por cliente, código o servicio…" className={input + ' pl-10'} />
+                </div>
+                <select value={fBarbero} onChange={(e) => { setFBarbero(e.target.value); setPagina(1); }} className={input + ' sm:w-52'}>
+                  <option value="todos">Todos los barberos</option>
+                  {barberos.map((b) => <option key={b.id_barbero} value={b.id_barbero}>{b.nombre}</option>)}
+                </select>
+                <select value={fEstado} onChange={(e) => { setFEstado(e.target.value); setPagina(1); }} className={input + ' sm:w-48'}>
+                  <option value="todos">Todos los estados</option>
+                  {['pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada', 'no_asistio'].map((e) => (
+                    <option key={e} value={e}>{estiloEstado(e).texto}</option>
+                  ))}
+                </select>
+                <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs font-semibold text-slate-600">
+                  Desde
+                  <input type="date" value={fechaDesdeCitas}
+                    max={fechaHastaCitas || undefined}
+                    onChange={(e) => { setFechaDesdeCitas(e.target.value); setPagina(1); }}
+                    className={input} />
+                </label>
+                <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs font-semibold text-slate-600">
+                  Hasta
+                  <input type="date" value={fechaHastaCitas}
+                    min={fechaDesdeCitas || undefined}
+                    onChange={(e) => { setFechaHastaCitas(e.target.value); setPagina(1); }}
+                    className={input} />
+                </label>
+                {(fechaDesdeCitas || fechaHastaCitas) && (
+                  <button type="button" onClick={() => {
+                    setFechaDesdeCitas('');
+                    setFechaHastaCitas('');
+                    setPagina(1);
+                  }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50">
+                    Limpiar fechas
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="card overflow-hidden">
+            <div className="tabla-citas-admin card overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[1080px] text-left text-sm">
                   <thead className="bg-[#0F151C] text-[11px] uppercase tracking-wide text-[#6B7A8C]">
                     <tr>
                       <th className="p-4">Código</th><th className="p-4">Cliente</th><th className="p-4">Servicio</th>
@@ -1501,7 +1534,7 @@ export const PanelAdmin: React.FC = () => {
         )}
 
         {seccion === 'puntos' && (
-          <div className="anim-aparecer grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,.7fr)]">
+          <div className="club-puntos-admin anim-aparecer grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,.7fr)]">
             <section className="card overflow-hidden">
               <div className="border-b border-slate-100 p-4">
                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -1532,7 +1565,7 @@ export const PanelAdmin: React.FC = () => {
               {clientesPuntosCargando ? (
                 <p className="p-8 text-center text-xs text-slate-500">Buscando clientes…</p>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div aria-label="Clientes del club de puntos" className="club-puntos-lista max-h-[min(62vh,600px)] overflow-y-auto divide-y divide-slate-100">
                   {clientesPuntos.map((cliente) => (
                     <button key={cliente.id_cliente} onClick={() => {
                       setClientePuntosSeleccionado(cliente);
@@ -1540,12 +1573,13 @@ export const PanelAdmin: React.FC = () => {
                       setMotivoAjustePuntos('');
                       setErrorAjustePuntos('');
                     }}
-                      className={`flex w-full items-center justify-between gap-3 p-4 text-left transition hover:bg-cyan-50 ${
-                        clientePuntosSeleccionado?.id_cliente === cliente.id_cliente ? 'bg-cyan-50' : ''
+                      aria-pressed={clientePuntosSeleccionado?.id_cliente === cliente.id_cliente}
+                      className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition hover:bg-cyan-50 ${
+                        clientePuntosSeleccionado?.id_cliente === cliente.id_cliente ? 'club-puntos-seleccionado bg-cyan-50' : ''
                       }`}>
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-cyan-800">
-                          <UserRound className="h-4 w-4" />
+                        <span className="club-puntos-icono flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-cyan-800">
+                          <UserRound className="h-3.5 w-3.5" />
                         </span>
                         <span className="min-w-0">
                           <span className="block truncate text-xs font-bold text-slate-800">{cliente.nombre}</span>
@@ -1582,23 +1616,25 @@ export const PanelAdmin: React.FC = () => {
               </div>
             </section>
 
-            <section className="card p-5">
+            <section className="card w-full p-5 xl:sticky xl:top-6">
               <h2 className="font-heading text-base font-black text-slate-950">Ajustar saldo</h2>
               {!clientePuntosSeleccionado ? (
-                <div className="mt-8 text-center">
-                  <Gift className="mx-auto h-8 w-8 text-cyan-600" />
-                  <p className="mt-2 text-xs text-slate-500">Selecciona un cliente para consultar su saldo y registrar un ajuste.</p>
+                <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 p-4">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700">
+                    <Gift className="h-5 w-5" />
+                  </span>
+                  <p className="text-xs leading-relaxed text-slate-600">Elige un cliente de la lista para consultar su saldo y registrar un ajuste.</p>
                 </div>
               ) : (
                 <>
-                  <div className="mt-4 rounded-xl bg-cyan-50 p-4">
-                    <p className="text-xs font-bold text-slate-800">{clientePuntosSeleccionado.nombre}</p>
-                    <p className="mt-1 text-[10px] text-slate-500">{clientePuntosSeleccionado.correo}</p>
+                  <div className="club-puntos-cliente mt-4 rounded-xl bg-cyan-50 p-4">
+                    <p className="club-puntos-nombre text-xs font-bold text-slate-800">{clientePuntosSeleccionado.nombre}</p>
+                    <p className="club-puntos-correo mt-1 text-[10px] text-slate-500">{clientePuntosSeleccionado.correo}</p>
                     <div className="mt-3 flex items-end justify-between">
-                      <span className="text-[10px] text-slate-600">Saldo actual</span>
-                      <strong className="font-heading text-2xl font-black text-cyan-800">{clientePuntosSeleccionado.puntos_saldo} pts</strong>
+                      <span className="club-puntos-saldo-label text-[10px] text-slate-600">Saldo actual</span>
+                      <strong className="club-puntos-saldo font-heading text-2xl font-black text-cyan-800">{clientePuntosSeleccionado.puntos_saldo} pts</strong>
                     </div>
-                    <p className="text-right text-[9px] text-slate-500">Nivel {clientePuntosSeleccionado.nivel_fidelizacion}</p>
+                    <p className="club-puntos-nivel text-right text-[9px] text-slate-500">Nivel {clientePuntosSeleccionado.nivel_fidelizacion}</p>
                   </div>
                   <form onSubmit={guardarAjustePuntos} className="mt-4 space-y-3">
                     <div>
@@ -1636,7 +1672,7 @@ export const PanelAdmin: React.FC = () => {
                 }} className="font-black underline">Reintentar</button>
               </div>
             )}
-            <section className="card overflow-hidden">
+            <section className="facturacion-tabla card overflow-hidden">
               <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row">
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
@@ -1881,7 +1917,7 @@ export const PanelAdmin: React.FC = () => {
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-[#93A1B1]">Fecha</label>
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div role="group" aria-label="Seleccionar fecha" className="agenda-fechas-scroll flex gap-2 overflow-x-auto pb-1">
                   {Array.from({ length: 10 }, (_, i) => sumarDiasISO(i)).map((d) => {
                     const inf = desglosarFecha(d);
                     return (
@@ -1905,7 +1941,7 @@ export const PanelAdmin: React.FC = () => {
                   {franjasEdit.map((f) => (
                     <button key={f.ini} disabled={!f.libre} onClick={() => setEHora(f.ini)}
                       className={`rounded-xl border px-1.5 py-1.5 text-center text-[11px] transition ${
-                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#3D4855] line-through'
+                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#93A1B1] line-through'
                         : eHora === f.ini ? 'border-teal-400 bg-teal-400 text-[#04211F]'
                         : 'border-white/10 text-[#93A1B1] hover:border-teal-400/50'
                       }`}>
@@ -1999,7 +2035,7 @@ export const PanelAdmin: React.FC = () => {
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-[#93A1B1]">Fecha</label>
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div role="group" aria-label="Seleccionar fecha" className="agenda-fechas-scroll flex gap-2 overflow-x-auto pb-1">
                   {Array.from({ length: 10 }, (_, i) => sumarDiasISO(i)).map((d) => {
                     const inf = desglosarFecha(d);
                     return (
@@ -2023,7 +2059,7 @@ export const PanelAdmin: React.FC = () => {
                   {franjasNueva.map((f) => (
                     <button key={f.ini} disabled={!f.libre} onClick={() => setNHora(f.ini)}
                       className={`rounded-xl border px-1.5 py-1.5 text-center text-[11px] transition ${
-                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#3D4855] line-through'
+                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#93A1B1] line-through'
                         : nHora === f.ini ? 'border-teal-400 bg-teal-400 text-[#04211F]'
                         : 'border-white/10 text-[#93A1B1] hover:border-teal-400/50'
                       }`}>
@@ -2032,7 +2068,10 @@ export const PanelAdmin: React.FC = () => {
                     </button>
                   ))}
                   {franjasNueva.length === 0 && (
-                    <p className="col-span-full text-xs text-[#6B7A8C]">El barbero no tiene franjas ese día.</p>
+                    <p role="status" className="col-span-full flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                      <CalendarDays className="h-4 w-4 shrink-0 text-cyan-600" />
+                      No hay horarios disponibles para este barbero en esta fecha. Prueba otro día.
+                    </p>
                   )}
                 </div>
               </div>
@@ -2056,71 +2095,285 @@ export const PanelAdmin: React.FC = () => {
       {/* MODAL NUEVO SERVICIO */}
       {modalServ && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="anim-zoom card w-full max-w-md overflow-hidden">
-            <div className="flex items-start justify-between bg-gradient-to-r from-teal-600 to-teal-400 px-6 py-5 text-[#04211F]">
-              <h3 className="font-heading text-2xl font-black">Nuevo servicio</h3>
-              <button onClick={() => setModalServ(false)} className="rounded-full bg-[#04211F]/15 p-2"><X className="h-4 w-4" /></button>
-            </div>
-            <form onSubmit={crearServicio} className="space-y-3 p-6">
-              <input value={sNombre} onChange={(e) => setSNombre(e.target.value)} required placeholder="Nombre del servicio" className={input} />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" value={sPrecio} onChange={(e) => setSPrecio(Number(e.target.value))} placeholder="Precio" className={input} />
-                <input type="number" value={sDur} onChange={(e) => setSDur(Number(e.target.value))} placeholder="Duración (min)" className={input} />
-                <label className="text-xs font-semibold text-[#93A1B1]">
-                  Puntos que otorga al completar
-                  <input type="number" min={0} step={1} value={sPuntos}
-                    onChange={(e) => setSPuntos(Number(e.target.value))}
-                    className={`${input} mt-1`} />
-                </label>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-nuevo-servicio"
+            className="anim-zoom card max-h-[92vh] w-full max-w-2xl overflow-y-auto"
+          >
+            <header className="sticky top-0 z-10 flex items-start justify-between gap-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-5 text-white sm:px-6">
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/40">
+                  <Scissors className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">Catálogo de servicios</p>
+                  <h2 id="modal-nuevo-servicio" className="font-heading mt-1 text-xl font-black sm:text-2xl">Nuevo servicio</h2>
+                  <p className="mt-1 text-xs text-slate-300">Define cómo se mostrará y cuánto costará.</p>
+                </div>
               </div>
-              <select value={sCat} onChange={(e) => setSCat(e.target.value as CategoriaServicio)} className={input}>
-                {['Cortes', 'Barba', 'Combos', 'Tratamientos', 'Infantil'].map((c) => <option key={c}>{c}</option>)}
-              </select>
-              <textarea rows={2} value={sDesc} onChange={(e) => setSDesc(e.target.value)} placeholder="Descripción" className={input + ' resize-none'} />
-              <input
-                type="url"
-                value={sImagen}
-                onChange={(e) => setSImagen(e.target.value)}
-                placeholder="URL de imagen (opcional)"
-                className={input}
-              />
-              <button type="submit" className="btn-primario w-full rounded-2xl py-3 text-sm font-black">Guardar servicio</button>
+              <button
+                type="button"
+                onClick={() => setModalServ(false)}
+                aria-label="Cerrar"
+                className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            <form onSubmit={crearServicio} className="space-y-5 p-5 sm:p-6">
+              <div>
+                <label htmlFor="servicio-nombre" className="mb-1.5 block text-xs font-bold text-slate-700">
+                  Nombre del servicio <span className="text-cyan-700">*</span>
+                </label>
+                <input
+                  id="servicio-nombre"
+                  value={sNombre}
+                  onChange={(e) => setSNombre(e.target.value)}
+                  required
+                  placeholder="Ej. Corte clásico"
+                  className={input}
+                />
+              </div>
+
+              <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-cyan-700" />
+                  <h3 className="text-sm font-bold text-slate-800">Precio y fidelización</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="text-xs font-semibold text-slate-600">
+                    Precio (COP)
+                    <div className="relative mt-1.5">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">$</span>
+                      <input
+                        type="number"
+                        value={sPrecio}
+                        onChange={(e) => setSPrecio(Number(e.target.value))}
+                        className={`${input} pl-7 pr-3`}
+                      />
+                    </div>
+                  </label>
+                  <label className="text-xs font-semibold text-slate-600">
+                    Duración
+                    <div className="relative mt-1.5">
+                      <input
+                        type="number"
+                        value={sDur}
+                        onChange={(e) => setSDur(Number(e.target.value))}
+                        className={`${input} pr-12`}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">min</span>
+                    </div>
+                  </label>
+                  <label className="text-xs font-semibold text-slate-600">
+                    Puntos al completar
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={sPuntos}
+                      onChange={(e) => setSPuntos(Number(e.target.value))}
+                      className={`${input} mt-1.5`}
+                    />
+                  </label>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">Los puntos se asignan cuando la cita queda completada.</p>
+              </section>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="servicio-categoria" className="mb-1.5 block text-xs font-bold text-slate-700">Categoría</label>
+                  <select
+                    id="servicio-categoria"
+                    value={sCat}
+                    onChange={(e) => setSCat(e.target.value as CategoriaServicio)}
+                    className={input}
+                  >
+                    {['Cortes', 'Barba', 'Combos', 'Tratamientos', 'Infantil'].map((categoria) => (
+                      <option key={categoria}>{categoria}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="servicio-imagen" className="mb-1.5 block text-xs font-bold text-slate-700">
+                    Imagen <span className="font-normal text-slate-500">· opcional</span>
+                  </label>
+                  <input
+                    id="servicio-imagen"
+                    type="url"
+                    value={sImagen}
+                    onChange={(e) => setSImagen(e.target.value)}
+                    placeholder="https://..."
+                    className={input}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="servicio-descripcion" className="mb-1.5 block text-xs font-bold text-slate-700">
+                  Descripción <span className="font-normal text-slate-500">· opcional</span>
+                </label>
+                <textarea
+                  id="servicio-descripcion"
+                  rows={3}
+                  value={sDesc}
+                  onChange={(e) => setSDesc(e.target.value)}
+                  placeholder="Describe brevemente qué incluye el servicio."
+                  className={`${input} resize-y`}
+                />
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setModalServ(false)}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-black text-[#06232A] shadow-lg shadow-cyan-900/15 transition hover:bg-cyan-400"
+                >
+                  <Plus className="h-4 w-4" />
+                  Guardar servicio
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
 
       {citaFacturar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-labelledby="modal-emitir-factura"
-            className="anim-zoom card w-full max-w-md overflow-hidden">
-            <div className="flex items-start justify-between bg-cyan-500 px-5 py-4 text-[#06232A]">
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest">Cita completada</p>
-                <h2 id="modal-emitir-factura" className="font-heading text-lg font-black">Emitir factura</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-emitir-factura"
+            className="modal-pago-superficie anim-zoom w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/30"
+          >
+            <header className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-5 text-white sm:px-6">
+              <div className="absolute -right-8 -top-12 h-36 w-36 rounded-full border-[18px] border-cyan-400/10" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/40">
+                    <Receipt className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                      Cita completada · {citaFacturar.codigo_reserva}
+                    </p>
+                    <h2 id="modal-emitir-factura" className="font-heading mt-1 text-xl font-black sm:text-2xl">
+                      Emitir factura
+                    </h2>
+                    <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">
+                      <Check className="h-3 w-3" /> Servicio completado
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCitaFacturar(null)}
+                  aria-label="Cerrar"
+                  className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button onClick={() => setCitaFacturar(null)} aria-label="Cerrar"
-                className="rounded-full bg-black/10 p-1.5 hover:bg-black/20"><X className="h-4 w-4" /></button>
-            </div>
-            <form onSubmit={emitirFactura} className="space-y-4 p-5">
-              <div className="rounded-xl bg-slate-50 p-3 text-xs">
-                <p className="font-bold text-slate-900">{citaFacturar.cliente_nombre} · {citaFacturar.servicio_nombre}</p>
-                <p className="mt-1 text-slate-500">{citaFacturar.codigo_reserva} · {formatoCOP(citaFacturar.precio_total)}</p>
+            </header>
+
+            <form onSubmit={emitirFactura} className="space-y-5 p-5 sm:p-6">
+              <section className="modal-pago-resumen rounded-2xl border border-cyan-900/10 bg-gradient-to-r from-cyan-50 to-slate-50 p-4 sm:p-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Resumen de la cita</p>
+                <p className="mt-1 text-sm font-black text-slate-900">
+                  {citaFacturar.cliente_nombre} · {citaFacturar.servicio_nombre}
+                </p>
+                <div className="mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-slate-200/80 pt-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Total a facturar</p>
+                    <p className="font-heading mt-0.5 text-2xl font-black tracking-tight text-slate-950">
+                      {formatoCOP(citaFacturar.precio_total)}
+                    </p>
+                  </div>
+                  <span className="rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold text-slate-600">
+                    {fechaLarga(citaFacturar.fecha)}
+                  </span>
+                </div>
+              </section>
+
+              {errorAccionFactura && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs font-semibold text-rose-700">
+                  {errorAccionFactura}
+                </p>
+              )}
+
+              <fieldset>
+                <legend className="mb-1 text-sm font-bold text-slate-800">Medio de pago esperado</legend>
+                <p className="mb-2.5 text-xs text-slate-500">Puedes registrar el pago cuando lo recibas.</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {METODOS_PAGO.map((metodo) => {
+                    const IconoMetodo = ICONOS_METODO_PAGO[metodo];
+                    const seleccionado = metodoNuevaFactura === metodo;
+                    return (
+                      <label key={metodo} className="relative cursor-pointer">
+                        <input
+                          className="peer sr-only"
+                          type="radio"
+                          name="medio-pago-factura"
+                          value={metodo}
+                          checked={seleccionado}
+                          onChange={() => setMetodoNuevaFactura(metodo)}
+                        />
+                        <span className={`flex min-h-[68px] items-center gap-2 rounded-xl border px-3 py-2.5 transition peer-focus-visible:ring-2 peer-focus-visible:ring-cyan-500 peer-focus-visible:ring-offset-2 ${
+                          seleccionado
+                            ? 'modal-metodo-seleccionado border-cyan-600 bg-cyan-50 text-cyan-950 shadow-sm'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:bg-slate-50'
+                        }`}>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                            seleccionado ? 'bg-cyan-500 text-white' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            <IconoMetodo className="h-4 w-4" />
+                          </span>
+                          <span className="text-xs font-bold">{ETIQUETAS_METODO_PAGO[metodo]}</span>
+                          {seleccionado && <Check className="modal-metodo-check ml-auto h-4 w-4 shrink-0 text-cyan-700" />}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <div className="modal-factura-pendiente flex items-start gap-2 rounded-xl border border-amber-200/70 bg-amber-50/80 px-3.5 py-3 text-xs text-amber-900">
+                <Receipt className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>La factura se emitirá como pendiente. El método elegido es una referencia; podrás confirmar el pago después.</p>
               </div>
-              {errorAccionFactura && <p className="rounded-lg bg-rose-50 p-2.5 text-[10px] font-semibold text-rose-700">{errorAccionFactura}</p>}
-              <div>
-                <label className="mb-1 block text-[10px] font-bold text-slate-600">Medio de pago esperado</label>
-                <select value={metodoNuevaFactura} onChange={(e) => setMetodoNuevaFactura(e.target.value as MetodoPagoAdmin)} className={input}>
-                  {METODOS_PAGO.map((metodo) => <option key={metodo} value={metodo}>{metodo}</option>)}
-                </select>
-                <p className="mt-1 text-[9px] text-slate-500">La factura quedará pendiente hasta registrar el pago.</p>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setCitaFacturar(null)}
-                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600">Cancelar</button>
-                <button type="submit" disabled={guardandoFactura}
-                  className="flex-1 rounded-xl bg-slate-950 py-2.5 text-xs font-black text-white disabled:opacity-50">
-                  {guardandoFactura ? 'Emitiendo…' : 'Emitir factura'}
+
+              <div className="modal-pago-acciones flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setCitaFacturar(null)}
+                  className="modal-pago-cancelar flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoFactura}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-black text-[#06232A] shadow-lg shadow-cyan-900/15 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {guardandoFactura ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+                      Emitiendo…
+                    </>
+                  ) : (
+                    <>
+                      <Receipt className="h-4 w-4" />
+                      Emitir factura
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -2129,32 +2382,127 @@ export const PanelAdmin: React.FC = () => {
       )}
 
       {facturaPago && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" aria-labelledby="modal-registrar-pago"
-            className="anim-zoom card w-full max-w-md overflow-hidden">
-            <div className="flex items-start justify-between bg-cyan-500 px-5 py-4 text-[#06232A]">
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest">{facturaPago.numero_factura}</p>
-                <h2 id="modal-registrar-pago" className="font-heading text-lg font-black">Registrar pago</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-registrar-pago"
+            className="modal-pago-superficie anim-zoom w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/30"
+          >
+            <header className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-5 text-white sm:px-6">
+              <div className="absolute -right-8 -top-12 h-36 w-36 rounded-full border-[18px] border-cyan-400/10" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/40">
+                    <Receipt className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                      {facturaPago.numero_factura}
+                    </p>
+                    <h2 id="modal-registrar-pago" className="font-heading mt-1 text-xl font-black sm:text-2xl">
+                      Registrar pago
+                    </h2>
+                    <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold text-amber-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                      Factura pendiente
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFacturaPago(null)}
+                  aria-label="Cerrar"
+                  className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <button onClick={() => setFacturaPago(null)} aria-label="Cerrar"
-                className="rounded-full bg-black/10 p-1.5 hover:bg-black/20"><X className="h-4 w-4" /></button>
-            </div>
-            <form onSubmit={registrarPagoFactura} className="space-y-4 p-5">
-              <p className="text-sm text-slate-600">Confirma el pago de <strong className="text-slate-950">{formatoCOP(facturaPago.total)}</strong>.</p>
-              {errorAccionFactura && <p className="rounded-lg bg-rose-50 p-2.5 text-[10px] font-semibold text-rose-700">{errorAccionFactura}</p>}
-              <div>
-                <label className="mb-1 block text-[10px] font-bold text-slate-600">Medio de pago recibido</label>
-                <select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value as MetodoPagoAdmin)} className={input}>
-                  {METODOS_PAGO.map((metodo) => <option key={metodo} value={metodo}>{metodo}</option>)}
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setFacturaPago(null)}
-                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600">Cancelar</button>
-                <button type="submit" disabled={guardandoFactura}
-                  className="flex-1 rounded-xl bg-cyan-500 py-2.5 text-xs font-black text-[#06232A] disabled:opacity-50">
-                  {guardandoFactura ? 'Guardando…' : 'Confirmar pago'}
+            </header>
+
+            <form onSubmit={registrarPagoFactura} className="space-y-5 p-5 sm:p-6">
+              <section className="modal-pago-resumen rounded-2xl border border-cyan-900/10 bg-gradient-to-r from-cyan-50 to-slate-50 p-4 sm:p-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Total recibido
+                </p>
+                <p className="mt-1 font-heading text-3xl font-black tracking-tight text-slate-950">
+                  {formatoCOP(facturaPago.total)}
+                </p>
+                {(facturaPago.cliente_nombre || facturaPago.servicio_nombre) && (
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-200/80 pt-3 text-xs text-slate-600">
+                    {facturaPago.cliente_nombre && <span>{facturaPago.cliente_nombre}</span>}
+                    {facturaPago.servicio_nombre && <span>{facturaPago.servicio_nombre}</span>}
+                  </div>
+                )}
+              </section>
+
+              {errorAccionFactura && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs font-semibold text-rose-700">
+                  {errorAccionFactura}
+                </p>
+              )}
+
+              <fieldset>
+                <legend className="mb-2.5 text-sm font-bold text-slate-800">
+                  ¿Cómo recibiste el pago?
+                </legend>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {METODOS_PAGO.map((metodo) => {
+                    const IconoMetodo = ICONOS_METODO_PAGO[metodo];
+                    const seleccionado = metodoPago === metodo;
+                    return (
+                      <label key={metodo} className="relative cursor-pointer">
+                        <input
+                          className="peer sr-only"
+                          type="radio"
+                          name="metodo-pago"
+                          value={metodo}
+                          checked={seleccionado}
+                          onChange={() => setMetodoPago(metodo)}
+                        />
+                        <span className={`flex min-h-[68px] items-center gap-2 rounded-xl border px-3 py-2.5 transition peer-focus-visible:ring-2 peer-focus-visible:ring-cyan-500 peer-focus-visible:ring-offset-2 ${
+                          seleccionado
+                            ? 'modal-metodo-seleccionado border-cyan-600 bg-cyan-50 text-cyan-950 shadow-sm'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:bg-slate-50'
+                        }`}>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                            seleccionado ? 'bg-cyan-500 text-white' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            <IconoMetodo className="h-4 w-4" />
+                          </span>
+                          <span className="text-xs font-bold">{ETIQUETAS_METODO_PAGO[metodo]}</span>
+                          {seleccionado && <Check className="modal-metodo-check ml-auto h-4 w-4 shrink-0 text-cyan-700" />}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <div className="modal-pago-acciones flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setFacturaPago(null)}
+                  className="modal-pago-cancelar flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoFactura}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-black text-[#06232A] shadow-lg shadow-cyan-900/15 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {guardandoFactura ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+                      Guardando…
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Confirmar pago
+                    </>
+                  )}
                 </button>
               </div>
             </form>

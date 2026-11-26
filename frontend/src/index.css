@@ -42,6 +42,23 @@
   border: 3px solid #0A0A0A;
 }
 ::-webkit-scrollbar-thumb:hover { background: #D4AF37; }
+.agenda-fechas-scroll {
+  scrollbar-color: #CBD5E1 transparent;
+  scrollbar-width: thin;
+}
+.agenda-fechas-scroll::-webkit-scrollbar { height: 4px; }
+.agenda-fechas-scroll::-webkit-scrollbar-track { background: transparent; }
+.agenda-fechas-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border: 0;
+  border-radius: 999px;
+}
+.tema-oscuro .agenda-fechas-scroll {
+  scrollbar-color: #3D4B58 transparent;
+}
+.tema-oscuro .agenda-fechas-scroll::-webkit-scrollbar-thumb {
+  background: #3D4B58;
+}
 
 /* ---------- Superficies ---------- */
 .card {
@@ -603,6 +620,16 @@ input[type=date] { color-scheme: light; }
 .tema-oscuro .panel-cliente-footer [class*="border-[#e6e9e3]"] {
   border-color: #303D48 !important;
 }
+.tema-oscuro .panel-cliente-footer [class*="border-[#edf0ec]"] {
+  border-color: #26333D !important;
+}
+.tema-claro .panel-cliente-dashboard [class*="border-white/"] {
+  border-color: #E3E9E6 !important;
+}
+.tema-oscuro .booking-points-toggle {
+  background-color: #12333D !important;
+  border-color: rgba(103, 232, 249, .35) !important;
+}
 .tema-oscuro .panel-admin [class*="text-slate-950"],
 .tema-oscuro .panel-admin [class*="text-slate-900"],
 .tema-oscuro .panel-admin [class*="text-slate-800"],
@@ -621,6 +648,98 @@ input[type=date] { color-scheme: light; }
 .tema-oscuro .panel-admin [class*="border-slate-200"],
 .tema-oscuro .panel-admin [class*="border-slate-300"] {
   border-color: #303D48 !important;
+}
+.tema-oscuro .panel-admin [class*="border-slate-100"] {
+  border-color: #26333D !important;
+}
+.tema-oscuro .panel-admin [class*="divide-slate-100"] > :not(:last-child) {
+  border-top-color: #26333D !important;
+  border-bottom-color: #26333D !important;
+}
+.tema-oscuro .panel-admin .modal-pago-superficie {
+  border-color: #303D48 !important;
+  background-color: #111820 !important;
+}
+.tema-oscuro .panel-admin .modal-pago-superficie .modal-pago-resumen {
+  border-color: #263D47 !important;
+  background: linear-gradient(110deg, #142B32 0%, #17232A 100%) !important;
+}
+.tema-oscuro .panel-admin .modal-pago-superficie label > span {
+  border-color: #303D48 !important;
+  background-color: #141A21 !important;
+}
+.tema-oscuro .panel-admin .modal-pago-superficie .modal-metodo-seleccionado {
+  border-color: #22D3EE !important;
+  background-color: #12333D !important;
+  color: #EAF0F6 !important;
+}
+.tema-oscuro .panel-admin .modal-pago-superficie .modal-metodo-seleccionado .modal-metodo-check {
+  color: #67E8F9 !important;
+}
+.tema-oscuro .panel-admin .modal-pago-superficie .modal-factura-pendiente {
+  border-color: #66501D !important;
+  background-color: #282317 !important;
+  color: #F5D98D !important;
+}
+.tema-oscuro .panel-admin .modal-pago-superficie .modal-pago-acciones {
+  border-top-color: #26333D !important;
+}
+.tema-oscuro .panel-admin .modal-pago-superficie .modal-pago-cancelar {
+  border-color: #303D48 !important;
+  background-color: #17212B !important;
+  color: #C6D0DC !important;
+}
+.tema-claro .panel-admin .citas-admin .card {
+  border-color: #DFE7EA;
+  box-shadow: 0 12px 28px -24px rgba(15, 23, 42, .35);
+}
+.tema-claro .panel-admin .citas-admin [class*="border-white/"] {
+  border-color: #DCE5E8 !important;
+}
+.tema-claro .panel-admin .citas-admin [class*="divide-white/"] > :not(:last-child) {
+  border-top-color: #E4EAED !important;
+  border-bottom-color: #E4EAED !important;
+}
+.tema-claro .panel-admin .tabla-citas-admin tbody tr:hover {
+  background-color: #F0FBFC !important;
+}
+.tema-oscuro .panel-admin .club-puntos-lista button:hover,
+.tema-oscuro .panel-admin .club-puntos-lista .club-puntos-seleccionado {
+  background-color: #12333D !important;
+}
+.tema-oscuro .panel-admin .club-puntos-icono {
+  background-color: #16414B !important;
+  color: #A5F3FC !important;
+}
+.tema-oscuro .panel-admin .club-puntos-cliente {
+  border: 1px solid #20505C !important;
+  background: linear-gradient(120deg, #12333D 0%, #172A34 100%) !important;
+}
+.tema-oscuro .panel-admin .club-puntos-cliente .club-puntos-nombre {
+  color: #F1F7FA !important;
+}
+.tema-oscuro .panel-admin .club-puntos-cliente .club-puntos-correo,
+.tema-oscuro .panel-admin .club-puntos-cliente .club-puntos-nivel {
+  color: #B7C7D3 !important;
+}
+.tema-oscuro .panel-admin .club-puntos-cliente .club-puntos-saldo-label {
+  color: #C6D0DC !important;
+}
+.tema-oscuro .panel-admin .club-puntos-cliente .club-puntos-saldo {
+  color: #67E8F9 !important;
+}
+.tema-oscuro .panel-barbero-dashboard [class*="divide-[#edf0ec]"] > :not(:last-child) {
+  border-top-color: #26333D !important;
+  border-bottom-color: #26333D !important;
+}
+.tema-oscuro .panel-barbero-dashboard [class*="bg-[#def7f9]"] {
+  background-color: #12333D !important;
+}
+.tema-oscuro .panel-barbero-dashboard [class*="bg-[#e8f8f1]"] {
+  background-color: #17352F !important;
+}
+.tema-oscuro .panel-barbero-dashboard [class*="text-[#3d4844]"] {
+  color: #A8B5C2 !important;
 }
 
 .panel-cliente-dashboard [class*="text-[8px]"],

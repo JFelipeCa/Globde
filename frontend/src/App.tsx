@@ -53,7 +53,7 @@ const Contenido: React.FC = () => {
   const { vista, usuario } = useApp();
 
   const esBarbero = usuario?.id_rol === ROL_BARBERO;
-  const vistaPublicaDelBarbero = ['inicio', 'catalogo', 'fidelizacion'].includes(vista);
+  const vistaPublicaDelBarbero = ['inicio', 'catalogo'].includes(vista);
 
   // Si se intenta acceder a un panel sin sesión o con un rol que no corresponde
   // (p. ej. un cliente forzando 'panel-admin'), se muestra el guard en lugar del
@@ -87,12 +87,13 @@ const Contenido: React.FC = () => {
         </>
       )}
 
-      {vista === 'fidelizacion' && (
+      {vista === 'fidelizacion' && !esBarbero && (
         <>
           <Fidelizacion />
           <Resenas />
         </>
       )}
+      {vista === 'fidelizacion' && esBarbero && renderizadorPanel(<PanelBarbero />)}
 
       {vista === 'panel-cliente' && renderizadorPanel(<PanelCliente />)}
       {vista === 'panel-barbero' && renderizadorPanel(<PanelBarbero />)}

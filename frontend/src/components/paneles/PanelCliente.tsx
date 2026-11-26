@@ -6,6 +6,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import type { Cita, Servicio, PremioFidelidad, NivelFidelizacion } from '../../types';
 import { apiRequest } from '../../utils/apiClient';
+import { imagenCatalogoServicio } from '../../data/mockData';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
   hoyISO, sumarDiasISO, hora12, desglosarFecha,
@@ -27,6 +28,9 @@ const MOTIVOS = [
   'Ya no necesito el servicio',
   'Otro motivo',
 ];
+
+const fechaHoraCita = (fecha: string, hora: string): Date =>
+  new Date(`${fecha}T${hora.slice(0, 5)}:00`);
 
 interface SaldoFidelizacion {
   puntos_saldo: number;
@@ -144,7 +148,14 @@ export const PanelCliente: React.FC = () => {
   }, [rolUsuario, tab, paginaMovimientos, revisionMovimientos]);
 
   const mias = citas.filter((c) => c.id_cliente === usuario?.id_cliente || c.cliente_correo === usuario?.correo);
-  const proximas = mias.filter((c) => ['pendiente', 'confirmada', 'en_atencion'].includes(c.estado));
+  const ahora = new Date();
+  const proximas = mias.filter((c) => {
+    if (!['pendiente', 'confirmada', 'en_atencion'].includes(c.estado)) return false;
+    const inicio = fechaHoraCita(c.fecha, c.hora_inicio);
+    if (Number.isNaN(inicio.getTime())) return false;
+    if (inicio >= ahora) return true;
+    return c.estado === 'en_atencion' && fechaHoraCita(c.fecha, c.hora_fin) >= ahora;
+  });
   const proximasOrdenadas = [...proximas].sort((a, b) =>
     `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`),
   );
@@ -349,7 +360,7 @@ export const PanelCliente: React.FC = () => {
               ) : (
                 <div className="flex items-center justify-between gap-3 bg-[#f8faf8] px-4 py-4">
                   <p className="text-xs text-[#65716d]">Todavía no tienes una cita programada.</p>
-                  <button onClick={() => abrirReserva()} className="shrink-0 rounded-md bg-[#172124] px-3 py-2 text-[10px] font-bold text-white">Reservar cita</button>
+                  <button onClick={() => irA('catalogo')} className="shrink-0 rounded-md bg-[#172124] px-3 py-2 text-[10px] font-bold text-white">Ver catálogo</button>
                 </div>
               )}
             </section>
@@ -357,23 +368,31 @@ export const PanelCliente: React.FC = () => {
             <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
               <div className="mb-2 flex items-center justify-between">
                 <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#6a7772]">Reserva rápida</p>
-                  <h2 className="font-heading text-sm font-black text-[#172124]">Elige tu próximo corte</h2>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#6a7772]">Servicios destacados</p>
+                  <h2 className="font-heading text-sm font-black text-[#172124]">Ideas para tu próxima visita</h2>
                 </div>
-                <button onClick={() => irA('catalogo')} className="text-[9px] font-bold text-[#18899a] hover:underline">Catálogo</button>
+                <button onClick={() => irA('catalogo')} className="text-[9px] font-bold text-[#18899a] hover:underline">Ver catálogo</button>
               </div>
               {serviciosRapidos.length ? (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {serviciosRapidos.map((servicio, indice) => (
-                    <article key={servicio.id_servicio} className="flex min-w-0 items-center gap-2 rounded-lg border border-[#edf0ec] p-2">
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-lg ${['bg-[#e9f4f3]', 'bg-[#f5efe7]', 'bg-[#edf1f8]', 'bg-[#f7eeee]'][indice % 4]}`}>{servicio.icono}</span>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 text-[10px] font-black text-[#172124]">{servicio.nombre}</h3>
-                        <p className="text-[9px] text-[#65716d]">{duracionLegible(servicio.duracion_minutos)} · {formatoCOP(servicio.precio)}</p>
-                      </div>
-                      <button onClick={() => abrirReserva({ servicioId: servicio.id_servicio, barberoId: usuario?.id_barbero_favorito ?? undefined })} className="shrink-0 rounded-md bg-[#f0f3f0] px-2 py-1.5 text-[9px] font-bold text-[#263532] hover:bg-[#dff6f7]">Reservar</button>
-                    </article>
-                  ))}
+                  {serviciosRapidos.map((servicio) => {
+                    const imagen = imagenCatalogoServicio(servicio.nombre) ?? servicio.imagen_url;
+                    return (
+                      <article key={servicio.id_servicio} className="flex min-w-0 items-center gap-2 rounded-lg border border-[#edf0ec] p-2">
+                        {imagen ? (
+                          <img src={imagen} alt="" loading="lazy" className="h-11 w-11 shrink-0 rounded-md object-cover" />
+                        ) : (
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#e9f4f3] text-[#18899a]">
+                            <Scissors className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="line-clamp-1 text-[10px] font-black text-[#172124]">{servicio.nombre}</h3>
+                          <p className="text-[9px] text-[#65716d]">{duracionLegible(servicio.duracion_minutos)} · {formatoCOP(servicio.precio)}</p>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="rounded-lg bg-[#f8faf8] p-3 text-[10px] text-[#65716d]">Los servicios destacados no están disponibles en el catálogo activo.</p>

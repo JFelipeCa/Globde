@@ -179,6 +179,7 @@ interface ContextoApp {
   actualizarNivelBarbero: (id: number, nivel: Barbero['nivel'], pct: number) => void;
   alternarDisponibilidad: (id: number) => void;
   notificar: (titulo: string, mensaje: string, tipo?: Notificacion['tipo']) => void;
+  marcarNotificacionesLeidas: () => Promise<void>;
   eliminarNotificacion: (id: string) => Promise<void>;
   difusionMasiva: (
     titulo: string, mensaje: string, idRol: number | null, enviarCorreo: boolean
@@ -587,6 +588,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
     []
   );
+
+  const marcarNotificacionesLeidas = useCallback(async () => {
+    await apiRequest('/notificaciones/leidas', { method: 'PATCH' });
+  }, []);
 
   const eliminarNotificacion = useCallback(async (id: string) => {
     if (!id.startsWith('n')) {
@@ -1553,6 +1558,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         actualizarNivelBarbero,
         alternarDisponibilidad,
         notificar,
+        marcarNotificacionesLeidas,
         eliminarNotificacion,
         difusionMasiva,
       }}

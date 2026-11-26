@@ -547,7 +547,7 @@ export const BookingWizard: React.FC = () => {
               </div>
 
               {usuario?.id_rol === 3 && usuario.puntos >= 50 && (
-                <label className="flex cursor-pointer items-center justify-between rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3.5">
+                <label className="booking-points-toggle flex cursor-pointer items-center justify-between rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3.5">
                   <span className="flex items-center gap-2 text-xs font-bold text-amber-700">
                     <Crown className="h-4 w-4 text-amber-600" />
                     Usar 50 puntos y descontar $5.000 (tienes {usuario.puntos})
