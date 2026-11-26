@@ -18,6 +18,7 @@
 | Backend unitario | **67 passed** | `uv run --group dev pytest tests/test_unitarias.py` desde `backend/` |
 | Backend integración | **93 passed** | Ejecutadas en MySQL 8.0.46 temporal con esquema y semillas; no se apuntó a la base externa |
 | Suite completa | **160 passed, 0 skipped** | `uv run pytest --cov=app --cov-report=term-missing`; cobertura total: **69%** |
+| CI GitHub Actions | **Passed** en [`0cd0bb5`](https://github.com/JFelipeCa/Globde/commit/0cd0bb518f2d69da31075bbf8d0c40c9b2725ad4) | [Run #45906866540](https://github.com/JFelipeCa/Globde/actions/runs/45906866540): backend y frontend verdes; migraciones `upgrade`/`downgrade`, 160 pruebas en MySQL efímero, tipos, build y auditorías. La auditoría frontend conserva una alerta moderada por debajo del umbral `high`. |
 | Migraciones | **Passed** | `upgrade head` → `downgrade base` (cero objetos remanentes) → `upgrade head`; revisión final `h8b9c0d1e2f3` |
 | Inicio real de API + conexión de BD | **Passed** | Uvicorn en localhost; `/api/health` y `/docs` respondieron HTTP 200; DB conectada a MySQL 8.0.46 |
 | TypeScript frontend | **Passed** | `pnpm exec tsc -b --force` |
@@ -130,14 +131,16 @@ ejecución. No tienen etiquetas de severidad en GitHub:
 | [#21](https://github.com/JFelipeCa/Globde/issues/21) | Abierto | Decidir si migrar colores a tokens de Tailwind o simplificar la configuración | Sin etiqueta / sin asignar |
 | [#31](https://github.com/JFelipeCa/Globde/issues/31) | Abierto | Añadir notificaciones de citas por WhatsApp | Sin etiqueta / sin asignar |
 
-El run remoto más reciente consultado, [CI #43103892565](https://github.com/JFelipeCa/Globde/actions/runs/43103892565),
-falló el 11 de noviembre de 2026 en `feature/integration-test`. No corresponde
-a esta rama ni a las verificaciones locales anteriores; sigue pendiente un run
-verde de CI sobre el commit que se publique.
+El run [CI #43103892565](https://github.com/JFelipeCa/Globde/actions/runs/43103892565)
+falló el 11 de noviembre de 2026 en `feature/integration-test`; no correspondía
+a esta rama. El run posterior [CI #45906866540](https://github.com/JFelipeCa/Globde/actions/runs/45906866540)
+pasó en `docs/project-documentation` sobre `0cd0bb5`. Falta confirmar CI
+después de integrar los cambios a `develop` o `main`.
 
 ## Próximas verificaciones
 
-1. Repetir CI en el commit publicado y conservar sus artefactos JUnit/cobertura.
+1. Integrar la rama en el destino acordado y confirmar que CI pasa allí;
+   conservar los artefactos JUnit/cobertura del run.
 2. Probar el envío SMTP con una cuenta de prueba y conservar evidencia sin
    mostrar credenciales ni datos personales.
 3. Medir una compilación de producción con Lighthouse; registrar las métricas

@@ -36,6 +36,7 @@ efectivo de correo depende de la configuración SMTP.
 |---|---|---|
 | Pruebas unitarias backend | 67 aprobadas | Ejecutadas localmente sin conexión a la base de datos. |
 | Suite backend completa | 160 aprobadas, 0 omitidas; cobertura 69% | Ejecutada el 26 de noviembre de 2026 contra MySQL 8.0.46 desechable, con migraciones y semillas. |
+| CI GitHub Actions | **Aprobado** en `0cd0bb5` | Jobs de backend y frontend verdes; incluye migraciones, 160 pruebas, tipos, build y auditorías configuradas. En frontend queda una alerta moderada bajo el umbral de bloqueo. |
 | Migraciones | `upgrade` y `downgrade` aprobados | La reversión a `base` dejó cero objetos; después se reaplicó hasta `h8b9c0d1e2f3`. |
 | Frontend | TypeScript, ESLint, build y preview HTTP aprobados | El equipo reporta revisión visual 10/10; no hay runner E2E configurado. |
 | OpenAPI | 129 operaciones por defecto; 131 con compatibilidad v1 | Contrato generado desde la aplicación. |
@@ -64,9 +65,9 @@ reproducible, en el [plan de pruebas](pruebas/plan-pruebas.md).
 
 ## Próximas validaciones y decisiones
 
-1. **CI publicado:** repetir las verificaciones en el commit publicado y
-   guardar los artefactos. La última corrida local de backend usó MySQL 8.0.46;
-   todavía no prueba el servicio TiDB compartido.
+1. **Integración de ramas:** integrar los cambios desde `docs/project-documentation`
+   a `develop`/`main` según el flujo acordado y confirmar CI verde en la rama
+   destino. El CI actual usa MySQL efímero; no valida TiDB compartida.
 2. **Correo:** probar el envío y recepción SMTP con una cuenta y destinatario
    de prueba; las credenciales se mantienen en el entorno local.
 3. **Rendimiento:** validar una compilación de producción con Lighthouse antes
