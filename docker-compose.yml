@@ -12,6 +12,19 @@ services:
     environment:
       # Hora de Colombia (citas / datetime.now)
       TZ: ${TZ:-America/Bogota}
+      DB_HOST: "${DB_HOST:?Define DB_HOST en Codespaces Secrets o backend/.env}"
+      DB_PORT: "${DB_PORT:-4000}"
+      DB_USER: "${DB_USER:?Define DB_USER en Codespaces Secrets o backend/.env}"
+      DB_PASSWORD: "${DB_PASSWORD:?Define DB_PASSWORD en Codespaces Secrets o backend/.env}"
+      DB_NAME: "${DB_NAME:-globde}"
+      EMAIL_ENABLED: "${EMAIL_ENABLED:-true}"
+      SMTP_HOST: "${SMTP_HOST:-smtp.gmail.com}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USER: "${SMTP_USER:?Define SMTP_USER en Codespaces Secrets o backend/.env}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:?Define SMTP_PASSWORD en Codespaces Secrets o backend/.env}"
+      SMTP_FROM: "${SMTP_FROM:-}"
+      SMTP_STARTTLS: "${SMTP_STARTTLS:-true}"
+      SMTP_TIMEOUT: "${SMTP_TIMEOUT:-15}"
     volumes:
       - avatars_data:/app/media
 

@@ -111,10 +111,14 @@ instalarlo, o falta el `source` para que la terminal actual lo encuentre.
 
 ### Opción 1: Con Docker y Docker Compose (Recomendada)
 
-Levanta el backend FastAPI y el frontend Vite. La base de datos no se levanta con
-este Compose: configura una instancia local o de pruebas en `backend/.env`.
+Levanta el backend FastAPI y el frontend Vite. La base de datos TiDB se administra
+por separado. En Codespaces, configura los secretos descritos en
+[`docs/setup/con-docker.md`](docs/setup/con-docker.md); para ejecución local,
+configura `backend/.env`.
 El backend aplica migraciones de Alembic al arrancar; no apuntes este entorno a una
-base compartida o de producción sin revisar y aprobar antes las migraciones.
+base de producción. Usa la instancia TiDB de desarrollo del equipo y revisa y
+aprueba las migraciones antes de integrarlas, porque pueden cambiar el esquema o
+los datos compartidos.
 
 ```bash
 # 1. Clonar el repositorio
@@ -123,12 +127,13 @@ cd Globde
 
 # 2. Configurar variables privadas del backend
 cp backend/.env.example backend/.env
-# Completa DB_HOST, DB_PORT, DB_USER, DB_PASSWORD y DB_NAME para una base de pruebas.
+# Fuera de Codespaces, completa los valores privados para la instancia TiDB de desarrollo.
+# En Codespaces, configura los secretos indicados en docs/setup/con-docker.md.
 # Genera JWT_SECRET con: python -c "import secrets; print(secrets.token_urlsafe(48))"
 
-# 3. Levantar contenedores
-docker compose up -d --build
-# El backend conecta a la base indicada en backend/.env y ejecuta Alembic al arrancar.
+# 3. Validar configuración y levantar contenedores
+bash scripts/start.sh
+# El backend conecta a TiDB y ejecuta Alembic al arrancar.
 
 # 4. Listo
 # → Frontend:  http://localhost:5173
@@ -136,8 +141,8 @@ docker compose up -d --build
 ```
 
 > [!IMPORTANT]
-> `backend/.env.example` contiene valores locales de ejemplo, no credenciales de la base
-> compartida. Docker Compose lee la configuración privada desde `backend/.env`.
+> `backend/.env.example` no contiene credenciales. En Codespaces, los secretos del
+> usuario se pasan directamente a Compose; localmente, completa `backend/.env`.
 > Guía detallada y troubleshooting: [`docs/setup/con-docker.md`](docs/setup/con-docker.md).
 
 ### Opción 2: Instalación Manual (Sin Docker)

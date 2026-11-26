@@ -21,16 +21,23 @@ migraciones de Alembic (`backend/alembic/`); el contrato está descrito en
 
 ### Con Docker (recomendado)
 
+Desde la raíz del repositorio:
+
 ```bash
-cp backend/.env.example backend/.env   # y completa los valores
-docker compose up --build
+bash scripts/start.sh
 ```
 
-Levanta el backend y el frontend. Compose no crea una base de datos: configura
-`backend/.env` con una instancia local o de pruebas accesible desde el backend.
-El contenedor ejecuta `alembic upgrade head` al arrancar; no lo conectes a una
-base compartida o de producción sin revisar y aprobar antes las migraciones.
-La API queda en <http://localhost:8000> y la documentación interactiva en
+Compose levanta el backend y el frontend; la base de datos TiDB se administra
+por separado. En Codespaces, configura los secretos `DB_HOST`, `DB_USER`,
+`DB_PASSWORD`, `SMTP_USER` y `SMTP_PASSWORD` en GitHub. Fuera de Codespaces,
+copia `backend/.env.example` a `backend/.env` y completa allí los valores
+privados. El script valida la configuración antes de iniciar y no muestra los
+secretos. Consulta la [guía de Codespaces y Docker](../docs/setup/con-docker.md).
+
+El entrypoint ejecuta `alembic upgrade head` antes de iniciar la API. Usa una
+instancia de desarrollo TiDB y revisa las migraciones antes de integrarlas,
+pues pueden modificar el esquema o los datos compartidos. La API queda en
+<http://localhost:8000> y la documentación interactiva en
 <http://localhost:8000/docs>.
 
 ### Sin Docker

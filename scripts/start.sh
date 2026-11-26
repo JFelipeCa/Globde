@@ -46,7 +46,27 @@ PY
 
 set_secret "JWT_SECRET"
 
-# 3) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
+# Codespaces usa TiDB Cloud y Gmail; los valores explícitos del entorno tienen prioridad.
+if [ "${CODESPACES:-false}" = "true" ]; then
+  export DB_PORT="${DB_PORT:-4000}"
+  export DB_NAME="${DB_NAME:-globde}"
+  export EMAIL_ENABLED="${EMAIL_ENABLED:-true}"
+  export SMTP_HOST="${SMTP_HOST:-smtp.gmail.com}"
+  export SMTP_PORT="${SMTP_PORT:-587}"
+  export SMTP_FROM="${SMTP_FROM:-${SMTP_USER:-}}"
+  export SMTP_STARTTLS="${SMTP_STARTTLS:-true}"
+  export SMTP_TIMEOUT="${SMTP_TIMEOUT:-15}"
+fi
+
+# 3) Validar la configuración antes de modificar puertos o construir imágenes.
+echo "→ Validando configuración de TiDB y SMTP..."
+if ! docker compose --env-file "$ENV_FILE" config --quiet; then
+  echo "❌ Configuración incompleta." >&2
+  echo "   Define las variables requeridas en Codespaces Secrets o en backend/.env." >&2
+  exit 1
+fi
+
+# 4) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
 if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then
   PORT_FORWARDING_DOMAIN="${GITHUB_CODESPACE_PORT_FORWARDING_DOMAIN:-app.github.dev}"
   CODESPACE_FRONTEND_URL="https://${CODESPACE_NAME}-5173.${PORT_FORWARDING_DOMAIN}"
@@ -70,7 +90,7 @@ if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then
   fi
 fi
 
-# 4) Construir las imagenes y levantar el stack.
+# 5) Construir las imagenes y levantar el stack.
 echo "→ Construyendo imagenes..."
 if ! docker compose --env-file backend/.env build; then
   # Un cache BuildKit local dañado puede impedir exportar capas. Reintentar
@@ -86,7 +106,7 @@ fi
 echo "→ Levantando contenedores..."
 docker compose --env-file backend/.env up -d --no-build
 
-# 5) Esperar a que la API esté lista.
+# 6) Esperar a que la API esté lista.
 echo "→ Esperando a que la API responda..."
 for i in $(seq 1 60); do
   if curl -fsS --max-time 3 http://127.0.0.1:8000/api/health 2>/dev/null | grep -q '"estado":"ok"'; then
