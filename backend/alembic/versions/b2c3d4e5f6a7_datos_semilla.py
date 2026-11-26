@@ -13,7 +13,7 @@ se puede aplicar solo la primera y saltarse esta con:
     alembic upgrade dd2ee59368e5
 
 Las pruebas del backend si las necesitan: el conftest se autentica con
-admin@globde.test, y sin esos registros se saltan 91 de las 132 pruebas.
+admin@globde.test; las pruebas de integración requieren estos registros semilla.
 """
 
 from alembic import op

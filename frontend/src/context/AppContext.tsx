@@ -168,7 +168,10 @@ interface ContextoApp {
   descargarReporte: (tipo: TipoReporte) => Promise<Resultado>;
 
   canjearPremio: (p: PremioFidelidad) => Promise<Resultado>;
-  unirseListaEspera: (d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>) => Promise<Resultado>;
+  unirseListaEspera: (d: Pick<
+    EntradaListaEspera,
+    'id_servicio' | 'id_barbero' | 'fecha_deseada' | 'franja_horaria'
+  >) => Promise<Resultado>;
   actualizarListaEspera: () => Promise<Resultado>;
   cancelarSolicitudEspera: (id: number) => Promise<Resultado>;
   aceptarOfertaEspera: (id: number) => Promise<Resultado>;
@@ -1222,7 +1225,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const unirseListaEspera = async (
-    d: Omit<EntradaListaEspera, 'id_espera' | 'creado_en' | 'estado'>,
+    d: Pick<
+      EntradaListaEspera,
+      'id_servicio' | 'id_barbero' | 'fecha_deseada' | 'franja_horaria'
+    >,
   ): Promise<Resultado> => {
     try {
       const respuesta = await apiRequest<Record<string, unknown>>('/lista-espera', {

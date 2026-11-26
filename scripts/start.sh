@@ -2,7 +2,7 @@
 #
 # start.sh — Levanta GLOBDE (backend + frontend conectado a TiDB Cloud) con Docker.
 # Uso:  bash scripts/start.sh
-# El instructor solo ejecuta `bash scripts/start.sh` y el sistema queda arriba.
+# Ejecuta `bash scripts/start.sh` para iniciar la aplicación.
 set -euo pipefail
 
 # La carpeta del proyecto es un nivel ARRIBA de scripts/ (donde vive docker-compose.yml).

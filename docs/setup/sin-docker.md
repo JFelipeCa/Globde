@@ -62,12 +62,11 @@ cp .env.example .env
 # JWT_SECRET=...  genera uno con:
 #   python -c "import secrets; print(secrets.token_urlsafe(48))"
 
-# Crear el esquema y los datos semilla con Alembic (20 tablas + 4 vistas)
+# Crear el esquema vigente y los datos semilla con Alembic (26 tablas + 4 vistas)
 uv run alembic upgrade head
 
-# Si la base YA existía con el esquema viejo de database.sql, en vez del comando
-# anterior márcala como migrada (si no, fallará con "1050 Table 'roles' already exists"):
-#   uv run alembic stamp head
+# No uses "alembic stamp head" en una base preexistente sin verificar y
+# respaldar el esquema: stamp no ejecuta las migraciones.
 
 # Iniciar servidor FastAPI con recarga automática
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -97,12 +96,13 @@ pnpm run dev
 
 ```bash
 cd backend
-uv run pytest                                        # 132 pruebas
-uv run pytest --cov=app --cov-report=term-missing    # con cobertura (~70%)
+uv run pytest tests/test_unitarias.py               # 67 casos sin base de datos
+uv run pytest --cov=app --cov-report=term-missing   # Suite completa: requiere MySQL aislado
 ```
 
-> Las pruebas requieren la base MySQL accesible con las variables `DB_*` del `.env`.
-> Sin ella, la mayoría quedarán en `skipped`.
+> La suite completa recopila 160 casos, de los cuales 93 requieren MySQL y datos
+> semilla. Usa una base de pruebas aislada; no ejecutes integración contra una
+> base compartida o productiva. Consulta el [plan de pruebas](../pruebas/plan-pruebas.md).
 
 ---
 

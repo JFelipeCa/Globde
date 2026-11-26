@@ -35,6 +35,8 @@ export const BarberoFoto: React.FC<BarberoFotoProps> = ({
       src={src}
       alt={mostrarOriginal ? nombre : `Imagen de referencia para ${nombre}`}
       className={className}
+      loading="lazy"
+      decoding="async"
       onError={() => setFotosFallidas((actuales) => new Set(actuales).add(src))}
     />
   );

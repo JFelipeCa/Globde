@@ -3,7 +3,7 @@
 ## RT — Restricciones Técnicas
 - **RT-01:** Backend en Python 3.13+ (FastAPI), dependencias gestionadas con `uv`.
 - **RT-02:** Frontend en React 19 + TypeScript estricto sobre Vite 7, dependencias con `pnpm`.
-- **RT-03:** Base de datos MySQL 8.0+ (`mysql-connector-python`), esquema versionado con Alembic.
+- **RT-03:** TiDB Cloud alojada remotamente (compatible con MySQL); esquema versionado con Alembic. CI valida migraciones en MySQL 8.0.
 - **RT-04:** Containerización con Docker Compose.
 
 ## RH — Restricciones de Hardware

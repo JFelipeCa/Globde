@@ -2,7 +2,7 @@
 
 <!--
   ¿Qué? Documentación pedagógica de los patrones arquitectónicos y de software aplicados en GLOBDE.
-  ¿Para qué? Servir como material de estudio y referencia para sustentar las decisiones técnicas tomadas.
+  ¿Para qué? Servir como material de estudio y referencia para explicar las decisiones técnicas tomadas.
   ¿Impacto? Garantiza que el equipo demuestre dominio conceptual en evaluaciones y defensas del proyecto SENA.
 -->
 

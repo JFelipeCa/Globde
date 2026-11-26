@@ -16,18 +16,13 @@
 | **Título** | Registro de días festivos o cierres |
 | **Módulo** | Configuración |
 | **Prioridad** | Media |
-| **Estado** | Parcial |
+| **Estado** | Implementada en código |
 | **RF Asociados** | RF-015 |
 
-> [!WARNING]
-> **Estado real (verificado contra el código, agosto 2026): parcial.**
-> Existe la tabla `bloqueos_agenda` y los endpoints
-> `POST/DELETE /barberos/{id}/bloqueos`, pero la columna `id_barbero` es
-> `NOT NULL` y el bloqueo exige `hora_inicio`/`hora_fin`. Es decir: se puede
-> bloquear a **un** barbero en un rango horario, no cerrar el negocio completo
-> un día festivo. Falta: bloqueos de día completo a nivel de negocio
-> (`id_barbero` nullable o tabla `dias_no_laborales`) y su propagación a la
-> validación de disponibilidad.
+El proyecto tiene horario global (`horarios_negocio`) y cierres de día completo
+(`cierres_negocio`), endpoints en `/api/agenda` y la vista de administración
+`AgendaAdmin`. La validación de disponibilidad consulta los cierres antes de
+ofrecer fechas.
 
 ---
 

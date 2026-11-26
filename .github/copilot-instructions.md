@@ -2,7 +2,7 @@
 
 <!--
   ¿Qué? Reglas y estándares de desarrollo para el proyecto GLOBDE.
-  ¿Para qué? Asegurar que cualquier desarrollador o asistente de IA mantenga la coherencia
+  ¿Para qué? Asegurar que cualquier persona que contribuya al proyecto mantenga la coherencia
              arquitectónica, la calidad del código y los estándares pedagógicos del SENA.
   ¿Impacto? Evita la degradación del código, malas prácticas de seguridad y desalineación con la documentación.
 -->

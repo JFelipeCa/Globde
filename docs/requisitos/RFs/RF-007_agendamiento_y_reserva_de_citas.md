@@ -17,14 +17,16 @@
 | **Módulo** | Citas y Reservas |
 | **Prioridad** | Crítica |
 | **Estado** | Implementado |
-| **HUs Asociadas** | HU-12, HU-13 |
+| **HUs Asociadas** | HU-12, HU-13, HU-33 |
 | **Fecha** | Febrero 2026 |
 
 ---
 
 ## Descripción
 
-El sistema debe permitir que un cliente autenticado o el personal del salón reserve una cita seleccionando el barbero, el servicio requerido, la fecha y la hora deseada. El sistema valida que el barbero no tenga otra cita en ese intervalo y crea el registro con estado inicial `'Pendiente'`.
+El sistema debe permitir reservar una cita o solicitar un turno en lista de
+espera, seleccionando servicio, barbero opcional, fecha y franja horaria. La API
+valida disponibilidad, jornada, cierres y solapamientos antes de persistir la reserva.
 
 ---
 

@@ -352,9 +352,6 @@ export const EsperaModal: React.FC = () => {
       return;
     }
     const resultado = await unirseListaEspera({
-      id_cliente: usuario.id_cliente,
-      nombre_cliente: usuario.nombre,
-      telefono: usuario.telefono,
       id_servicio: Number(servId),
       id_barbero: barbId ? Number(barbId) : undefined,
       fecha_deseada: fecha,

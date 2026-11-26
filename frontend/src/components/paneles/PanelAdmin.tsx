@@ -111,6 +111,9 @@ interface ServicioPopular {
 interface RespuestaPaginada<T> {
   items: T[];
   total: number;
+  pagina: number;
+  por_pagina: number;
+  total_paginas: number;
 }
 
 function mapServicioAdmin(registro: Record<string, unknown>, indice: number): Servicio {

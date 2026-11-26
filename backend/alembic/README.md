@@ -1,3 +1,9 @@
+<!--
+  ¿Qué? Documenta cómo aplicar y mantener las migraciones de base de datos.
+  ¿Para qué? Mantener el esquema versionado, reproducible y verificable.
+  ¿Impacto? Evita diferencias entre las bases locales, CI y despliegues.
+-->
+
 # Migraciones de base de datos (Alembic)
 
 El esquema de GLOBDE se crea y evoluciona **con Alembic**, no ejecutando
@@ -54,17 +60,29 @@ ALEMBIC_DATABASE_URL="mysql+mysqlconnector://usuario:clave@host:3306/basededatos
 |----------------|--------------------------------------------------------|
 | `dd2ee59368e5` | Esquema inicial: 20 tablas, 27 claves foraneas, 4 vistas |
 | `b2c3d4e5f6a7` | Datos semilla: 16 INSERT (roles, usuarios de prueba, servicios, etc.) |
+| `c3d4e5f6a7b8` | Rediseño de datos de cliente |
+| `d4e5f6a7b8c9` | Catálogo de servicios y cortes |
+| `e4f5a6b7c8d9` | Horarios, cierres, extras, recordatorios y lista de espera |
+| `e5f6a7b8c9d0` | Imágenes de perfil de barberos |
+| `f6a7b8c9d0e1` | Ajustes a perfiles sin fotos predeterminadas |
+| `g7a8b9c0d1e2` | Merge de migraciones de agenda y catálogo |
+| `h8b9c0d1e2f3` | Verificación de correo para flujos de invitados (revisión actual) |
 
-Estan separadas a proposito. En produccion se puede parar en el esquema y
-no cargar nunca los datos de prueba:
+La revisión inicial tiene 20 tablas y 4 vistas; las migraciones posteriores
+añaden tablas y columnas. El esquema actual contiene 26 tablas y 4 vistas.
+La revisión de semillas forma parte del historial anterior a las migraciones
+actuales; no existe un objetivo independiente de Alembic que omita esa revisión.
+Antes de desplegar en un entorno con datos reales, define una estrategia de
+semillas que no exponga usuarios de prueba.
 
 ```bash
 uv run alembic upgrade dd2ee59368e5
 ```
 
-En desarrollo y en el CI se aplican las dos (`upgrade head`), porque los
-tests de integracion se autentican con `admin@globde.test`. Sin las
-semillas, 91 de las 132 pruebas se saltan en silencio.
+Ese comando solo crea el esquema inicial y no es suficiente para ejecutar la
+versión actual de la API. Para desarrollo y CI se aplica `upgrade head`; los
+tests de integración requieren los datos semilla. La suite recopila 160 casos,
+93 de ellos dependen de MySQL y esos datos.
 
 ## Crear una migracion nueva
 

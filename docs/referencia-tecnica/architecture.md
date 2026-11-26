@@ -1,167 +1,132 @@
-# Arquitectura del Sistema — GLOBDE
-
 <!--
-  ¿Qué? Documentación exhaustiva de la arquitectura de software de GLOBDE.
-  ¿Para qué? Proveer un entendimiento integral de la estructura en 3 capas, el flujo de peticiones,
-             la gestión de estado con React Context API, la conexión con MySQL y las decisiones de diseño.
-  ¿Impacto? Facilita el mantenimiento, escalabilidad, sustentación formativa y onboarding de nuevos desarrolladores.
+  ¿Qué? Describe la arquitectura desplegada de GLOBDE y el flujo entre sus componentes.
+  ¿Para qué? Facilita explicar y mantener las responsabilidades del frontend, API y persistencia.
+  ¿Impacto? Evita decisiones basadas en el diseño inicial que ya no coincide con el código.
 -->
 
-> **Proyecto**: GLOBDE — Sistema de Gestión de Citas y Barbería  
-> **Patrón Principal**: Arquitectura Cliente–Servidor desacoplada en 3 Capas (SPA + API REST + RDBMS)  
-> **Backend**: FastAPI (Python 3.13) con ASGI Uvicorn  
-> **Frontend**: React 19 + TypeScript + Vite 7 + React Context API  
-> **Base de Datos**: MySQL 8.0+ / MariaDB con Connection Pooling  
+# Arquitectura del sistema — GLOBDE
 
----
+> **Revisión:** 26 de noviembre de 2026
+> **Estilo:** cliente-servidor, SPA + API REST + base de datos relacional
+> **Frontend:** React 19, TypeScript, Vite 7, Tailwind CSS 4 y Context API
+> **Backend:** FastAPI, Pydantic 2, Uvicorn y `mysql-connector-python`
+> **Persistencia:** TiDB Cloud remota (compatible con MySQL); esquema versionado con Alembic
 
-## 1. Vista General del Sistema (Arquitectura en 3 Capas)
+## Diagrama de arquitectura
 
-GLOBDE implementa una arquitectura desacoplada donde cada capa tiene responsabilidades únicas y delimitadas:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  CAPA 1 — CLIENTE / FRONTEND (Single Page Application - SPA)                │
-│                                                                             │
-│  React 19 + TypeScript + Vite 7 + Tailwind CSS v4 + React Context API       │
-│  http://localhost:5173                                                      │
-│                                                                             │
-│  ┌──────────────┐   ┌─────────────────┐   ┌──────────────────────────────┐  │
-│  │   Paneles    │   │   Componentes   │   │      AppContext (Context)    │  │
-│  │ (PanelAdmin, │   │  (Navbar, UI,   │   │  Estado global de sesión,    │  │
-│  │  Barbero,    │   │   Modales,      │   │  vista activa y datos        │  │
-│  │  Cliente)    │   │   Wizard)       │   │  (useContext/useState)       │  │
-│  └──────┬───────┘   └────────┬────────┘   └──────────────┬───────────────┘  │
-│         │                    │                           │                  │
-│         └────────────────────┼───────────────────────────┘                  │
-│                              ▼                                              │
-│  ┌───────────────────────────────────────────────────────────────────────┐  │
-│  │   Cliente HTTP `utils/apiClient.ts` (fetch nativo, VITE_API_URL)      │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────┬──────────────────────────────────────┘
-                                       │ Peticiones HTTP / JSON (CORS)
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  CAPA 2 — SERVIDOR / BACKEND (RESTful Web API)                              │
-│                                                                             │
-│  FastAPI (Python 3.13) + Uvicorn ASGI Server                                │
-│  http://localhost:8000                                                      │
-│                                                                             │
-│  ┌──────────────────┐   ┌───────────────────┐   ┌────────────────────────┐  │
-│  │  CORS Middleware │──▶│  Validación DTO   │──▶│ Endpoints / Control    │  │
-│  │  y Enrutador     │   │  (Pydantic v2)    │   │ (Auth, Citas, Reportes)│  │
-│  └──────────────────┘   └───────────────────┘   └───────────┬────────────┘  │
-│                                                             │               │
-│                                                             ▼               │
-│                         ┌──────────────────────────────────────────────┐    │
-│                         │ Criptografía (`bcrypt`), SMTP Mail & Helpers │    │
-│                         └──────────────────────────────────────────────┘    │
-│                                                             │               │
-│                                                             ▼               │
-│                         ┌──────────────────────────────────────────────┐    │
-│                         │ Gestor de Conexiones (`mysql.connector`)     │    │
-│                         └──────────────────────────────────────────────┘    │
-└──────────────────────────────────────┬──────────────────────────────────────┘
-                                       │ Consultas SQL Parametrizadas (TCP 3306)
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  CAPA 3 — PERSISTENCIA / BASE DE DATOS (RDBMS Relacional)                   │
-│                                                                             │
-│  MySQL 8.0+ / MariaDB (`globde` schema)                                     │
-│                                                                             │
-│  ┌─────────────────────────────────┐   ┌────────────────────────────────┐  │
-│  │ 12 Tablas con Claves Foráneas   │   │ 3 Vistas SQL Precompiladas     │  │
-│  │ (`usuarios`, `citas`, etc.)     │   │ (`vista_citas_detalle`, etc.)  │  │
-│  └─────────────────────────────────┘   └────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    Browser["Navegador"]
+    subgraph Frontend["Frontend SPA — frontend/src"]
+        App["App.tsx<br/>vista activa y navegación"]
+        Context["AppContext.tsx<br/>sesión y estado compartido"]
+        UI["Paneles, secciones y componentes UI"]
+        Client["utils/apiClient.ts<br/>fetch + VITE_API_URL"]
+        App --> UI
+        UI <--> Context
+        Context --> Client
+    end
+    subgraph Backend["API REST — backend/app"]
+        Main["main.py<br/>CORS, ciclo de vida y routers"]
+        Router["routers/<br/>HTTP, autenticación y permisos"]
+        Schema["schemas/<br/>validación Pydantic"]
+        Service["services/<br/>reglas de negocio"]
+        Core["core/<br/>configuración, JWT y errores"]
+        DB["db/<br/>pool y helpers SQL"]
+        Worker["Tarea periódica<br/>recordatorios y ofertas de espera"]
+        Main --> Router
+        Router --> Schema
+        Router --> Service
+        Router --> Core
+        Service --> DB
+        Main --> Worker
+        Worker --> Service
+    end
+    subgraph Data["Persistencia"]
+        Alembic["Alembic<br/>migraciones"]
+        SQL["TiDB Cloud remota<br/>26 tablas + 4 vistas"]
+        Alembic --> SQL
+        DB --> SQL
+    end
+    Browser --> Frontend
+    Client <-->|"HTTP + JSON / CORS"| Router
 ```
 
----
+## Responsabilidades por capa
 
-## 2. Flujo de Vida de una Petición (Request-Response Lifecycle)
+| Capa | Responsabilidades | Componentes principales |
+|---|---|---|
+| Presentación | Landing, paneles por rol, formularios, navegación y estado de sesión | `App.tsx`, `AppContext.tsx`, `components/`, `utils/apiClient.ts` |
+| API y aplicación | Validación de entrada, autenticación JWT, autorización, reglas de negocio y respuestas HTTP | `routers/`, `schemas/`, `services/`, `core/` |
+| Persistencia | Consultas parametrizadas, pool de conexiones y esquema relacional | `db/`, MySQL/TiDB, `alembic/versions/` |
 
-A continuación se detalla el ciclo completo cuando un cliente agenda una nueva cita:
+El backend separa transporte y negocio: los routers llaman a servicios, y los
+servicios acceden a la base mediante los helpers de `app/db/`. Las consultas de
+la aplicación usan parámetros; Alembic es la fuente de verdad del esquema.
+`database/database.sql` se conserva como referencia histórica, no como
+migración ejecutable.
 
-```
-[Cliente en React UI]
-        │ 1. Completa formulario en CitasPage.tsx
-        ▼
-[AppContext / apiClient.ts]
-        │ 2. Ejecuta llamada POST a http://localhost:8000/api/citas con JSON
-        ▼
-[FastAPI Router]
-        │ 3. Valida tipos y restricciones con Pydantic (CitaCreate schema)
-        ▼
-[Lógica de Negocio / main.py]
-        │ 4. Verifica disponibilidad: consulta traslapes de horario para ese barbero
-        ▼
-[MySQL Database]
-        │ 5. Ejecuta: INSERT INTO citas (id_cliente, id_barbero, id_servicio, fecha, hora, estado)
-        │ 6. Retorna `lastrowid` generado
-        ▼
-[Servicio SMTP] (Opcional en segundo plano)
-        │ 7. Envía correo electrónico de confirmación al cliente
-        ▼
-[FastAPI Response]
-        │ 8. Retorna JSON con HTTP 201 Created y objeto serializado
-        ▼
-[React / AppContext]
-        │ 9. Actualiza `dataSlice` e inserta la cita en el estado global
-        │ 10. Muestra mensaje toast de éxito y actualiza el calendario en pantalla
-```
+## Flujo de reserva de una cita
 
----
-
-## 3. Decisiones Técnicas y Justificación
-
-| Decisión Arquitectónica | Alternativa Descartada | Justificación Técnica |
-| :--- | :--- | :--- |
-| **FastAPI en Backend** | Spring Boot / Django | FastAPI ofrece una velocidad de ejecución asíncrona superior, documentación Swagger OpenAPI automática sin configuración extra y sintaxis limpia en Python. |
-| **MySQL como RDBMS** | MongoDB (NoSQL) | El dominio de agendamiento de citas exige estricta consistencia ACID, integridad referencial mediante claves foráneas y relaciones relacionales bien definidas. |
-| **React Context API en Frontend** | Redux Toolkit / estado local suelto | Permite compartir sesión, vista activa y datos entre paneles sin prop drilling, con mucho menos boilerplate que Redux para el tamaño actual de la aplicación. |
-| **Consultas con Vistas SQL** | Múltiples JOINs en código | Las vistas `vista_citas_detalle` e `vista_ingresos_barbero` trasladan la agregación a la base de datos, reduciendo el tráfico de red y el uso de memoria en el backend. |
-| **Docker Compose** | Despliegue manual local | Levanta MySQL, backend y frontend de forma reproducible después de configurar `backend/.env` (`docker compose --env-file backend/.env up -d`). |
-
----
-
-## 4. Estructura de Módulos del Backend
-
-```
-backend/
-├── app/
-│   ├── main.py          # Enrutamiento de endpoints, modelos Pydantic, lógica de BD y SMTP
-│   └── __init__.py
-├── .env.example         # Variables de entorno template
-├── Dockerfile           # Imagen de despliegue para FastAPI
-└── pyproject.toml       # Dependencias (uv): fastapi, uvicorn, pydantic, bcrypt, mysql-connector-python
+```mermaid
+sequenceDiagram
+    actor Cliente
+    participant UI as React / AppContext
+    participant HTTP as apiClient (fetch)
+    participant API as FastAPI router
+    participant Servicio as citas_service
+    participant BD as TiDB Cloud remota
+    Cliente->>UI: Completa servicio, barbero, fecha y hora
+    UI->>HTTP: POST /api/citas
+    HTTP->>API: JSON + Bearer token
+    API->>API: Valida esquema y permisos
+    API->>Servicio: Ejecuta reglas de reserva
+    Servicio->>BD: Verifica disponibilidad y persiste
+    BD-->>Servicio: Cita creada
+    Servicio-->>API: Resultado
+    API-->>HTTP: Respuesta JSON
+    HTTP-->>UI: Actualiza estado y confirma al usuario
 ```
 
----
+## Procesos periódicos
 
-## 5. Estructura de Módulos del Frontend
+Durante el ciclo de vida de FastAPI se ejecuta una tarea de fondo cada 60
+segundos. Procesa recordatorios de citas y ofertas compatibles de la lista de
+espera. Los errores se registran en el log; el envío de correo depende de la
+configuración SMTP y no debe darse por probado solo porque la tarea exista.
 
-```
-frontend/
-├── src/
-│   ├── App.tsx                      # Composición raíz y enrutado por estado (sin React Router)
-│   ├── main.tsx                     # Punto de entrada; monta <App/> dentro del provider
-│   ├── index.css                    # Tailwind CSS v4 (@import "tailwindcss") y tokens @theme
-│   ├── context/
-│   │   └── AppContext.tsx           # Estado global: sesión, rol, vista activa, datos
-│   ├── components/
-│   │   ├── paneles/                 # PanelAdmin, PanelBarbero, PanelCliente
-│   │   ├── sections/                # Landing
-│   │   └── ui/                      # Navbar, AuthModal, BookingWizard, TicketModal, Extras
-│   ├── data/
-│   │   └── mockData.ts              # Datos de demostración (aún en uso por varios paneles)
-│   ├── types/index.ts, types.ts     # Interfaces TypeScript
-│   └── utils/
-│       ├── apiClient.ts             # Cliente HTTP sobre fetch (lee VITE_API_URL)
-│       ├── cn.ts                    # clsx + tailwind-merge
-│       ├── formatters.ts            # Fecha, moneda, estado
-│       └── helpers.ts
-```
+## Navegación y estado del frontend
 
-> [!NOTE]
-> La navegación **no usa React Router**: `App.tsx` conmuta la vista a partir del estado
-> global de `AppContext`. Tampoco se usa Axios; `apiClient.ts` está construido sobre `fetch`.
+La aplicación no usa React Router: `App.tsx` muestra las vistas según el estado
+de `AppContext`. El contexto centraliza la sesión y datos compartidos; las
+llamadas HTTP pasan por `utils/apiClient.ts`, basado en `fetch`. Las rutas de
+pantalla y los permisos de servidor son responsabilidades distintas: ocultar
+una acción en la UI no reemplaza la autorización de la API.
+
+## Configuración de despliegue
+
+- **Desarrollo con Docker Compose:** inicia backend y frontend; la base de datos
+  se configura aparte mediante las variables privadas de conexión a TiDB Cloud.
+- **Desarrollo manual:** frontend Vite y API Uvicorn locales, con MySQL accesible.
+- **Compose de producción:** configura el servicio MySQL, API y frontend estático
+  con Nginx; usa variables privadas de entorno.
+
+Las guías de configuración están en [`../setup/con-docker.md`](../setup/con-docker.md)
+y [`../setup/sin-docker.md`](../setup/sin-docker.md). No apuntes una ejecución de
+pruebas a la instancia compartida o productiva.
+
+## Decisiones arquitectónicas
+
+| Decisión | Motivo / límite |
+|---|---|
+| FastAPI + Pydantic | API tipada y contrato OpenAPI generado; requiere mantener `/docs` alineado con el consumo real. |
+| Context API | Estado compartido sin un gestor externo; no sustituye un enrutador ni una capa de caché. |
+| Base relacional | Citas, usuarios, servicios y facturas requieren relaciones e integridad referencial. |
+| Servicios separados de routers | Mantiene reglas de negocio fuera de la capa HTTP y facilita pruebas. |
+| Alembic | Permite aplicar y revertir cambios versionados; `database.sql` no es fuente de verdad. |
+
+## Diagrama entidad-relación
+
+El modelo relacional y las relaciones principales se documentan en
+[`database-schema.md`](database-schema.md), contrastado con las migraciones
+vigentes y no solo con la revisión inicial.

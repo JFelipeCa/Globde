@@ -1,3 +1,9 @@
+<!--
+  ¿Qué? Índice central de la documentación funcional, técnica y operativa de GLOBDE.
+  ¿Para qué? Conectar requisitos, arquitectura, operación y evidencias de calidad.
+  ¿Impacto? Permite revisar el estado real del proyecto sin depender de documentos obsoletos.
+-->
+
 # 📚 Documentación de GLOBDE
 
 Índice general de toda la documentación del proyecto. Todo lo que hay aquí describe
@@ -7,14 +13,22 @@ el estado **real** del código en la rama de trabajo, no el plan inicial.
 
 ---
 
+## 📌 Estado y evolución
+
+El [estado general del proyecto](estado-proyecto.md) resume las capacidades
+implementadas, resultados de verificaciones y próximos pasos. Los documentos
+específicos de cada área se encuentran enlazados en las secciones siguientes.
+
+---
+
 ## 🚀 Puesta en marcha
 
 | Documento | Qué contiene |
 | :--- | :--- |
-| [`setup/con-docker.md`](setup/con-docker.md) | **Vía recomendada.** Levantar los 3 servicios con Docker Compose, `.env` obligatorio, Alembic automático, solución de errores frecuentes |
+| [`setup/con-docker.md`](setup/con-docker.md) | **Vía recomendada.** Levanta frontend y backend con Docker Compose; conecta a TiDB Cloud remota mediante `.env` |
 | [`setup/sin-docker.md`](setup/sin-docker.md) | Instalación manual: MySQL local, `uv sync`, `alembic upgrade head`, `pnpm install` |
-| [`../database/README_DB.md`](../database/README_DB.md) | Cómo se gestiona la base de datos |
-| [`../backend/alembic/README.md`](../backend/alembic/README.md) | Uso diario de Alembic, crear migraciones, detalles de MySQL |
+| [`../database/README_DB.md`](../database/README_DB.md) | Cómo se gestiona el esquema; TiDB Cloud es remota y no se inicia con Docker |
+| [`../backend/alembic/README.md`](../backend/alembic/README.md) | Uso diario de Alembic, crear migraciones y detalles del motor compatible con MySQL/TiDB |
 
 ---
 
@@ -23,10 +37,10 @@ el estado **real** del código en la rama de trabajo, no el plan inicial.
 | Documento | Qué contiene |
 | :--- | :--- |
 | [`referencia-tecnica/architecture.md`](referencia-tecnica/architecture.md) | Arquitectura en 3 capas, flujo de una petición, estructura real de carpetas, decisiones de diseño |
-| [`referencia-tecnica/api-endpoints.md`](referencia-tecnica/api-endpoints.md) | Catálogo de los **117 endpoints**, niveles de autorización, paginación y errores |
-| [`referencia-tecnica/database-schema.md`](referencia-tecnica/database-schema.md) | Diccionario de datos: **20 tablas y 4 vistas** con columnas, tipos y claves foráneas |
+| [`referencia-tecnica/api-endpoints.md`](referencia-tecnica/api-endpoints.md) | Catálogo de OpenAPI: 129 operaciones por defecto y 131 con compatibilidad v1 |
+| [`referencia-tecnica/database-schema.md`](referencia-tecnica/database-schema.md) | Diccionario de datos: **26 tablas y 4 vistas** según las migraciones |
 | [`referencia-tecnica/design-system.md`](referencia-tecnica/design-system.md) | Tokens de Tailwind v4, paleta, clases propias y deuda técnica de estilos |
-| [`../.github/copilot-instructions.md`](../.github/copilot-instructions.md) | Convenciones de código, seguridad, commits y migraciones |
+| [`referencia-tecnica/alternativas-backend.md`](referencia-tecnica/alternativas-backend.md) | Comparación cualitativa de FastAPI, Django REST Framework, Flask y Express; selección actual de FastAPI |
 
 ---
 
@@ -53,12 +67,8 @@ Ambas colecciones están enlazadas una a una desde [`requisitos.md`](requisitos.
 La trazabilidad completa RF → HU → CU está en
 [`requisitos/matriz-trazabilidad.md`](requisitos/matriz-trazabilidad.md).
 
-> [!NOTE]
-> Hasta agosto de 2026 esta carpeta contenía **dos series solapadas** del mismo alcance
-> (34 requisitos granulares + 16 agrupados), resultado de una reorganización a medias.
-> Se conservó la serie agrupada, que es la que tiene contenido completo, y se eliminó la
-> granular, que duplicaba una a una las historias de usuario. Los archivos siguen
-> disponibles en el historial de git si se necesitan recuperar.
+La colección vigente usa una sola serie de 16 requisitos funcionales agrupados.
+Las propuestas de requisitos anteriores no forman parte del alcance activo.
 
 ### Requisitos no funcionales
 
@@ -73,9 +83,16 @@ La trazabilidad completa RF → HU → CU está en
 | RNF-005 | [`RNF-005_mantenibilidad_calidad.md`](requisitos/RNFs/RNF-005_mantenibilidad_calidad.md) |
 | RNF-006 | [`RNF-006_compatibilidad_portabilidad.md`](requisitos/RNFs/RNF-006_compatibilidad_portabilidad.md) |
 
-> [!NOTE]
-> `RNF-003`, `RNF-005` y `RNF-006` existían por duplicado (una versión corta de un solo
-> bloque y otra detallada). Se conservó la detallada de cada uno.
+Cada RNF tiene una ficha vigente en esta carpeta.
+
+---
+
+## 🧪 Pruebas y calidad
+
+| Documento | Qué contiene |
+| :--- | :--- |
+| [`pruebas/plan-pruebas.md`](pruebas/plan-pruebas.md) | Alcance, niveles, criterios de entrada/salida y uso de base aislada |
+| [`pruebas/informe-ejecucion.md`](pruebas/informe-ejecucion.md) | Resultados ejecutados, revisión visual reportada, evidencias seleccionadas y verificaciones pendientes |
 
 ---
 
@@ -108,10 +125,8 @@ Entregables formativos en formato binario (no editables desde git):
 
 | Aspecto | Estado |
 | :--- | :--- |
-| Esquema de base de datos | ✅ Al día — generado desde las migraciones de Alembic |
-| Catálogo de endpoints | ✅ Al día — generado desde `backend/app/routers/` |
-| Arquitectura y guías de setup | ✅ Al día |
-| Design system | ✅ Al día, con la deuda técnica documentada |
-| Índice HU/CU | ✅ Al día — 66 enlaces, 0 rotos |
-| Requisitos funcionales (RFs) | ⚠️ Dos series duplicadas, pendiente de consolidar |
-| Requisitos no funcionales | ⚠️ Tres duplicados, pendiente de archivar |
+| Requisitos funcionales | Revisados contra el código; ver estados y límites en la matriz |
+| Esquema de base de datos | Actualizado contra las revisiones vigentes de Alembic |
+| Catálogo de endpoints | Conteos y rutas contrastados con OpenAPI; `/docs` es la fuente contractual |
+| Arquitectura | Describe la separación real router/service/db y el frontend actual |
+| Calidad | Reporta ejecuciones parciales; la integración aún requiere ambiente MySQL aislado |

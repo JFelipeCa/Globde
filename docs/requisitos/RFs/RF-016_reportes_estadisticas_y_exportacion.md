@@ -16,15 +16,13 @@
 | **Nombre** | Reportes Financieros, Estadísticas y Exportación |
 | **Módulo** | Reportes y Analítica |
 | **Prioridad** | Alta |
-| **Estado** | Parcial |
-| **HUs Asociadas** | HU-29, HU-30, HU-31, HU-32, HU-33 |
+| **Estado** | Implementado en código |
+| **HUs Asociadas** | HU-29, HU-30, HU-31, HU-32 |
 | **Fecha** | Febrero 2026 |
 
-> [!WARNING]
-> **Estado real (verificado contra el código, agosto 2026): parcial.**
-> Implementados los reportes de ingresos, ocupación, servicios populares,
-> desempeño por barbero y fidelización. Pendiente la **exportación a CSV/Excel**
-> (HU-032): no hay endpoint de descarga ni librería de generación de archivos.
+Los reportes y la exportación CSV están implementados. La descarga se genera en
+el frontend para los reportes de ingresos/facturación, citas y clientes/puntos;
+no hay exportación XLSX.
 
 ---
 
@@ -52,8 +50,8 @@ El sistema debe proveer al Administrador un módulo de reportería analítica co
 ## Proceso
 
 1. El administrador ingresa a `/reportes` y selecciona el período a auditar.
-2. El frontend ejecuta `GET /api/vistas/ingresos` y `GET /api/procedimientos/reporte/{anio}/{mes}`.
-3. La base de datos calcula los agregados mediante `SUM(subtotal)` y `COUNT(id_cita)` agrupando por barbero y servicio.
+2. El frontend consulta los endpoints de `/api/reportes` y `/api/facturas`.
+3. La base de datos calcula los agregados agrupando los registros disponibles.
 4. La UI renderiza tarjetas con KPIs (Ingresos Totales, Citas Completadas, Ticket Promedio) y tablas interactivas.
 
 ---
@@ -70,8 +68,12 @@ El sistema debe proveer al Administrador un módulo de reportería analítica co
 
 | Método | Ruta | Auth Requerida | Descripción |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/vistas/ingresos` | Sí (Admin) | Retorna consolidado de ingresos por profesional |
-| `GET` | `/api/procedimientos/reporte/{anio}/{mes}` | Sí (Admin) | Reporte analítico por año y mes |
+| `GET` | `/api/reportes/ingresos` | Sí (Admin) | Retorna ingresos por período |
+| `GET` | `/api/reportes/ingresos/barberos` | Sí (Admin) | Desglosa ingresos por barbero |
+| `GET` | `/api/reportes/servicios-populares` | Sí (Admin) | Ranking de servicios |
+| `GET` | `/api/reportes/citas` | Sí (Admin) | Consulta citas reportables |
+| `GET` | `/api/reportes/ocupacion` | Sí (Admin) | Consulta ocupación |
+| `GET` | `/api/reportes/fidelizacion` | Sí (Admin) | Consulta fidelización |
 
 ---
 

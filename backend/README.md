@@ -7,11 +7,11 @@
 # GLOBDE API — Backend v2
 
 API REST de la barbería GLOBDE. El esquema de base de datos lo gestionan las
-migraciones de Alembic (`backend/alembic/`); el contrato está descrito en
-`database/docs/cambios_backend_requeridos.md`.
+migraciones de Alembic (`backend/alembic/`); el contrato de la API se genera
+desde FastAPI y se resume en [`docs/referencia-tecnica/api-endpoints.md`](../docs/referencia-tecnica/api-endpoints.md).
 
 - **Framework:** FastAPI (Python 3.13)
-- **Base de datos:** MySQL 8 / MariaDB 11 con `mysql-connector-python` y SQL puro
+- **Base de datos del proyecto:** TiDB Cloud remota (compatible con MySQL); CI usa MySQL 8 con `mysql-connector-python` y SQL puro
 - **Seguridad:** JWT (access + refresh) · bcrypt · autorización por roles
 - **Prefijo de todas las rutas:** `/api`
 
@@ -71,7 +71,7 @@ backend/
 │   ├── db/                # pool de conexiones, helpers SQL, serializadores
 │   ├── schemas/           # modelos Pydantic de entrada y salida
 │   ├── services/          # reglas de negocio + acceso a datos (SQL puro)
-│   ├── routers/           # 13 routers, uno por dominio
+│   ├── routers/           # 15 routers de dominio; compatibilidad v1 opcional
 │   └── utils/             # paginación
 ├── alembic/               # migraciones de base de datos (ver alembic/README.md)
 │   └── versions/
@@ -92,15 +92,20 @@ Cada dominio sigue el mismo camino: **router** (HTTP, permisos) →
 
 ## 3. Endpoints
 
-113 operaciones repartidas así:
+OpenAPI publica 129 operaciones por defecto y 131 cuando se habilitan las rutas
+opcionales de compatibilidad v1 (`ENABLE_LEGACY_ROUTES=true`). La documentación
+interactiva en `/docs` y `/openapi.json` refleja el estado efectivo de la
+configuración. Resumen por dominio:
 
 | Módulo | Operaciones | Prefijo |
 |---|---|---|
 | Barberos (perfil, horarios, bloqueos, disponibilidad) | 17 | `/api/barberos` |
-| Citas (agenda, estados, slots) | 11 | `/api/citas` |
+| Citas (agenda, estados, slots e invitados) | 13 | `/api/citas` |
+| Agenda del negocio (horarios y cierres) | 5 | `/api/agenda` |
+| Lista de espera | 7 | `/api/lista-espera` |
 | Reportes y dashboards | 10 | `/api/reportes` |
 | Autenticación y recuperación de contraseña | 9 | `/api/auth` |
-| Usuarios | 9 | `/api/usuarios` |
+| Usuarios | 11 | `/api/usuarios` |
 | Servicios y catálogo de cortes | 9 | `/api/servicios` |
 | Reseñas | 9 | `/api/resenas` |
 | Clientes | 8 | `/api/clientes` |
@@ -110,7 +115,7 @@ Cada dominio sigue el mismo camino: **router** (HTTP, permisos) →
 | Penalidades | 6 | `/api/penalidades` |
 | Auditoría (`audit_logs`, `login_attempts`, `email_logs`) | 3 | `/api/auditoria` |
 | Sistema (`/`, `/api/health`) | 2 | — |
-| Compatibilidad v1 (opcional, ver §10) | 4 | `/api/datos`, `/api/login`, `POST /api/clientes`, `POST /api/citas` |
+| Compatibilidad v1 (opcional, ver §10) | +2 operaciones OpenAPI | `/api/datos`, `/api/login`; las rutas compartidas de clientes y citas usan el mismo método/ruta |
 
 El detalle completo, con esquemas de petición y respuesta, está en
 <http://localhost:8000/docs>.
@@ -122,11 +127,12 @@ El detalle completo, con esquemas de petición y respuesta, está en
 ```bash
 curl -X POST http://localhost:8000/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"correo":"admin@globde.test","contrasena":"Globde2025*"}'
+  -d '{"correo":"<correo-de-prueba>","contrasena":"<contrasena-de-prueba>"}'
 ```
 
-Devuelve `access_token` (60 min), `refresh_token` (7 días) y los datos del
-usuario. Las rutas protegidas esperan la cabecera:
+Sustituye los marcadores por credenciales de una base de pruebas aislada. El
+endpoint devuelve `access_token`, `refresh_token` y los datos del usuario. Las
+rutas protegidas esperan la cabecera:
 
 ```
 Authorization: Bearer <access_token>
@@ -198,12 +204,15 @@ Los `422` incluyen el detalle por campo:
 
 ```bash
 cd backend
-python -m pytest              # 132 pruebas
-python -m pytest -m "not integracion"   # solo unitarias, sin base de datos
+uv run pytest tests/test_unitarias.py  # 67 casos unitarios; no requieren base de datos
+uv run pytest                         # suite completa; requiere MySQL de pruebas aislada
 ```
 
+- La suite recopila **160 casos**: 67 unitarios y 93 de integración.
+- El 26 de noviembre de 2026, los 160 casos pasaron (0 omitidos) en MySQL 8.0.46
+  desechable; cobertura total: 69 %. Esta corrida no usó TiDB compartida.
 - `tests/test_unitarias.py` — hashing, JWT, tokens de recuperación, niveles de
-  fidelización, paginación y configuración. No necesitan base de datos.
+  fidelización, paginación y configuración. No necesita base de datos.
 - `tests/test_api.py` — salud, autenticación, permisos por rol, catálogos,
   paginación, reportes y manejo de errores.
 - `tests/test_reglas_negocio.py` — flujo completo de una cita, solapamiento,
@@ -211,8 +220,12 @@ python -m pytest -m "not integracion"   # solo unitarias, sin base de datos
 - `tests/test_legacy.py` — rutas de compatibilidad v1 y comprobación de que el
   contrato v2 no se ve afectado en las rutas compartidas.
 
-Las pruebas de integración crean sus propios datos con correos `qa-*`. Para
-borrarlos:
+Ejecuta las pruebas de integración solo en una base aislada; pueden crear datos
+de prueba. No las apuntes a la base compartida ni a producción. Consulta el
+[plan de pruebas](../docs/pruebas/plan-pruebas.md) y el
+[informe de ejecución](../docs/pruebas/informe-ejecucion.md).
+
+Si una ejecución de integración deja datos `qa-*`, para borrarlos:
 
 ```bash
 python scripts/limpiar_datos_prueba.py        # simulación

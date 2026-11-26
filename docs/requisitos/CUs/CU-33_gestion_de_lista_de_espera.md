@@ -1,14 +1,7 @@
 # CU-33 — Gestión de Lista de Espera
 
-> [!CAUTION]
-> **Estado real (ver HU-033): no implementada.**
-> No existe tabla de lista de espera en la migración
-> `dd2ee59368e5_esquema_inicial.py` (las 20 tablas del esquema no incluyen
-> ninguna), ni router, ni servicio. En el frontend solo hay menciones en datos
-> de maqueta.
-> Falta: migración con la tabla `lista_espera`, router y servicio con alta,
-> baja y consulta, y el disparador que avise al cliente cuando se libere un
-> cupo (se apoyaría en el módulo de notificaciones ya existente).
+> **Estado actual:** implementado con tabla persistente, alta y cancelación de
+> solicitudes, aceptación de ofertas y procesamiento periódico de turnos compatibles.
 
 [⬅ Volver al README principal](../../../README.md)
 
@@ -27,7 +20,7 @@
 
 ## Descripción
 
-Permite al cliente inscribirse en una lista de espera cuando los horarios están ocupados y recibir notificación automática al liberarse un turno.
+Permite al cliente autenticado o invitado solicitar un turno y recibir una oferta cuando se libera una franja compatible. El flujo de invitado verifica el correo antes de persistir la solicitud.
 
 ## Precondiciones
 

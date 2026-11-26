@@ -10,14 +10,15 @@
   ¿Impacto? Es el documento de referencia para auditar el alcance del proyecto.
 -->
 
-Generado a partir de los propios archivos de requisitos. Los estados reflejan lo
-verificado contra el código en agosto de 2026.
+Los estados se revisaron contra los routers, servicios, migraciones y pantallas
+presentes en la rama de trabajo al 26 de noviembre de 2026. Indican implementación
+identificada en el código, no aprobación de una prueba de aceptación integral.
 
 | Leyenda | Significado |
 | :--- | :--- |
 | 🟢 | Implementado y verificado contra el código |
-| 🟡 | Parcialmente implementado — ver el aviso dentro del archivo |
-| 🔴 | No implementado |
+| 🟡 | Parcial o con limitación indicada |
+| 🔴 | Sin implementación identificada |
 
 ---
 
@@ -46,6 +47,7 @@ verificado contra el código en agosto de 2026.
 | **[RF-007](RFs/RF-007_agendamiento_y_reserva_de_citas.md) · Agendamiento y Reserva de Citas en Línea** | | | *Citas y Reservas* | | 🟢 **Implementado** |
 | | [HU-012](HUs/HU-012_agendamiento_manual_por_administrador.md) Agendamiento manual por administrador | [CU-12](CUs/CU-12_agendamiento_de_citas_barbero.md) Agendamiento de Citas (Barbero) | Citas | Alta | 🟢 Implementada |
 | | [HU-013](HUs/HU-013_reserva_de_cita_en_l%C3%ADnea_por_cliente.md) Reserva de cita en línea por cliente | [CU-13](CUs/CU-13_reserva_de_cita_en_linea_cliente.md) Reserva de Cita en Línea (Cliente) | Citas | Crítica | 🟢 Implementada |
+| | [HU-033](HUs/HU-033_gesti%C3%B3n_de_lista_de_espera.md) Gestión de lista de espera | [CU-33](CUs/CU-33_gestion_de_lista_de_espera.md) Gestión de Lista de Espera | Citas | Baja | 🟢 Implementada |
 | **[RF-008](RFs/RF-008_control_de_estados_y_agenda_del_barbero.md) · Control de Estados de Citas y Agenda del Barbero** | | | *Citas y Reservas* | | 🟢 **Implementado** |
 | | [HU-014](HUs/HU-014_visualizaci%C3%B3n_de_agenda_del_barbero.md) Visualización de agenda del barbero | [CU-14](CUs/CU-14_visualizacion_de_agenda_del_barbero.md) Visualización de Agenda del Barbero | Citas | Alta | 🟢 Implementada |
 | | [HU-015](HUs/HU-015_cambio_de_estado_de_cita.md) Cambio de estado de cita | [CU-15](CUs/CU-15_cambio_de_estado_de_cita.md) Cambio de Estado de Cita | Citas | Alta | 🟢 Implementada |
@@ -58,7 +60,7 @@ verificado contra el código en agosto de 2026.
 | **[RF-012](RFs/RF-012_historial_y_seguimiento_de_citas.md) · Historial y Seguimiento de Citas del Cliente** | | | *Clientes y Citas* | | 🟢 **Implementado** |
 | | [HU-019](HUs/HU-019_historial_de_citas_del_cliente.md) Historial de citas del cliente | [CU-19](CUs/CU-19_consulta_de_historial_de_citas_del_clien.md) Consulta de Historial de Citas del Cliente | Clientes | Media | 🟢 Implementada |
 | **[RF-013](RFs/RF-013_notificaciones_recordatorios_y_alertas.md) · Notificaciones, Recordatorios y Alertas Masivas** | | | *Notificaciones y Comunicaciones* | | 🟢 **Implementado** |
-| | [HU-020](HUs/HU-020_recordatorio_autom%C3%A1tico_de_cita.md) Recordatorio automático de cita | [CU-20](CUs/CU-20_envio_de_recordatorios_automaticos.md) Envío de Recordatorios Automáticos | Notificaciones | Media | 🟡 Parcial — existe la plantilla `enviar_recordatorio_cita`, pero no hay disparador automático (cron/scheduler) que la ejecute; requiere `EMAIL_ENABLED` + `SMTP` |
+| | [HU-020](HUs/HU-020_recordatorio_autom%C3%A1tico_de_cita.md) Recordatorio automático de cita | [CU-20](CUs/CU-20_envio_de_recordatorios_automaticos.md) Envío de Recordatorios Automáticos | Notificaciones | Media | 🟢 Implementada en código; envío requiere SMTP |
 | | [HU-021](HUs/HU-021_alerta_de_cancelaci%C3%B3n_al_administrador.md) Alerta de cancelación al administrador | [CU-21](CUs/CU-21_alerta_de_cancelacion_al_administrador.md) Alerta de Cancelación al Administrador | Notificaciones | Media | 🟢 Implementada |
 | | [HU-022](HUs/HU-022_env%C3%ADo_de_notificaciones_masivas.md) Envío de notificaciones masivas | [CU-22](CUs/CU-22_envio_de_notificaciones_masivas.md) Envío de Notificaciones Masivas | Notificaciones | Baja | 🟢 Implementada |
 | **[RF-014](RFs/RF-014_programa_de_fidelizacion_y_puntos.md) · Programa de Fidelización y Canje de Puntos** | | | *Fidelización y Marketing* | | 🟢 **Implementado** |
@@ -66,15 +68,14 @@ verificado contra el código en agosto de 2026.
 | | [HU-024](HUs/HU-024_consulta_de_saldo_de_puntos.md) Consulta de saldo de puntos | [CU-24](CUs/CU-24_consulta_de_saldo_y_movimientos_de_punto.md) Consulta de Saldo y Movimientos de Puntos | Fidelización | Media | 🟢 Implementada |
 | | [HU-025](HUs/HU-025_configuraci%C3%B3n_de_puntos_por_servicio.md) Configuración de puntos por servicio | [CU-25](CUs/CU-25_configuracion_de_puntos_por_servicio.md) Configuración de Puntos por Servicio | Fidelización | Media | 🟢 Implementada |
 | | [HU-026](HUs/HU-026_canje_de_puntos_por_descuentos.md) Canje de puntos por descuentos | [CU-26](CUs/CU-26_canje_de_puntos.md) Canje de Puntos | Fidelización | Alta | 🟢 Implementada |
-| **[RF-015](RFs/RF-015_configuracion_de_horarios_del_negocio.md) · Configuración de Horarios del Negocio y Festivos** | | | *Configuración del Sistema* | | 🟡 **Parcial** |
-| | [HU-027](HUs/HU-027_configuraci%C3%B3n_de_horario_comercial.md) Configuración de horario comercial | [CU-27](CUs/CU-27_configuracion_de_horario_de_atencion.md) Configuración de Horario de Atención | Configuración | Media | 🟡 Parcial |
-| | [HU-028](HUs/HU-028_registro_de_d%C3%ADas_festivos_o_cierres.md) Registro de días festivos o cierres | [CU-28](CUs/CU-28_registro_de_dias_no_laborales.md) Registro de Días No Laborales | Configuración | Media | 🟡 Parcial |
-| **[RF-016](RFs/RF-016_reportes_estadisticas_y_exportacion.md) · Reportes Financieros, Estadísticas y Exportación** | | | *Reportes y Analítica* | | 🟡 **Parcial** |
+| **[RF-015](RFs/RF-015_configuracion_de_horarios_del_negocio.md) · Configuración de Horarios del Negocio y Festivos** | | | *Configuración del Sistema* | | 🟢 **Implementado en código** |
+| | [HU-027](HUs/HU-027_configuraci%C3%B3n_de_horario_comercial.md) Configuración de horario comercial | [CU-27](CUs/CU-27_configuracion_de_horario_de_atencion.md) Configuración de Horario de Atención | Configuración | Media | 🟢 Implementada |
+| | [HU-028](HUs/HU-028_registro_de_d%C3%ADas_festivos_o_cierres.md) Registro de días festivos o cierres | [CU-28](CUs/CU-28_registro_de_dias_no_laborales.md) Registro de Días No Laborales | Configuración | Media | 🟢 Implementada |
+| **[RF-016](RFs/RF-016_reportes_estadisticas_y_exportacion.md) · Reportes Financieros, Estadísticas y Exportación** | | | *Reportes y Analítica* | | 🟢 **Implementado en código** |
 | | [HU-029](HUs/HU-029_reporte_anal%C3%ADtico_de_ingresos.md) Reporte analítico de ingresos | [CU-29](CUs/CU-29_reporte_de_ingresos.md) Reporte de Ingresos | Reportes | Alta | 🟢 Implementada |
 | | [HU-030](HUs/HU-030_ranking_de_servicios_m%C3%A1s_solicitados.md) Ranking de servicios más solicitados | [CU-30](CUs/CU-30_ranking_de_servicios_mas_solicitados.md) Ranking de Servicios más Solicitados | Reportes | Media | 🟢 Implementada |
 | | [HU-031](HUs/HU-031_reporte_de_desempe%C3%B1o_por_barbero.md) Reporte de desempeño por barbero | [CU-31](CUs/CU-31_reporte_de_desempeno_por_barbero.md) Reporte de Desempeño por Barbero | Reportes | Alta | 🟢 Implementada |
-| | [HU-032](HUs/HU-032_exportaci%C3%B3n_de_reportes_a_excel_csv.md) Exportación de reportes a Excel/CSV | [CU-32](CUs/CU-32_exportacion_de_reportes.md) Exportación de Reportes | Reportes | Media | 🔴 Pendiente |
-| | [HU-033](HUs/HU-033_gesti%C3%B3n_de_lista_de_espera.md) Gestión de lista de espera | [CU-33](CUs/CU-33_gestion_de_lista_de_espera.md) Gestión de Lista de Espera | Citas | Baja | 🔴 Pendiente |
+| | [HU-032](HUs/HU-032_exportaci%C3%B3n_de_reportes_a_excel_csv.md) Exportación de reportes a Excel/CSV | [CU-32](CUs/CU-32_exportacion_de_reportes.md) Exportación de Reportes | Reportes | Media | 🟢 Implementada en CSV |
 
 ---
 
@@ -85,24 +86,25 @@ verificado contra el código en agosto de 2026.
 | Requisitos funcionales | 16 |
 | Historias de usuario | 33 |
 | Casos de uso | 33 |
-| HU implementadas 🟢 | 29 |
-| HU parciales 🟡 | 2 |
-| HU pendientes 🔴 | 2 |
+| HU con implementación identificada 🟢 | 33 |
+| HU parciales 🟡 | 0 |
+| HU sin implementación identificada 🔴 | 0 |
 | HU sin RF asociado | 0 |
 | HU sin CU asociado | 0 |
 | RF sin HU asociada | 1 |
 
 ### Cobertura
 
-- **29/33** historias implementadas y verificadas contra el código (87 %).
+- **33/33** historias tienen implementación identificada en la rama actual. HU-032
+  exporta CSV, no XLSX; HU-020 depende de SMTP para entregar correo.
 - Toda historia de usuario tiene requisito funcional padre y caso de uso correspondiente.
 - Los 6 requisitos no funcionales están en [`RNFs/`](RNFs/) y aplican de forma transversal.
 
 > [!NOTE]
 > **RF-003** no tiene historias de usuario propias: describe capacidades
 > transversales (gestión de perfil y control de acceso por rol) que se ejercitan desde
-> el resto de historias. Está implementado y cubierto por pruebas, pero conviene
-> valorar con el instructor si debe redactarse una historia específica.
+> el resto de historias. Está implementado y cubierto por pruebas; el equipo puede
+> decidir si necesita una historia específica según el alcance funcional.
 
 ---
 

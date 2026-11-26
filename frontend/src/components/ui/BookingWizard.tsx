@@ -38,6 +38,7 @@ export const BookingWizard: React.FC = () => {
   const [codigoInvitado, setCodigoInvitado] = useState('');
   const [mensajeCodigo, setMensajeCodigo] = useState('');
   const [enviandoCodigo, setEnviandoCodigo] = useState(false);
+  const [reservandoCita, setReservandoCita] = useState(false);
   const [extras, setExtras] = useState<string[]>([]);
   const [usarPuntos, setUsarPuntos] = useState(false);
   const [nombre, setNombre] = useState('');
@@ -68,6 +69,7 @@ export const BookingWizard: React.FC = () => {
     setCodigoInvitado('');
     setMensajeCodigo('');
     setEnviandoCodigo(false);
+    setReservandoCita(false);
     setError('');
     setClienteTexto('');
     setClienteSeleccionado(null);
@@ -214,6 +216,7 @@ export const BookingWizard: React.FC = () => {
   };
 
   const confirmar = async () => {
+    if (reservandoCita || enviandoCodigo) return;
     setError('');
     const reservaInterna = Boolean(usuario && usuario.id_rol !== 3);
     if (reservaInterna && !clienteSeleccionado) {
@@ -230,21 +233,29 @@ export const BookingWizard: React.FC = () => {
       if (solicitudInvitado !== null) {
         if (!/^[0-9]{6}$/.test(codigoInvitado)) return setError('Ingresa el código de seis dígitos que enviamos a tu correo.');
         setEnviandoCodigo(true);
-        const resultado = await confirmarCitaInvitado(solicitudInvitado, codigoInvitado);
-        setEnviandoCodigo(false);
-        if (!resultado.ok) setError(resultado.mensaje);
+        try {
+          const resultado = await confirmarCitaInvitado(solicitudInvitado, codigoInvitado);
+          if (!resultado.ok) setError(resultado.mensaje);
+        } finally {
+          setEnviandoCodigo(false);
+        }
         return;
       }
       return solicitarCodigoInvitado();
     }
 
-    const r = await crearCita({
-      servicio_id: idServicio, barbero_id: idBarbero, fecha, hora_inicio: horaInicio,
-      extras, usar_puntos: usarPuntos, puntos_a_usar: puntosUsables,
-      nombre, correo, telefono, observaciones,
-      ...(reservaInterna && clienteSeleccionado ? { id_cliente: clienteSeleccionado.id_cliente } : {}),
-    });
-    if (!r.ok) setError(r.mensaje);
+    setReservandoCita(true);
+    try {
+      const r = await crearCita({
+        servicio_id: idServicio, barbero_id: idBarbero, fecha, hora_inicio: horaInicio,
+        extras, usar_puntos: usarPuntos, puntos_a_usar: puntosUsables,
+        nombre, correo, telefono, observaciones,
+        ...(reservaInterna && clienteSeleccionado ? { id_cliente: clienteSeleccionado.id_cliente } : {}),
+      });
+      if (!r.ok) setError(r.mensaje);
+    } finally {
+      setReservandoCita(false);
+    }
   };
 
   const buscarClienteInterno = async () => {
@@ -303,7 +314,12 @@ export const BookingWizard: React.FC = () => {
               <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300/90">Agendamiento en línea</span>
               <h3 className="font-heading text-2xl font-black">Reserva tu turno</h3>
             </div>
-            <button onClick={cerrarReserva} className="rounded-full bg-white/10 p-2 transition hover:bg-white/20">
+            <button
+              onClick={cerrarReserva}
+              disabled={reservandoCita}
+              aria-label="Cerrar reserva"
+              className="rounded-full bg-white/10 p-2 transition hover:bg-white/20 disabled:cursor-wait disabled:opacity-50"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -729,7 +745,11 @@ export const BookingWizard: React.FC = () => {
         {/* Pie */}
         <div className="flex shrink-0 items-center justify-between border-t border-white/8 bg-[#141A21] px-5 py-4 sm:px-7">
           {paso > 1 ? (
-            <button onClick={() => setPaso(paso === 3 && saltarBarbero ? 1 : paso - 1)} className="flex items-center gap-1.5 rounded-2xl border border-white/12 px-4 py-2.5 text-xs font-bold text-[#93A1B1] transition hover:bg-white/5">
+            <button
+              onClick={() => setPaso(paso === 3 && saltarBarbero ? 1 : paso - 1)}
+              disabled={reservandoCita}
+              className="flex items-center gap-1.5 rounded-2xl border border-white/12 px-4 py-2.5 text-xs font-bold text-[#93A1B1] transition hover:bg-white/5 disabled:cursor-wait disabled:opacity-50"
+            >
               <ArrowLeft className="h-4 w-4" /> Atrás
             </button>
           ) : <span />}
@@ -739,9 +759,18 @@ export const BookingWizard: React.FC = () => {
               Continuar <ArrowRight className="h-4 w-4" />
             </button>
           ) : (
-            <button onClick={() => void confirmar()} disabled={enviandoCodigo} className="btn-oro flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black disabled:opacity-50">
-              <Check className="h-4 w-4" />
-              {enviandoCodigo ? 'Procesando…' : !usuario ? solicitudInvitado === null ? 'Enviar código de confirmación' : 'Confirmar mi cita' : 'Confirmar mi cita'}
+            <button
+              onClick={() => void confirmar()}
+              disabled={enviandoCodigo || reservandoCita}
+              aria-busy={enviandoCodigo || reservandoCita}
+              className="btn-oro flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black disabled:cursor-wait disabled:opacity-50"
+            >
+              {reservandoCita || enviandoCodigo ? (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+              ) : (
+                <Check className="h-4 w-4" />
+              )}
+              {reservandoCita ? 'Reservando cita…' : enviandoCodigo ? 'Procesando…' : !usuario ? solicitudInvitado === null ? 'Enviar código de confirmación' : 'Confirmar mi cita' : 'Confirmar mi cita'}
             </button>
           )}
         </div>

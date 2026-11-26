@@ -16,7 +16,7 @@
 | **Nombre** | Compatibilidad y Portabilidad |
 | **Categoría** | Portabilidad (ISO/IEC 25010 - Adaptability, Installability, Replaceability) |
 | **Prioridad** | Alta |
-| **Estado** | Implementado |
+| **Estado** | Parcial; falta validación de navegadores y despliegue |
 
 ---
 
@@ -30,11 +30,16 @@ La aplicación web frontend debe ser 100% funcional y visualmente idéntica en l
 - Apple Safari (macOS e iOS)
 
 ### RNF-006.2 — Contenedorización con Docker y Docker Compose
-Todo el backend y la base de datos MySQL deben poder ejecutarse de forma idéntica en Linux, macOS y Windows a través de `docker compose --env-file backend/.env up -d`, sin requerir la instalación manual de MySQL o librerías del sistema operativo anfitrión. Antes del primer arranque, se deben configurar los secretos locales en `backend/.env`.
+El backend y el frontend deben poder ejecutarse de forma idéntica en Linux, macOS y Windows a través de Docker Compose, sin requerir la instalación manual de dependencias del sistema anfitrión. En el despliegue vigente, Compose inicia backend y frontend; la base de datos TiDB Cloud está alojada remotamente y se configura por variables privadas. Por tanto, este requisito no implica que Compose aloje TiDB.
 
 ### RNF-006.3 — Portabilidad de Base de Datos
-El esquema debe ser reproducible sobre cualquier instancia MySQL 8.0+ / MariaDB 10.5+, sea local, remota o en la nube (AWS RDS, GCP Cloud SQL, PlanetScale o VPS local), sin pasos manuales.
+El esquema debe reproducirse en TiDB Cloud, motor remoto del proyecto, y en MySQL 8.0, usado por CI. La compatibilidad con MariaDB u otros proveedores requiere validación independiente y no se presume.
 
-Se cumple mediante las **migraciones de Alembic** en `backend/alembic/versions/`: apuntando las variables `DB_*` a la instancia destino, `alembic upgrade head` reconstruye las 20 tablas, las 4 vistas y los datos semilla de forma idéntica. Las migraciones usan tipos y sintaxis soportados por MySQL 8.0+ y MariaDB 10.5+, y son reversibles vía `downgrade()`.
+La creación y evolución del esquema se implementa mediante las **migraciones de Alembic** en
+`backend/alembic/versions/`: con las variables `DB_*` apuntando a una instancia
+destino, `alembic upgrade head` crea el esquema vigente de 26 tablas, 4 vistas
+y los datos semilla. El CI ejecuta `upgrade` y `downgrade` en MySQL 8.0. La
+ejecución de integración en una base TiDB aislada y en navegadores objetivo
+sigue pendiente; por eso la compatibilidad integral no se marca como verificada.
 
 > El archivo `database/database.sql` se conserva únicamente como referencia histórica del modelo; no es el mecanismo de despliegue.

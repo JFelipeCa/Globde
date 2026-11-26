@@ -21,6 +21,7 @@ export const Hero: React.FC = () => {
         alt=""
         aria-hidden="true"
         className="hero-imagen-fade absolute inset-y-0 right-0 h-full w-[62%] object-cover object-[center_40%]"
+        fetchPriority="high"
       />
 
       <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:py-20 lg:px-8">
@@ -260,7 +261,7 @@ export const Catalogo: React.FC = () => {
               className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} group overflow-hidden text-left`}>
               <div className="relative h-60 overflow-hidden">
                 {c.imagen_url ? (
-                  <img src={c.imagen_url} alt={c.nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                  <img src={c.imagen_url} alt={c.nombre} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
                 ) : (
                   <span className="flex h-full items-center justify-center bg-[#1B2024] text-amber-400">
                     <Scissors className="h-12 w-12" aria-hidden="true" />
