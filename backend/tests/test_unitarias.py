@@ -2,6 +2,7 @@
 
 import re
 from contextlib import contextmanager
+from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -98,6 +99,56 @@ class TestListaEspera:
             "2026-03-10", "14:00", "14:30", 5, 3
         )
         assert reclamos == [2]
+
+    def test_fecha_pasada_rechazada(self):
+        with pytest.raises(DatosInvalidos, match="pasado"):
+            lista_espera_service._validar_fecha_solicitada(
+                date.today() - timedelta(days=1), "cualquiera"
+            )
+
+    def test_fecha_cerrada_rechazada(self, monkeypatch):
+        monkeypatch.setattr(agenda_service, "hay_cierre_negocio", lambda _fecha: True)
+        with pytest.raises(DatosInvalidos, match="cerrado"):
+            lista_espera_service._validar_fecha_solicitada(date.today(), "cualquiera")
+
+    def test_franja_sin_horario_rechazada(self, monkeypatch):
+        monkeypatch.setattr(agenda_service, "hay_cierre_negocio", lambda _fecha: False)
+        monkeypatch.setattr(
+            agenda_service,
+            "horarios_negocio_del_dia",
+            lambda _fecha: [{"hora_inicio": "08:00", "hora_fin": "12:00"}],
+        )
+        with pytest.raises(DatosInvalidos, match="No hay atención"):
+            lista_espera_service._validar_fecha_solicitada(
+                date.today() + timedelta(days=1), "tarde"
+            )
+
+    def test_hoy_sin_horas_pendientes_rechazado(self, monkeypatch):
+        class RelojFijo(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return cls.combine(date.today(), time(20, 0))
+
+        monkeypatch.setattr(lista_espera_service, "datetime", RelojFijo)
+        monkeypatch.setattr(agenda_service, "hay_cierre_negocio", lambda _fecha: False)
+        monkeypatch.setattr(
+            agenda_service,
+            "horarios_negocio_del_dia",
+            lambda _fecha: [{"hora_inicio": "08:00", "hora_fin": "18:00"}],
+        )
+        with pytest.raises(DatosInvalidos, match="No hay atención"):
+            lista_espera_service._validar_fecha_solicitada(date.today(), "cualquiera")
+
+    def test_fecha_futura_con_horario_abierto_aceptada(self, monkeypatch):
+        monkeypatch.setattr(agenda_service, "hay_cierre_negocio", lambda _fecha: False)
+        monkeypatch.setattr(
+            agenda_service,
+            "horarios_negocio_del_dia",
+            lambda _fecha: [{"hora_inicio": "08:00", "hora_fin": "18:00"}],
+        )
+        lista_espera_service._validar_fecha_solicitada(
+            date.today() + timedelta(days=1), "cualquiera"
+        )
 
 
 # ----------------------------------------------------------------------

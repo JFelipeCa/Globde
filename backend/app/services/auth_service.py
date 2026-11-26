@@ -136,7 +136,13 @@ def registrar_cliente(datos: dict, contexto: dict | None = None) -> dict:
     contexto = contexto or {}
     correo = datos["correo"].strip().lower()
 
-    if usuarios_service.existe_correo(correo):
+    existente = usuarios_service.obtener_por_correo(correo)
+    if existente and existente.get("es_invitado"):
+        raise Conflicto(
+            "Ya tienes reservas como invitado con este correo. Usa «Olvidé mi contraseña» "
+            "para activar tu cuenta y recuperar tu historial."
+        )
+    if existente:
         raise Conflicto("Ya existe una cuenta registrada con ese correo")
 
     errores = validar_fortaleza_password(datos["contrasena"])
@@ -284,7 +290,10 @@ def restablecer_password(token: str, nueva: str, contexto: dict | None = None) -
     id_usuario = int(fila["id_usuario"])
     with transaction() as cursor:
         cursor.execute(
-            "UPDATE usuarios SET contrasena_hash = %s WHERE id_usuario = %s",
+            """UPDATE usuarios
+               SET contrasena_hash = %s, es_invitado = 0,
+                   email_verificado_at = COALESCE(email_verificado_at, UTC_TIMESTAMP())
+               WHERE id_usuario = %s""",
             (hash_password(nueva), id_usuario),
         )
         cursor.execute(

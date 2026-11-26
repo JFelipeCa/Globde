@@ -157,7 +157,7 @@ def servicios_asignados(id_barbero: int) -> list[dict]:
                   bs.precio_personalizado
            FROM barbero_servicio bs
            JOIN servicios s ON s.id_servicio = bs.id_servicio
-           WHERE bs.id_barbero = %s AND bs.activo = 1
+           WHERE bs.id_barbero = %s AND bs.activo = 1 AND s.activo = 1
            ORDER BY s.categoria, s.nombre""",
         (id_barbero,),
     )

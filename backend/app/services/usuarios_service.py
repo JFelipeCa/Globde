@@ -9,7 +9,7 @@ from app.db.database import execute, fetch_all, fetch_one, fetch_value, transact
 
 SQL_USUARIO = """
     SELECT u.id_usuario, u.id_rol, r.nombre AS rol, u.nombre, u.correo, u.telefono,
-           u.avatar_url, u.activo, u.email_verificado_at, u.ultimo_login_at, u.creado_en,
+           u.avatar_url, u.activo, u.es_invitado, u.email_verificado_at, u.ultimo_login_at, u.creado_en,
            c.id_cliente, c.puntos_saldo, c.nivel_fidelizacion,
            c.id_barbero_favorito,
            b.id_barbero

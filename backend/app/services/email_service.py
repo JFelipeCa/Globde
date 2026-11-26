@@ -1,5 +1,6 @@
 import logging
 import smtplib
+from html import escape
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -274,6 +275,32 @@ def enviar_confirmacion_cita(
     )
 
 
+def enviar_codigo_verificacion_invitado(
+    destinatario: str, nombre: str, codigo: str
+) -> bool:
+    nombre_seguro = escape(nombre)
+    cuerpo = f"""
+      <h2 style="margin:0 0 18px;font-size:18px;color:#212529;">Hola, {nombre_seguro}:</h2>
+      <p style="margin:0 0 18px;font-size:15px;color:#495057;line-height:1.6;">
+        Usa este código para confirmar tu correo y continuar con tu solicitud:
+      </p>
+      <p style="margin:0 0 18px;text-align:center;font-size:30px;font-weight:700;letter-spacing:8px;color:#0e7490;">
+        {codigo}
+      </p>
+      <p style="margin:0;font-size:13px;color:#6c757d;">El código vence en 10 minutos y solo puede usarse una vez.</p>"""
+    texto = (
+        f"Hola {nombre}: tu código de verificación GLOBDE es {codigo}. "
+        "Vence en 10 minutos y solo puede usarse una vez."
+    )
+    return enviar_email(
+        destinatario,
+        "Confirma tu correo - GLOBDE",
+        _plantilla_base("Verificación de correo", cuerpo),
+        texto,
+        "email_verification",
+    )
+
+
 def enviar_cancelacion_cita(
     destinatario: str, nombre: str, cita: dict, motivo: str | None = None,
     id_usuario: int | None = None,
@@ -329,6 +356,7 @@ __all__ = [
     "enviar_email",
     "enviar_recuperacion_password",
     "enviar_confirmacion_cita",
+    "enviar_codigo_verificacion_invitado",
     "enviar_cancelacion_cita",
     "enviar_recordatorio_cita",
     "enviar_notificacion_generica",

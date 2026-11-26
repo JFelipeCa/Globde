@@ -1,14 +1,40 @@
 """Persistencia y ofrecimiento secuencial de turnos liberados."""
 
 import logging
+from datetime import date, datetime
 from typing import Any
 
 from app.core.exceptions import Conflicto, DatosInvalidos, NoEncontrado, Prohibido
 from app.db.database import execute, execute_rowcount, fetch_all, fetch_one, transaction
 from app.db.serializers import hhmm
 from app.services import email_service, notificaciones_service, servicios_service
+from app.services import agenda_service
 
 logger = logging.getLogger("globde.lista_espera")
+
+
+def _validar_fecha_solicitada(fecha: date | str, franja: str) -> None:
+    dia = date.fromisoformat(fecha) if isinstance(fecha, str) else fecha
+    hoy = date.today()
+    if dia < hoy:
+        raise DatosInvalidos("La fecha de la lista de espera no puede estar en el pasado")
+    if agenda_service.hay_cierre_negocio(dia):
+        raise DatosInvalidos("El negocio está cerrado en la fecha seleccionada")
+
+    limite_inicio, limite_fin = {
+        "manana": (0, 13 * 60),
+        "tarde": (13 * 60, 24 * 60),
+        "cualquiera": (0, 24 * 60),
+    }[franja]
+    minuto_actual = datetime.now().hour * 60 + datetime.now().minute
+    for horario in agenda_service.horarios_negocio_del_dia(dia):
+        inicio_hora, inicio_minuto = map(int, horario["hora_inicio"].split(":"))
+        fin_hora, fin_minuto = map(int, horario["hora_fin"].split(":"))
+        inicio = max(inicio_hora * 60 + inicio_minuto, limite_inicio)
+        fin = min(fin_hora * 60 + fin_minuto, limite_fin)
+        if fin > inicio and (dia != hoy or fin > minuto_actual):
+            return
+    raise DatosInvalidos("No hay atención disponible en esa fecha y franja")
 
 _SELECT_LISTA_ESPERA = """
     SELECT le.id_espera, le.id_cliente, cliente.nombre AS nombre_cliente,
@@ -44,10 +70,12 @@ def obtener(id_espera: int) -> dict:
     return _formatear(fila)
 
 
-def crear(datos: dict, usuario: Any) -> dict:
-    id_cliente = getattr(usuario, "id_cliente", None)
-    if not getattr(usuario, "es_cliente", False) or not id_cliente:
-        raise Prohibido("Solo los clientes pueden crear solicitudes de espera")
+def crear(datos: dict, usuario: Any = None, id_cliente_invitado: int | None = None) -> dict:
+    id_cliente = id_cliente_invitado
+    if id_cliente is None:
+        id_cliente = getattr(usuario, "id_cliente", None)
+        if not getattr(usuario, "es_cliente", False) or not id_cliente:
+            raise Prohibido("Solo los clientes pueden crear solicitudes de espera")
 
     servicio = servicios_service.obtener_activo(int(datos["id_servicio"]))
     id_barbero = datos.get("id_barbero")
@@ -59,6 +87,7 @@ def crear(datos: dict, usuario: Any) -> dict:
             raise DatosInvalidos("El barbero seleccionado no presta ese servicio")
 
     fecha = datos["fecha_deseada"]
+    _validar_fecha_solicitada(fecha, datos["franja_horaria"])
     existente = fetch_one(
         """SELECT id_espera FROM lista_espera
            WHERE id_cliente = %s AND id_servicio = %s AND fecha_deseada = %s

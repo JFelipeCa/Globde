@@ -108,6 +108,10 @@ interface ResultadoCliente extends Resultado {
   idCliente?: number;
 }
 
+interface ResultadoCodigo extends Resultado {
+  idSolicitud?: number;
+}
+
 interface ContextoApp {
   usuario: Usuario | null;
   citas: Cita[];
@@ -149,6 +153,8 @@ interface ContextoApp {
   franjasOcupadas: (fecha: string, barberoId: number) => { inicio: string; fin: string }[];
   franjaDisponible: (fecha: string, barberoId: number, inicio: string, dur: number, ignorarId?: number) => boolean;
   crearCita: (d: DatosReserva) => Promise<Resultado>;
+  solicitarCodigoCitaInvitado: (d: DatosReserva) => Promise<ResultadoCodigo>;
+  confirmarCitaInvitado: (idSolicitud: number, codigo: string) => Promise<Resultado>;
   crearClientePresencial: (nombre: string, telefono: string) => Promise<ResultadoCliente>;
   crearUsuarioInterno: (datos: UsuarioInternoCreate) => Promise<Resultado>;
   buscarClientes: (texto: string) => Promise<ClienteBusqueda[]>;
@@ -325,16 +331,19 @@ function mapBarberoApi(u: Record<string, unknown>, detalle: Record<string, unkno
     hora_inicio: String(h.hora_inicio ?? '08:00'),
     hora_fin: String(h.hora_fin ?? '20:00'),
   }));
-  const serviciosIds: number[] = (
+  const serviciosActivos = (
     Array.isArray(detalle.servicios) ? detalle.servicios : []
-  ).map((sv: unknown) =>
+  ).filter((sv: unknown) => typeof sv !== 'object' || sv === null || (sv as Record<string, unknown>).activo !== false);
+  const serviciosIds: number[] = serviciosActivos.map((sv: unknown) =>
     typeof sv === 'object'
       ? Number((sv as Record<string, unknown>).id_servicio ?? (sv as Record<string, unknown>).id ?? 0)
       : Number(sv)
   ).filter((x) => x > 0);
-  const especialidades = Array.isArray(detalle.servicios)
-    ? detalle.servicios.map((sv: unknown) => String((sv as Record<string, unknown>).nombre ?? '')).filter(Boolean)
-    : ['Corte profesional'];
+  const especialidades = Array.from(new Set(serviciosActivos
+    .map((sv: unknown) => typeof sv === 'object' && sv !== null
+      ? String((sv as Record<string, unknown>).nombre ?? '')
+      : '')
+    .filter(Boolean)));
   const aperturas = jornadas.map((j) => j.hora_inicio).sort();
   const cierres = jornadas.map((j) => j.hora_fin).sort();
   return {
@@ -921,6 +930,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const solicitarCodigoCitaInvitado = async (d: DatosReserva): Promise<ResultadoCodigo> => {
+    try {
+      const respuesta = await apiRequest<{ id_solicitud: number; mensaje: string }>(
+        '/citas/invitado/verificacion',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            nombre: d.nombre,
+            correo: d.correo,
+            telefono: d.telefono,
+            id_servicio: d.servicio_id,
+            id_barbero: d.barbero_id,
+            fecha: d.fecha,
+            hora_inicio: d.hora_inicio,
+            extras: d.extras,
+            observaciones: d.observaciones,
+          }),
+        },
+      );
+      return { ok: true, mensaje: respuesta.mensaje, idSolicitud: respuesta.id_solicitud };
+    } catch (error) {
+      return {
+        ok: false,
+        mensaje: error instanceof Error ? error.message : 'No se pudo enviar el código de verificación.',
+      };
+    }
+  };
+
+  const confirmarCitaInvitado = async (idSolicitud: number, codigo: string): Promise<Resultado> => {
+    try {
+      const respuesta = await apiRequest<Record<string, unknown>>('/citas/invitado/confirmar', {
+        method: 'POST',
+        body: JSON.stringify({ id_solicitud: idSolicitud, codigo }),
+      });
+      const nueva = mapCitaApi(respuesta);
+      setCitas((actuales) => [nueva, ...actuales]);
+      setCitaTicket(nueva);
+      setEsConfirmacionNueva(true);
+      cerrarReserva();
+      notificar(
+        '¡Cita confirmada!',
+        `${nueva.codigo_reserva} · ${nueva.fecha} de ${nueva.hora_inicio} a ${nueva.hora_fin}. Enviamos la confirmación a tu correo.`,
+        'cita',
+      );
+      return { ok: true, mensaje: 'Cita creada correctamente.' };
+    } catch (error) {
+      return {
+        ok: false,
+        mensaje: error instanceof Error ? error.message : 'No se pudo confirmar la reserva.',
+      };
+    }
+  };
+
   const editarCita = async (
     id: number,
     cambios: Partial<Pick<Cita, 'fecha' | 'hora_inicio' | 'id_barbero' | 'id_servicio' | 'observaciones' | 'estado'>>
@@ -1466,6 +1528,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         franjasOcupadas,
         franjaDisponible,
         crearCita,
+        solicitarCodigoCitaInvitado,
+        confirmarCitaInvitado,
         crearClientePresencial,
         crearUsuarioInterno,
         buscarClientes,

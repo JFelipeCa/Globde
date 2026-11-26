@@ -30,18 +30,18 @@ export const Hero: React.FC = () => {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
             </span>
-            Agenda disponible hoy · respuesta inmediata
+            Agenda en línea · horarios según disponibilidad
           </span>
 
           <h1 className="font-heading text-4xl font-black leading-[1.05] text-[#EAF0F6] sm:text-5xl lg:text-6xl">
             Tu mejor versión empieza con un
-            <span className="text-aqua"> corte perfecto</span> y
-            <span className="text-oro"> cero espera</span>.
+            <span className="text-aqua"> corte perfecto</span> y una
+            <span className="text-oro"> cita a tu medida</span>.
           </h1>
 
           <p className="max-w-xl text-base leading-relaxed text-[#93A1B1]">
-            Reserva por rangos horarios exactos, elige a tu barbero favorito, recibe tu pase digital con QR
-            y acumula puntos canjeables en cada visita. Todo en menos de un minuto.
+            Reserva según la duración de tu servicio, elige a tu barbero, recibe un pase digital con QR
+            y acumula puntos por tus citas completadas.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -59,15 +59,15 @@ export const Hero: React.FC = () => {
 
           <div className="grid grid-cols-3 gap-3 border-t border-white/8 pt-6">
             {[
-              { i: Clock, t: '0 min', s: 'de espera en sala' },
-              { i: Crown, t: '+1.400', s: 'clientes con puntos' },
-              { i: Star, t: '4.9/5', s: 'calificación media' },
+              { i: QrCode, t: 'Pase QR', s: 'para tu reserva' },
+              { i: Crown, t: 'Puntos', s: 'por tus citas completadas' },
+              { i: Clock, t: 'Horario', s: 'según cada servicio' },
             ].map((x) => (
               <div key={x.t} className="flex items-center gap-2.5">
                 <span className="icono-acento flex h-10 w-10 items-center justify-center rounded-2xl"><x.i className="h-5 w-5" /></span>
                 <span>
                   <span className="font-heading block text-lg font-black leading-none text-[#EAF0F6]">{x.t}</span>
-                  <span className="text-[11px] text-[#6B7A8C]">{x.s}</span>
+                  <span className="text-xs text-[#6B7A8C]">{x.s}</span>
                 </span>
               </div>
             ))}
@@ -86,10 +86,10 @@ export const Beneficios: React.FC = () => {
   const items = [
     { i: CalendarDays, t: 'Reserva por rangos horarios', d: 'Ves la hora exacta de inicio y fin de tu cita según la duración real del servicio.' },
     { i: QrCode, t: 'Pase digital con QR', d: 'Recibes un comprobante con código único para validar tu turno al llegar.' },
-    { i: Bell, t: 'Lista de espera inteligente', d: 'Si se libera un turno que coincide con tu solicitud, te avisamos en la aplicación.' },
+    { i: Bell, t: 'Lista de espera inteligente', d: 'Te avisamos cuando se libera un turno compatible con tu solicitud.' },
     { i: Crown, t: 'Puntos que se canjean', d: 'Acumula en cada visita y cámbialos por servicios, productos o descuentos.' },
-    { i: Award, t: 'Ranking de barberos', d: 'Nivel Master, Oro y Plata según desempeño, puntualidad y calificaciones.' },
-    { i: ShieldCheck, t: 'Seguridad y bioseguridad', d: 'Contraseñas cifradas, navaja de un solo uso y esterilización UV certificada.' },
+    { i: Award, t: 'Barberos mejor valorados', d: 'Consulta sus calificaciones y experiencia antes de elegir con quién reservar.' },
+    { i: ShieldCheck, t: 'Cuenta protegida', d: 'Protegemos las contraseñas y limitamos el acceso a la información según el rol.' },
   ];
 
   return (
@@ -250,6 +250,11 @@ export const Catalogo: React.FC = () => {
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {!lista.length && (
+            <p className="col-span-full rounded-2xl border border-white/10 bg-[#141A21] p-6 text-center text-sm text-[#C6D0DC]">
+              No hay servicios activos en esta categoría por ahora.
+            </p>
+          )}
           {lista.map((c, i) => (
             <button key={c.id_corte} onClick={() => setDetalle(c)}
               className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} group overflow-hidden text-left`}>
@@ -278,11 +283,6 @@ export const Catalogo: React.FC = () => {
                   </span>
                   <span className="font-black text-[#EAF0F6]">{formatoCOP(c.precio_sugerido)}</span>
                 </div>
-                {!lista.length && (
-                  <p className="mt-8 rounded-2xl border border-white/10 bg-[#141A21] p-6 text-center text-sm text-[#C6D0DC]">
-                    No hay servicios activos en esta categoría por ahora.
-                  </p>
-                )}
               </div>
             </button>
           ))}
@@ -303,7 +303,7 @@ export const Catalogo: React.FC = () => {
               <button onClick={() => setDetalle(null)} className="absolute right-4 top-4 rounded-full border border-white/10 bg-[#0B0F14]/85 p-2 text-[#EAF0F6] backdrop-blur"><X className="h-4 w-4" /></button>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#141A21] to-transparent p-4">
                 <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-[#1A1400]">{detalle.categoria}</span>
-                <h3 className="font-heading mt-1 text-2xl font-black text-[#EAF0F6]">{detalle.nombre}</h3>
+                <h3 className="font-heading mt-1 text-2xl font-black text-white">{detalle.nombre}</h3>
               </div>
             </div>
             <div className="space-y-4 p-6">
@@ -399,10 +399,10 @@ export const Fidelizacion: React.FC = () => {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {niveles.map((n) => (
-                  <div key={n.n} className={`rounded-2xl border p-3 text-left ${nivel === n.n ? 'border-neutral-900 bg-amber-400/8' : 'border-white/8 bg-[#141A21]/70'}`}>
-                    <p className="flex items-center justify-between text-xs font-black text-[#EAF0F6]">{n.n}<span className="text-[10px] font-bold text-amber-300">{n.p}</span></p>
+                  <div key={n.n} className={`rounded-2xl border p-3 text-left ${nivel === n.n ? 'club-nivel-activo border-neutral-900 bg-amber-400/8' : 'border-white/8 bg-[#141A21]/70'}`}>
+                    <p className={`flex items-center justify-between text-xs font-black ${nivel === n.n ? 'text-[#06232A]' : 'text-[#EAF0F6]'}`}>{n.n}<span className={`text-[10px] font-bold ${nivel === n.n ? 'text-[#164E63]' : 'text-amber-300'}`}>{n.p}</span></p>
                     <ul className="mt-1 space-y-0.5">
-                      {n.b.map((x) => <li key={x} className="flex items-start gap-1 text-[10px] text-[#93A1B1]"><Check className="mt-0.5 h-2.5 w-2.5 text-emerald-300" />{x}</li>)}
+                      {n.b.map((x) => <li key={x} className={`flex items-start gap-1 text-[10px] ${nivel === n.n ? 'text-[#164E63]' : 'text-[#93A1B1]'}`}><Check className="mt-0.5 h-2.5 w-2.5 text-emerald-800" />{x}</li>)}
                     </ul>
                   </div>
                 ))}

@@ -51,6 +51,11 @@ class DemasiadosIntentos(GlobdeError):
     mensaje = "Demasiados intentos. Intenta de nuevo mas tarde"
 
 
+class ServicioNoDisponible(GlobdeError):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    mensaje = "El servicio no esta disponible temporalmente"
+
+
 def registrar_manejadores(app: FastAPI) -> None:
    
     @app.exception_handler(GlobdeError)

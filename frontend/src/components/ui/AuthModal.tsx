@@ -150,7 +150,15 @@ export const AuthModal: React.FC = () => {
     if (!evaluarPassword(rPwd).esSegura) return setError('Tu contraseña aún no cumple todos los requisitos de seguridad.');
     if (rPwd !== rPwd2) return setError('Las contraseñas no coinciden.');
     const r = await registrar(rNombre, rCorreo, rTel, rPwd);
-    if (!r.ok) setError(r.mensaje);
+    if (!r.ok && r.mensaje.includes('reservas como invitado')) {
+      setRecCorreo(rCorreo);
+      setPasoRec(1);
+      setExitoRec('');
+      setError('');
+      abrirAuth('recuperar');
+    } else if (!r.ok) {
+      setError(r.mensaje);
+    }
   };
 
   const pedirCodigo = async (e: React.FormEvent) => {
@@ -174,7 +182,7 @@ export const AuthModal: React.FC = () => {
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
       <div className="anim-zoom card w-full max-w-lg overflow-hidden">
         {/* Encabezado */}
         <div className="relative overflow-hidden bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-800 px-6 py-5 text-white">

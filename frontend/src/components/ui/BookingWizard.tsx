@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   X, Check, ArrowRight, ArrowLeft, Clock, Star, Crown, Timer,
-  CalendarDays, Sparkles, CircleAlert, Plus,
+  CalendarDays, Sparkles, CircleAlert, Plus, LogIn, UserPlus, ShieldCheck, UserRound,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import type { ClienteBusqueda } from '../../types';
 import { EXTRAS_SERVICIO, SERVICIOS, BARBEROS } from '../../data/mockData';
 import {
   formatoCOP, hoyISO, sumarDiasISO, desglosarFecha,
-  sumarMinutos, hora12, duracionLegible, fechaLarga,
+  sumarMinutos, hora12, duracionLegible, fechaLarga, validarCorreo,
 } from '../../utils/helpers';
 import { apiRequest } from '../../utils/apiClient';
 import { BarberoFoto } from './BarberoFoto';
@@ -24,14 +24,20 @@ interface SlotDisponibilidad {
 export const BookingWizard: React.FC = () => {
   const {
     reservaAbierta, cerrarReserva, configReserva, servicios, barberos,
-    catalogoCortes, usuario, crearCita, buscarClientes,
+    catalogoCortes, usuario, crearCita, buscarClientes, abrirAuth,
+    solicitarCodigoCitaInvitado, confirmarCitaInvitado,
   } = useApp();
 
   const [paso, setPaso] = useState(1);
   const [idServicio, setIdServicio] = useState(1);
   const [idBarbero, setIdBarbero] = useState(1);
   const [fecha, setFecha] = useState(hoyISO());
+  const [hoySinDisponibilidad, setHoySinDisponibilidad] = useState(false);
   const [horaInicio, setHoraInicio] = useState('');
+  const [solicitudInvitado, setSolicitudInvitado] = useState<number | null>(null);
+  const [codigoInvitado, setCodigoInvitado] = useState('');
+  const [mensajeCodigo, setMensajeCodigo] = useState('');
+  const [enviandoCodigo, setEnviandoCodigo] = useState(false);
   const [extras, setExtras] = useState<string[]>([]);
   const [usarPuntos, setUsarPuntos] = useState(false);
   const [nombre, setNombre] = useState('');
@@ -55,13 +61,26 @@ export const BookingWizard: React.FC = () => {
     setPaso(configReserva.servicioId ? 2 : 1);
     if (configReserva.servicioId) setIdServicio(configReserva.servicioId);
     if (configReserva.barberoId) setIdBarbero(configReserva.barberoId);
-    if (usuario) { setNombre(usuario.nombre); setCorreo(usuario.correo); setTelefono(usuario.telefono); }
-    setHoraInicio(''); setError('');
+    setFecha(hoyISO());
+    setHoySinDisponibilidad(false);
+    setHoraInicio('');
+    setSolicitudInvitado(null);
+    setCodigoInvitado('');
+    setMensajeCodigo('');
+    setEnviandoCodigo(false);
+    setError('');
     setClienteTexto('');
     setClienteSeleccionado(null);
     setResultadosCliente([]);
     setErrorBusquedaCliente('');
-  }, [reservaAbierta, configReserva, usuario]);
+  }, [reservaAbierta, configReserva]);
+
+  useEffect(() => {
+    if (!reservaAbierta || !usuario) return;
+    setNombre(usuario.nombre);
+    setCorreo(usuario.correo);
+    setTelefono(usuario.telefono);
+  }, [reservaAbierta, usuario]);
 
   // Respaldo: si el backend no trae catálogo, se usan los datos mock
   const listaServicios = servicios.length ? servicios : SERVICIOS;
@@ -101,6 +120,7 @@ export const BookingWizard: React.FC = () => {
     setSlots([]);
     setErrorSlots('');
     setCargandoSlots(true);
+    if (fecha === hoyISO()) setHoySinDisponibilidad(false);
     const parametros = new URLSearchParams({
       fecha,
       id_servicio: String(idServicio),
@@ -110,7 +130,18 @@ export const BookingWizard: React.FC = () => {
       `/barberos/${idBarbero}/disponibilidad?${parametros.toString()}`,
       { signal: controlador.signal },
     )
-      .then((respuesta) => setSlots(respuesta.slots))
+      .then((respuesta) => {
+        if (controlador.signal.aborted) return;
+        setSlots(respuesta.slots);
+        if (fecha === hoyISO()) {
+          const hayDisponibilidad = respuesta.slots.some((slot) => slot.disponible);
+          setHoySinDisponibilidad(!hayDisponibilidad);
+          if (!hayDisponibilidad) {
+            setFecha(sumarDiasISO(1));
+            setHoraInicio('');
+          }
+        }
+      })
       .catch((causa: unknown) => {
         if (!controlador.signal.aborted) {
           setErrorSlots(causa instanceof Error ? causa.message : 'No se pudo consultar la disponibilidad.');
@@ -123,10 +154,9 @@ export const BookingWizard: React.FC = () => {
   }, [reservaAbierta, idBarbero, idServicio, fecha, minutosExtras]);
 
   const franjas = useMemo(
-    () => slots.map((slot) => ({
+    () => slots.filter((slot) => slot.disponible).map((slot) => ({
       ini: slot.hora_inicio,
       fin: slot.hora_fin,
-      libre: slot.disponible,
     })),
     [slots],
   );
@@ -136,9 +166,17 @@ export const BookingWizard: React.FC = () => {
 
   if (!reservaAbierta) return null;
 
+  const invalidarCodigoInvitado = () => {
+    setSolicitudInvitado(null);
+    setCodigoInvitado('');
+    setMensajeCodigo('');
+  };
+
   const alternarExtra = (id: string) => {
     setHoraInicio('');
     setExtras((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+    invalidarCodigoInvitado();
+    setPaso(3);
   };
 
   const siguiente = () => {
@@ -147,13 +185,59 @@ export const BookingWizard: React.FC = () => {
     setPaso((p) => (p === 1 && saltarBarbero ? 3 : Math.min(4, p + 1)));
   };
 
+  const solicitarCodigoInvitado = async () => {
+    if (!validarCorreo(correo)) return setError('Ingresa un correo válido para enviarte el código de confirmación.');
+    if (!nombre.trim() || !telefono.trim()) return setError('Completa tu nombre y teléfono de contacto.');
+    setEnviandoCodigo(true);
+    const resultado = await solicitarCodigoCitaInvitado({
+      servicio_id: idServicio,
+      barbero_id: idBarbero,
+      fecha,
+      hora_inicio: horaInicio,
+      extras,
+      usar_puntos: false,
+      puntos_a_usar: 0,
+      nombre,
+      correo,
+      telefono,
+      observaciones,
+    });
+    setEnviandoCodigo(false);
+    if (!resultado.ok || !resultado.idSolicitud) {
+      setError(resultado.mensaje);
+      return;
+    }
+    setSolicitudInvitado(resultado.idSolicitud);
+    setCodigoInvitado('');
+    setMensajeCodigo(resultado.mensaje);
+    setError('');
+  };
+
   const confirmar = async () => {
     setError('');
     const reservaInterna = Boolean(usuario && usuario.id_rol !== 3);
     if (reservaInterna && !clienteSeleccionado) {
       return setError('Busca y selecciona el cliente de esta cita.');
     }
+    if (!horaInicio) {
+      setPaso(3);
+      return setError('Selecciona una franja horaria antes de confirmar.');
+    }
     if (!nombre.trim() || !telefono.trim()) return setError('Completa tu nombre y teléfono de contacto.');
+    if (!usuario && !validarCorreo(correo)) return setError('Ingresa un correo válido para enviarte el código de confirmación.');
+
+    if (!usuario) {
+      if (solicitudInvitado !== null) {
+        if (!/^[0-9]{6}$/.test(codigoInvitado)) return setError('Ingresa el código de seis dígitos que enviamos a tu correo.');
+        setEnviandoCodigo(true);
+        const resultado = await confirmarCitaInvitado(solicitudInvitado, codigoInvitado);
+        setEnviandoCodigo(false);
+        if (!resultado.ok) setError(resultado.mensaje);
+        return;
+      }
+      return solicitarCodigoInvitado();
+    }
+
     const r = await crearCita({
       servicio_id: idServicio, barbero_id: idBarbero, fecha, hora_inicio: horaInicio,
       extras, usar_puntos: usarPuntos, puntos_a_usar: puntosUsables,
@@ -190,13 +274,14 @@ export const BookingWizard: React.FC = () => {
 
   const inputCls = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-400/15';
 
-  const BotonFranja: React.FC<{ f: { ini: string; fin: string; libre: boolean } }> = ({ f }) => (
+  const BotonFranja: React.FC<{ f: { ini: string; fin: string } }> = ({ f }) => (
     <button
-      type="button" disabled={!f.libre} onClick={() => setHoraInicio(f.ini)}
+      type="button" onClick={() => {
+        setHoraInicio(f.ini);
+        invalidarCodigoInvitado();
+      }}
       className={`rounded-2xl border px-2 py-2 text-center transition ${
-        !f.libre
-          ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#3D4855] line-through'
-          : horaInicio === f.ini
+        horaInicio === f.ini
           ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg shadow-amber-400/25'
           : 'border-white/10 bg-[#141A21] text-[#C6D0DC] hover:-translate-y-0.5 hover:border-amber-400/50'
       }`}
@@ -262,7 +347,13 @@ export const BookingWizard: React.FC = () => {
                   return (
                     <button
                       key={s.id_servicio}
-                      onClick={() => { setIdServicio(s.id_servicio); setHoraInicio(''); }}
+                      onClick={() => {
+                        setIdServicio(s.id_servicio);
+                        setHoraInicio('');
+                        setSolicitudInvitado(null);
+                        setCodigoInvitado('');
+                        setMensajeCodigo('');
+                      }}
                       className={`group card card-hover overflow-hidden text-left ${idServicio === s.id_servicio ? 'seleccionada' : ''}`}
                     >
                       <div className="relative h-28 overflow-hidden">
@@ -310,7 +401,13 @@ export const BookingWizard: React.FC = () => {
               <h4 className="font-heading text-lg font-black text-[#EAF0F6]">Elige a tu barbero</h4>
               {listaBarberos.map((b) => (
                 <button
-                  key={b.id_barbero} onClick={() => { setIdBarbero(b.id_barbero); setHoraInicio(''); }}
+                  key={b.id_barbero} onClick={() => {
+                    setIdBarbero(b.id_barbero);
+                    setHoraInicio('');
+                    setSolicitudInvitado(null);
+                    setCodigoInvitado('');
+                    setMensajeCodigo('');
+                  }}
                   className={`card card-hover flex w-full items-center gap-4 p-4 text-left ${idBarbero === b.id_barbero ? 'seleccionada' : ''}`}
                 >
                   <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
@@ -350,12 +447,18 @@ export const BookingWizard: React.FC = () => {
               <div>
                 <h4 className="font-heading text-lg font-black text-[#EAF0F6]">Selecciona el día</h4>
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
-                  {dias.map((d) => {
+                  {dias.filter((d) => d !== hoyISO() || !hoySinDisponibilidad).map((d) => {
                     const inf = desglosarFecha(d);
                     const activo = fecha === d;
                     return (
                       <button
-                        key={d} onClick={() => { setFecha(d); setHoraInicio(''); }}
+                        key={d} onClick={() => {
+                          setFecha(d);
+                          setHoraInicio('');
+                          setSolicitudInvitado(null);
+                          setCodigoInvitado('');
+                          setMensajeCodigo('');
+                        }}
                         className={`min-w-[74px] shrink-0 rounded-2xl border px-3 py-2.5 text-center transition ${
                           activo ? 'border-neutral-900 bg-neutral-900 text-white shadow-lg shadow-amber-400/20'
                                  : 'border-white/10 bg-[#141A21] text-[#93A1B1] hover:-translate-y-0.5 hover:border-amber-400/40'
@@ -507,12 +610,89 @@ export const BookingWizard: React.FC = () => {
               )}
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo"
+                <input value={nombre} onChange={(e) => {
+                  setNombre(e.target.value);
+                  invalidarCodigoInvitado();
+                }} placeholder="Nombre completo"
                   readOnly={Boolean(usuario && usuario.id_rol !== 3)} className={inputCls} />
-                <input value={telefono} onChange={(e) => setTelefono(e.target.value)} placeholder="Teléfono WhatsApp"
+                <input value={correo} onChange={(e) => {
+                  setCorreo(e.target.value);
+                  invalidarCodigoInvitado();
+                }} placeholder="Correo electrónico"
+                  readOnly={Boolean(usuario)} className={inputCls} />
+                <input value={telefono} onChange={(e) => {
+                  setTelefono(e.target.value);
+                  invalidarCodigoInvitado();
+                }} placeholder="Teléfono WhatsApp"
                   readOnly={Boolean(usuario && usuario.id_rol !== 3)} className={inputCls} />
               </div>
-              <input value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
+              {!usuario && (
+                <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#141A21]">
+                  <div className="flex items-start gap-3 p-4">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400/15 text-amber-700">
+                      <UserRound className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h5 className="text-sm font-black text-[#EAF0F6]">¿Tienes una cuenta?</h5>
+                      <p className="mt-1 text-xs leading-relaxed text-[#93A1B1]">
+                        Inicia sesión para consultar tus citas o crea una cuenta para guardar tu historial.
+                      </p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => abrirAuth('login')}
+                          className="flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-3 py-2.5 text-xs font-black text-[#1A1400] transition hover:-translate-y-0.5 hover:shadow-md"
+                        >
+                          <LogIn className="h-4 w-4" /> Iniciar sesión
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => abrirAuth('registro')}
+                          className="flex items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-xs font-black text-[#EAF0F6] transition hover:border-amber-400/50 hover:bg-white/10"
+                        >
+                          <UserPlus className="h-4 w-4" /> Crear cuenta
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2 border-t border-white/8 bg-emerald-500/5 px-4 py-3">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <p className="text-[11px] leading-relaxed text-[#93A1B1]">
+                      ¿Prefieres no registrarte? Puedes continuar como invitado; verificaremos tu correo para confirmar la cita.
+                    </p>
+                  </div>
+                </section>
+              )}
+              {!usuario && solicitudInvitado !== null && (
+                <div className="space-y-2 rounded-xl border border-cyan-400/30 bg-cyan-400/8 p-3">
+                  <p role="status" className="text-xs font-semibold text-cyan-800">{mensajeCodigo}</p>
+                  <label className="block text-xs font-bold text-[#93A1B1]" htmlFor="codigo-reserva-invitado">Código de verificación</label>
+                  <div className="flex gap-2">
+                    <input
+                      id="codigo-reserva-invitado"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={codigoInvitado}
+                      onChange={(e) => setCodigoInvitado(e.target.value.replace(/\D/g, ''))}
+                      placeholder="000000"
+                      className={inputCls}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void solicitarCodigoInvitado()}
+                      disabled={enviandoCodigo}
+                      className="shrink-0 rounded-xl border border-white/12 px-3 text-xs font-bold text-[#93A1B1] disabled:opacity-50"
+                    >
+                      {enviandoCodigo ? 'Enviando…' : 'Reenviar código'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              <input value={observaciones} onChange={(e) => {
+                setObservaciones(e.target.value);
+                invalidarCodigoInvitado();
+              }}
                 placeholder="Indicaciones para el barbero (opcional)" className={inputCls} />
 
               {/* Resumen */}
@@ -526,9 +706,9 @@ export const BookingWizard: React.FC = () => {
                   <div className="flex justify-between"><span className="text-[#93A1B1]">Día</span><span className="font-semibold text-[#EAF0F6]">{fechaLarga(fecha)}</span></div>
                   <div className="flex justify-between">
                     <span className="text-[#93A1B1]">Rango horario</span>
-                    <span className="font-black text-amber-700">
-                      {horaInicio ? `${hora12(horaInicio)} – ${hora12(sumarMinutos(horaInicio, duracionTotal))}` : 'Sin seleccionar'}
-                    </span>
+                    {horaInicio
+                      ? <span className="font-black text-amber-700">{hora12(horaInicio)} – {hora12(sumarMinutos(horaInicio, duracionTotal))}</span>
+                      : <button type="button" onClick={() => setPaso(3)} className="font-black text-rose-500 underline">Seleccionar horario</button>}
                   </div>
                   <div className="flex justify-between"><span className="text-[#93A1B1]">Duración</span><span className="font-semibold text-[#EAF0F6]">{duracionLegible(duracionTotal)}</span></div>
                   {costoExtras > 0 && <div className="flex justify-between text-[#93A1B1]"><span>Extras ({extras.length})</span><span>+{formatoCOP(costoExtras)}</span></div>}
@@ -559,8 +739,9 @@ export const BookingWizard: React.FC = () => {
               Continuar <ArrowRight className="h-4 w-4" />
             </button>
           ) : (
-            <button onClick={confirmar} className="btn-oro flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black">
-              <Check className="h-4 w-4" /> Confirmar mi cita
+            <button onClick={() => void confirmar()} disabled={enviandoCodigo} className="btn-oro flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black disabled:opacity-50">
+              <Check className="h-4 w-4" />
+              {enviandoCodigo ? 'Procesando…' : !usuario ? solicitudInvitado === null ? 'Enviar código de confirmación' : 'Confirmar mi cita' : 'Confirmar mi cita'}
             </button>
           )}
         </div>

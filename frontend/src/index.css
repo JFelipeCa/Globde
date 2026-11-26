@@ -306,7 +306,7 @@ body { background: #FDFCFA; color: #0A0A0A; }
 [class*="text-[#EAF0F6]"] { color: #0A0A0A !important; }
 [class*="text-[#C6D0DC]"] { color: #3F3F3F !important; }
 [class*="text-[#93A1B1]"] { color: #6B6B6B !important; }
-[class*="text-[#6B7A8C]"] { color: #9A9A9A !important; }
+[class*="text-[#6B7A8C]"] { color: #707070 !important; }
 .tema-claro .pase-digital-contenido :is(h1, h2, h3, h4, p, span, button, a, strong) {
   color: #000000 !important;
 }
@@ -380,6 +380,13 @@ input[type=date] { color-scheme: light; }
   background: #203B46;
   box-shadow: 0 0 0 2px #111827, 0 18px 40px -28px rgba(0,0,0,.65);
 }
+.tema-oscuro .club-nivel-activo :is(p, li, span) {
+  color: #06232A !important;
+}
+.tema-oscuro .club-nivel-activo svg {
+  color: #0F766E !important;
+  stroke: #0F766E !important;
+}
 .tema-oscuro .text-aqua {
   background: linear-gradient(115deg, #F7F5F0 0%, #BFEFF2 50%, #F7F5F0 100%);
   -webkit-background-clip: text;
@@ -435,7 +442,7 @@ input[type=date] { color-scheme: light; }
 .tema-oscuro [class*="text-[#EAF0F6]"] { color: #EAF0F6 !important; }
 .tema-oscuro [class*="text-[#C6D0DC]"] { color: #C6D0DC !important; }
 .tema-oscuro [class*="text-[#93A1B1]"] { color: #93A1B1 !important; }
-.tema-oscuro [class*="text-[#6B7A8C]"] { color: #6B7A8C !important; }
+.tema-oscuro [class*="text-[#6B7A8C]"] { color: #A3ADB9 !important; }
 .tema-oscuro [class*="border-white/"] { border-color: rgba(255,255,255,.12) !important; }
 .tema-oscuro .card-hover:hover {
   border-color: rgba(255,255,255,.25);

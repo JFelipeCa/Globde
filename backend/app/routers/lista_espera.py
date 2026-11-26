@@ -2,11 +2,17 @@
 
 from fastapi import APIRouter, status
 
-from app.core.dependencies import SoloAdmin, UsuarioAuth
+from app.core.dependencies import DatosPeticion, SoloAdmin, UsuarioAuth
 from app.schemas.comunes import MensajeRespuesta
+from app.schemas.invitados import (
+    ListaEsperaInvitadoSolicitar,
+    VerificacionInvitadoOut,
+    VerificarInvitadoRequest,
+)
 from app.schemas.lista_espera import ListaEsperaCreate, ListaEsperaOut
 from app.schemas.operaciones import CitaOut
 from app.services import lista_espera_service
+from app.services import invitados_service
 
 router = APIRouter(prefix="/lista-espera", tags=["Lista de espera"])
 
@@ -19,6 +25,39 @@ router = APIRouter(prefix="/lista-espera", tags=["Lista de espera"])
 )
 def crear(datos: ListaEsperaCreate, usuario: UsuarioAuth):
     return lista_espera_service.crear(datos.model_dump(mode="json"), usuario)
+
+
+@router.post(
+    "/invitado/verificacion",
+    response_model=VerificacionInvitadoOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Enviar código para solicitar lista de espera como invitado",
+)
+def solicitar_verificacion_invitado(
+    datos: ListaEsperaInvitadoSolicitar, contexto: DatosPeticion
+):
+    return invitados_service.solicitar_verificacion(
+        "lista_espera", datos.model_dump(mode="json"), contexto
+    )
+
+
+@router.post(
+    "/invitado/confirmar",
+    response_model=ListaEsperaOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Confirmar solicitud de lista de espera de invitado",
+)
+def confirmar_solicitud_invitado(
+    datos: VerificarInvitadoRequest
+):
+    payload, id_cliente = invitados_service.verificar_codigo(
+        datos.id_solicitud, datos.codigo, "lista_espera"
+    )
+    resultado = lista_espera_service.crear(
+        payload,
+        id_cliente_invitado=id_cliente,
+    )
+    return resultado
 
 
 @router.get("/mias", response_model=list[ListaEsperaOut], summary="Mis solicitudes")
