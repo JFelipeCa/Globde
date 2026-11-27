@@ -25,11 +25,15 @@
 
 | Concepto | Valor |
 | :--- | :--- |
-| Routers de dominio | 14 (`backend/app/routers/`) |
-| Endpoints en routers | 115 |
+| Routers de dominio activos | 15 (`backend/app/routers/`) |
+| Endpoints en routers | 127 |
 | Endpoints de sistema | 2 (`GET /` y `GET /api/health`) |
-| **Total** | **117** |
+| **Total por defecto** | **129 operaciones** |
+| Compatibilidad v1 | Añade 2 operaciones OpenAPI; total **131** al habilitarla |
 | Autenticación | JWT Bearer (`Authorization: Bearer <access_token>`) |
+
+El conteo proviene del esquema OpenAPI generado. La interfaz interactiva se
+publica en `/docs` y el contrato JSON en `/openapi.json`.
 
 ### Endpoints de sistema
 
@@ -153,7 +157,7 @@ mismo cuerpo:
 | `POST` | `/api/barberos/{id_barbero}/bloqueos` | Privada | Bloquear un rango de la agenda |
 | `DELETE` | `/api/barberos/{id_barbero}/bloqueos/{id_bloqueo}` | Privada | Liberar un bloqueo |
 
-### `Citas` — `backend/app/routers/citas.py` (11 endpoints)
+### `Citas` — `backend/app/routers/citas.py` (13 endpoints)
 
 | Método | Ruta | Auth | Descripción |
 | :--- | :--- | :--- | :--- |
@@ -164,6 +168,8 @@ mismo cuerpo:
 | `GET` | `/api/citas/{id_cita}` | Privada | Detalle de una cita |
 | `POST` | `/api/citas` | Privada | Agendar una cita |
 | `PUT` | `/api/citas/{id_cita}` | Privada | Reprogramar o editar una cita |
+| `POST` | `/api/citas/invitado/verificacion` | Pública | Enviar código de verificación para una reserva como invitado |
+| `POST` | `/api/citas/invitado/confirmar` | Pública | Confirmar la reserva de invitado con el código |
 | `PATCH` | `/api/citas/{id_cita}/estado` | Privada | Cambiar el estado |
 | `POST` | `/api/citas/{id_cita}/cancelar` | Privada | Cancelar una cita |
 | `POST` | `/api/citas/{id_cita}/confirmar` | Privada (Admin/Barbero) | Confirmar una cita |
@@ -181,6 +187,28 @@ mismo cuerpo:
 | `PUT` | `/api/clientes/{id_cliente}` | Privada | Actualizar un cliente |
 | `PATCH` | `/api/clientes/{id_cliente}/estado` | Privada (Admin) | Activar o desactivar |
 | `DELETE` | `/api/clientes/{id_cliente}` | Privada (Admin) | Baja logica |
+
+### `Agenda del negocio` — `backend/app/routers/agenda.py` (5 endpoints)
+
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `GET` | `/api/agenda/horarios-negocio` | Pública | Consultar horario general |
+| `PUT` | `/api/agenda/horarios-negocio` | Privada (Admin) | Reemplazar horario semanal |
+| `GET` | `/api/agenda/cierres` | Pública | Listar cierres por rango de fechas |
+| `POST` | `/api/agenda/cierres` | Privada (Admin) | Registrar un cierre de día |
+| `DELETE` | `/api/agenda/cierres/{id_cierre}` | Privada (Admin) | Eliminar un cierre |
+
+### `Lista de espera` — `backend/app/routers/lista_espera.py` (7 endpoints)
+
+| Método | Ruta | Auth | Descripción |
+|---|---|---|---|
+| `GET` | `/api/lista-espera` | Privada (Admin) | Listar solicitudes |
+| `POST` | `/api/lista-espera` | Privada (Cliente) | Crear solicitud |
+| `POST` | `/api/lista-espera/invitado/verificacion` | Pública | Solicitar código para invitado |
+| `POST` | `/api/lista-espera/invitado/confirmar` | Pública | Confirmar solicitud del invitado |
+| `GET` | `/api/lista-espera/mias` | Privada (Cliente) | Consultar mis solicitudes |
+| `POST` | `/api/lista-espera/{id_espera}/aceptar` | Privada | Aceptar una oferta compatible |
+| `DELETE` | `/api/lista-espera/{id_espera}` | Privada | Cancelar una solicitud |
 
 ### `Compatibilidad v1` — `backend/app/routers/legacy.py` (4 endpoints)
 
@@ -280,7 +308,7 @@ mismo cuerpo:
 | `PATCH` | `/api/servicios/{id_servicio}/estado` | Privada (Admin) | Activar o desactivar |
 | `DELETE` | `/api/servicios/{id_servicio}` | Privada (Admin) | Eliminar o desactivar |
 
-### `Usuarios` — `backend/app/routers/usuarios.py` (9 endpoints)
+### `Usuarios` — `backend/app/routers/usuarios.py` (11 endpoints)
 
 | Método | Ruta | Auth | Descripción |
 | :--- | :--- | :--- | :--- |
@@ -288,6 +316,8 @@ mismo cuerpo:
 | `GET` | `/api/usuarios/roles` | Privada (Admin) | Catalogo de roles |
 | `GET` | `/api/usuarios/me` | Privada | Mi perfil |
 | `PUT` | `/api/usuarios/me` | Privada | Actualizar mi perfil |
+| `PUT` | `/api/usuarios/me/barbero-favorito` | Privada (Cliente) | Guardar o quitar barbero favorito |
+| `POST` | `/api/usuarios/me/avatar` | Privada | Actualizar mi avatar |
 | `GET` | `/api/usuarios/{id_usuario}` | Privada | Obtener un usuario |
 | `POST` | `/api/usuarios/interno` | Privada (Admin) | Crear administrador o barbero |
 | `PUT` | `/api/usuarios/{id_usuario}` | Privada | Actualizar un usuario |
@@ -298,8 +328,10 @@ mismo cuerpo:
 
 ## 🔁 Rutas de compatibilidad (v1)
 
-El router `legacy.py` expone 4 rutas heredadas de la primera versión del
-proyecto (`/api/datos`, `/api/login`, `POST /api/clientes`, `POST /api/citas`).
+El router `legacy.py` ofrece compatibilidad para cuatro handlers heredados
+(`/api/datos`, `/api/login`, `POST /api/clientes`, `POST /api/citas`). Las dos
+últimas comparten método y ruta con handlers v2, por lo que OpenAPI solo suma
+dos operaciones cuando se activa esta compatibilidad.
 Se registran **solo si `ENABLE_LEGACY_ROUTES` está activo** en la configuración
 (`app/core/config.py`).
 
@@ -317,4 +349,3 @@ Se registran **solo si `ENABLE_LEGACY_ROUTES` está activo** en la configuració
 
 - [`docs/referencia-tecnica/architecture.md`](architecture.md) — arquitectura por capas.
 - [`docs/referencia-tecnica/database-schema.md`](database-schema.md) — diccionario de datos.
-- [`.github/copilot-instructions.md`](../../.github/copilot-instructions.md) — convenciones de código.

@@ -16,10 +16,13 @@
 | **Título** | Recordatorio automático de cita |
 | **Módulo** | Notificaciones |
 | **Prioridad** | Media |
-| **Estado** | Implementada |
+| **Estado** | Implementada en código; entrega de correo depende de SMTP |
 | **RF Asociados** | RF-013 |
 
----
+El ciclo de vida de FastAPI ejecuta `recordatorios_service.procesar_recordatorios`
+cada 60 segundos. El servicio registra y procesa los intentos; la entrega efectiva
+requiere `EMAIL_ENABLED=true` y credenciales SMTP válidas. Esta evidencia de código
+no confirma entregabilidad en producción.
 
 ## Historia
 

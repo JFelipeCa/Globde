@@ -1,32 +1,199 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Coins, CalendarDays, Scissors, Award, Send, Download, Search, Check, X,
-  Pencil, Eye, Ban, ChevronLeft, ChevronRight, Plus, Trash2, TrendingUp, Users,
+  Pencil, Eye, Ban, ChevronLeft, ChevronRight, ChevronDown, Plus, Trash2, TrendingUp, Users,
+  Gift, Receipt, UserRound, XCircle, LogOut, RefreshCw, Banknote, CreditCard,
+  Landmark, Smartphone, WalletCards,
+  Sun, Moon,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita, UsuarioInternoCreate } from '../../types';
+import type { Cita, CategoriaServicio, ClienteBusqueda, EstadoCita, Servicio, UsuarioInternoCreate } from '../../types';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  paginar, generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
+  generarFranjasJornada, franjasVigentes, sumarMinutos, hora12, haySolape, sumarDiasISO, desglosarFecha,
 } from '../../utils/helpers';
+import { apiRequest } from '../../utils/apiClient';
+import { useTheme } from '../../hooks/useTheme';
+import { AgendaAdmin } from './AgendaAdmin';
+import { BarberoFoto } from '../ui/BarberoFoto';
+import { imagenCatalogoServicio } from '../../data/mockData';
 
 const POR_PAGINA = 6;
+const METODOS_PAGO = ['efectivo', 'tarjeta', 'transferencia', 'nequi', 'daviplata', 'otro'] as const;
+
+type EstadoFacturaAdmin = 'pendiente' | 'pagada' | 'anulada' | 'reembolsada';
+type MetodoPagoAdmin = (typeof METODOS_PAGO)[number];
+
+const ICONOS_METODO_PAGO: Record<MetodoPagoAdmin, React.ElementType> = {
+  efectivo: Banknote,
+  tarjeta: CreditCard,
+  transferencia: Landmark,
+  nequi: Smartphone,
+  daviplata: Smartphone,
+  otro: WalletCards,
+};
+
+const ETIQUETAS_METODO_PAGO: Record<MetodoPagoAdmin, string> = {
+  efectivo: 'Efectivo',
+  tarjeta: 'Tarjeta',
+  transferencia: 'Transferencia',
+  nequi: 'Nequi',
+  daviplata: 'DaviPlata',
+  otro: 'Otro medio',
+};
+
+interface FacturaAdmin {
+  id_factura: number;
+  numero_factura: string;
+  id_cita: number;
+  cliente_nombre: string | null;
+  barbero_nombre: string | null;
+  servicio_nombre: string | null;
+  subtotal: number;
+  descuento: number;
+  total: number;
+  metodo_pago: MetodoPagoAdmin;
+  estado_pago: EstadoFacturaAdmin;
+  fecha_emision: string | null;
+  pagado_en: string | null;
+}
+
+interface ClienteFidelizacion {
+  id_cliente: number;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  puntos_saldo: number;
+  nivel_fidelizacion: string;
+  total_citas: number;
+  total_pagado: number;
+}
+
+interface SaldoPuntos {
+  id_cliente: number;
+  puntos_saldo: number;
+  nivel_fidelizacion: string;
+}
+
+interface UsuarioEquipo {
+  id_usuario: number;
+  id_rol: number;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  avatar_url: string | null;
+  activo: boolean;
+  creado_en: string | null;
+}
+
+interface DashboardAdmin {
+  total_citas: number;
+  citas_completadas: number;
+  citas_pendientes: number;
+  total_barberos_disponibles: number;
+  ingresos_pagados: number;
+  ingresos_pendientes: number;
+  facturas_pagadas: number;
+  facturas_pendientes: number;
+}
+
+interface IngresoDia {
+  periodo: string;
+  total_pagado: number;
+}
+
+interface ServicioPopular {
+  id_servicio: number;
+  nombre: string;
+  total_citas: number;
+}
+
+interface RespuestaPaginada<T> {
+  items: T[];
+  total: number;
+  pagina: number;
+  por_pagina: number;
+  total_paginas: number;
+}
+
+function mapServicioAdmin(registro: Record<string, unknown>, indice: number): Servicio {
+  return {
+    id_servicio: Number(registro.id_servicio ?? indice + 1),
+    nombre: String(registro.nombre ?? `Servicio ${indice + 1}`),
+    categoria: String(registro.categoria ?? 'Cortes') as CategoriaServicio,
+    descripcion: String(registro.descripcion ?? ''),
+    precio: Number(registro.precio ?? 0),
+    duracion_minutos: Number(registro.duracion_minutos ?? 0),
+    popular: Boolean(registro.popular),
+    icono: String(registro.icono ?? '✂️'),
+    imagen_url: typeof registro.imagen_url === 'string' ? registro.imagen_url : undefined,
+    puntos_otorga: Number(registro.puntos_otorga ?? 0),
+    activo: registro.activo !== false,
+  };
+}
 
 export const PanelAdmin: React.FC = () => {
+  const { modoOscuro, alternarModo } = useTheme();
   const {
-    citas, servicios, barberos, facturas, confirmarCita, cambiarEstadoCita,
-    cancelarCita, editarCita, agregarServicio, eliminarServicio,
+    usuario, irA, logout, citas, servicios, barberos, confirmarCita, cambiarEstadoCita,
+    cancelarCita, editarCita, agregarServicio,
+    cambiarEstadoServicio, actualizarPuntosServicio,
     actualizarNivelBarbero, difusionMasiva, verTicket, franjasOcupadas,
     crearCita, buscarClientes, descargarReporte, crearUsuarioInterno,
   } = useApp();
 
-  const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'avisos'>('resumen');
+  const [seccion, setSeccion] = useState<'resumen' | 'citas' | 'servicios' | 'equipo' | 'agenda' | 'avisos' | 'puntos' | 'facturacion'>('resumen');
   const [pagina, setPagina] = useState(1);
   const [busqueda, setBusqueda] = useState('');
   const [fBarbero, setFBarbero] = useState('todos');
   const [fEstado, setFEstado] = useState('todos');
+  const [fechaDesdeCitas, setFechaDesdeCitas] = useState('');
+  const [fechaHastaCitas, setFechaHastaCitas] = useState('');
+  const [citasPagina, setCitasPagina] = useState<Cita[]>([]);
+  const [totalCitasFiltradas, setTotalCitasFiltradas] = useState(0);
+  const [citasCargando, setCitasCargando] = useState(false);
+  const [errorCitas, setErrorCitas] = useState('');
+  const [revisionCitas, setRevisionCitas] = useState(0);
   const [aviso, setAviso] = useState('');
   const [reporteDescargando, setReporteDescargando] = useState<string | null>(null);
+  const [facturas, setFacturas] = useState<FacturaAdmin[]>([]);
+  const [facturasResumen, setFacturasResumen] = useState<FacturaAdmin[]>([]);
+  const [totalFacturas, setTotalFacturas] = useState(0);
+  const [facturasCargando, setFacturasCargando] = useState(false);
+  const [errorFacturas, setErrorFacturas] = useState('');
+  const [revisionFacturas, setRevisionFacturas] = useState(0);
+  const [busquedaFacturas, setBusquedaFacturas] = useState('');
+  const [estadoFacturas, setEstadoFacturas] = useState<'todas' | EstadoFacturaAdmin>('todas');
+  const [paginaFacturas, setPaginaFacturas] = useState(1);
+  const [facturaPago, setFacturaPago] = useState<FacturaAdmin | null>(null);
+  const [metodoPago, setMetodoPago] = useState<MetodoPagoAdmin>('efectivo');
+  const [citaFacturar, setCitaFacturar] = useState<Cita | null>(null);
+  const [metodoNuevaFactura, setMetodoNuevaFactura] = useState<MetodoPagoAdmin>('efectivo');
+  const [facturaAnular, setFacturaAnular] = useState<FacturaAdmin | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [errorAccionFactura, setErrorAccionFactura] = useState('');
+  const [guardandoFactura, setGuardandoFactura] = useState(false);
+  const [clientesPuntos, setClientesPuntos] = useState<ClienteFidelizacion[]>([]);
+  const [clientesPuntosTotal, setClientesPuntosTotal] = useState(0);
+  const [paginaClientesPuntos, setPaginaClientesPuntos] = useState(1);
+  const [clientesPuntosCargando, setClientesPuntosCargando] = useState(false);
+  const [busquedaPuntos, setBusquedaPuntos] = useState('');
+  const [errorPuntos, setErrorPuntos] = useState('');
+  const [clientePuntosSeleccionado, setClientePuntosSeleccionado] = useState<ClienteFidelizacion | null>(null);
+  const [ajustePuntos, setAjustePuntos] = useState('');
+  const [motivoAjustePuntos, setMotivoAjustePuntos] = useState('');
+  const [guardandoAjustePuntos, setGuardandoAjustePuntos] = useState(false);
+  const [errorAjustePuntos, setErrorAjustePuntos] = useState('');
+  const [dashboard, setDashboard] = useState<DashboardAdmin | null>(null);
+  const [errorDashboard, setErrorDashboard] = useState('');
+  const [dashboardCargando, setDashboardCargando] = useState(true);
+  const [ingresosSemanaApi, setIngresosSemanaApi] = useState<IngresoDia[]>([]);
+  const [errorIngresos, setErrorIngresos] = useState('');
+  const [ingresosCargando, setIngresosCargando] = useState(true);
+  const [ingresosDesdeFacturas, setIngresosDesdeFacturas] = useState(false);
+  const [serviciosPopulares, setServiciosPopulares] = useState<ServicioPopular[]>([]);
+  const [errorServiciosPopulares, setErrorServiciosPopulares] = useState('');
+  const [serviciosPopularesCargando, setServiciosPopularesCargando] = useState(true);
 
   /* edición */
   const [edit, setEdit] = useState<Cita | null>(null);
@@ -60,11 +227,22 @@ export const PanelAdmin: React.FC = () => {
   const [sCat, setSCat] = useState<CategoriaServicio>('Cortes');
   const [sPrecio, setSPrecio] = useState(25000);
   const [sDur, setSDur] = useState(30);
+  const [sPuntos, setSPuntos] = useState(25);
   const [sDesc, setSDesc] = useState('');
+  const [sImagen, setSImagen] = useState('');
+  const [serviciosInactivos, setServiciosInactivos] = useState<Servicio[]>([]);
+  const [mostrarServiciosArchivados, setMostrarServiciosArchivados] = useState(false);
+  const [errorServiciosInactivos, setErrorServiciosInactivos] = useState('');
+  const [idEditandoPuntosServicio, setIdEditandoPuntosServicio] = useState<number | null>(null);
+  const [puntosServicioEditados, setPuntosServicioEditados] = useState('');
+  const [guardandoPuntosServicio, setGuardandoPuntosServicio] = useState(false);
 
   /* avisos */
   const [aTitulo, setATitulo] = useState('');
   const [aMensaje, setAMensaje] = useState('');
+  const [aRol, setARol] = useState<'todos' | '1' | '2' | '3'>('3');
+  const [aEnviarCorreo, setAEnviarCorreo] = useState(false);
+  const [aEnviando, setAEnviando] = useState(false);
 
   const [modalUsuario, setModalUsuario] = useState(false);
   const [uNombre, setUNombre] = useState('');
@@ -77,22 +255,470 @@ export const PanelAdmin: React.FC = () => {
   const [uBio, setUBio] = useState('');
   const [uError, setUError] = useState('');
   const [uGuardando, setUGuardando] = useState(false);
+  const [usuariosEquipo, setUsuariosEquipo] = useState<UsuarioEquipo[]>([]);
+  const [usuariosEquipoCargando, setUsuariosEquipoCargando] = useState(false);
+  const [errorUsuariosEquipo, setErrorUsuariosEquipo] = useState('');
+  const [revisionUsuariosEquipo, setRevisionUsuariosEquipo] = useState(0);
 
-  const ingresos = facturas.reduce((a, f) => a + f.total, 0);
-  const completadas = citas.filter((c) => c.estado === 'completada').length;
+  const ingresos = dashboard?.ingresos_pagados ?? 0;
+  const completadas = dashboard?.citas_completadas ?? citas.filter((c) => c.estado === 'completada').length;
+  const totalCitasDashboard = dashboard?.total_citas ?? citas.length;
   const pendientes = citas.filter((c) => c.estado === 'pendiente');
-  const efectividad = citas.length ? Math.round((completadas / citas.length) * 100) : 100;
+  const efectividad = totalCitasDashboard ? Math.round((completadas / totalCitasDashboard) * 100) : 100;
 
-  const filtradas = citas.filter((c) => {
-    const t = busqueda.toLowerCase();
-    const okTexto = !t || c.cliente_nombre.toLowerCase().includes(t) || c.codigo_reserva.toLowerCase().includes(t) || c.servicio_nombre.toLowerCase().includes(t);
-    const okB = fBarbero === 'todos' || String(c.id_barbero) === fBarbero;
-    const okE = fEstado === 'todos' || c.estado === fEstado;
-    return okTexto && okB && okE;
+  const cargarFacturas = useCallback(async () => {
+    setFacturasCargando(true);
+    setErrorFacturas('');
+    try {
+      const resultado = await apiRequest<RespuestaPaginada<FacturaAdmin>>('/facturas?pagina=1&por_pagina=100');
+      setFacturasResumen(resultado.items);
+      setTotalFacturas(resultado.total);
+    } catch (error) {
+      setErrorFacturas(error instanceof Error ? error.message : 'No se pudieron cargar las facturas.');
+    } finally {
+      setFacturasCargando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void cargarFacturas();
+  }, [cargarFacturas]);
+
+  useEffect(() => {
+    if (seccion !== 'citas') return;
+    const controlador = new AbortController();
+    const parametros = new URLSearchParams({
+      pagina: String(pagina),
+      por_pagina: String(POR_PAGINA),
+    });
+    if (busqueda.trim()) parametros.set('buscar', busqueda.trim());
+    if (fBarbero !== 'todos') parametros.set('id_barbero', fBarbero);
+    if (fEstado !== 'todos') parametros.set('estado', fEstado);
+    if (fechaDesdeCitas) parametros.set('desde', fechaDesdeCitas);
+    if (fechaHastaCitas) parametros.set('hasta', fechaHastaCitas);
+
+    setCitasCargando(true);
+    setErrorCitas('');
+    apiRequest<RespuestaPaginada<Cita>>(`/citas?${parametros.toString()}`, {
+      signal: controlador.signal,
+    })
+      .then((resultado) => {
+        setCitasPagina(resultado.items);
+        setTotalCitasFiltradas(resultado.total);
+      })
+      .catch((error: unknown) => {
+        if (!controlador.signal.aborted) {
+          setErrorCitas(error instanceof Error ? error.message : 'No se pudieron cargar las citas.');
+        }
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setCitasCargando(false);
+      });
+    return () => controlador.abort();
+  }, [
+    seccion, pagina, busqueda, fBarbero, fEstado, fechaDesdeCitas,
+    fechaHastaCitas, revisionCitas,
+  ]);
+
+  useEffect(() => {
+    if (seccion !== 'servicios') return;
+    let vigente = true;
+    setErrorServiciosInactivos('');
+    apiRequest<Record<string, unknown>[]>('/servicios?activo=false')
+      .then((resultado) => {
+        if (vigente) {
+          setServiciosInactivos(resultado.map((servicio, indice) => mapServicioAdmin(servicio, indice)));
+        }
+      })
+      .catch((error: unknown) => {
+        if (vigente) {
+          setErrorServiciosInactivos(error instanceof Error ? error.message : 'No se pudieron cargar servicios inactivos.');
+        }
+      });
+    return () => { vigente = false; };
+  }, [seccion]);
+
+  useEffect(() => {
+    if (seccion !== 'equipo') return;
+    let vigente = true;
+    const cargarUsuariosEquipo = async () => {
+      setUsuariosEquipoCargando(true);
+      setErrorUsuariosEquipo('');
+      try {
+        const [administradores, barberos] = await Promise.all(
+          [1, 2].map(async (idRol) => {
+            const registros: UsuarioEquipo[] = [];
+            let paginaUsuarios = 1;
+            let totalPaginas = 1;
+            do {
+              const respuesta = await apiRequest<RespuestaPaginada<UsuarioEquipo>>(
+                `/usuarios?id_rol=${idRol}&pagina=${paginaUsuarios}&por_pagina=100`,
+              );
+              registros.push(...respuesta.items);
+              totalPaginas = respuesta.total_paginas;
+              paginaUsuarios += 1;
+            } while (paginaUsuarios <= totalPaginas);
+            return registros;
+          }),
+        );
+        if (vigente) {
+          setUsuariosEquipo([...administradores, ...barberos].sort((a, b) => (
+            a.nombre.localeCompare(b.nombre, 'es')
+          )));
+        }
+      } catch (error) {
+        if (vigente) {
+          setErrorUsuariosEquipo(error instanceof Error ? error.message : 'No se pudieron cargar los perfiles del equipo.');
+        }
+      } finally {
+        if (vigente) setUsuariosEquipoCargando(false);
+      }
+    };
+
+    void cargarUsuariosEquipo();
+    const intervalo = window.setInterval(() => void cargarUsuariosEquipo(), 30_000);
+    return () => {
+      vigente = false;
+      window.clearInterval(intervalo);
+    };
+  }, [seccion, revisionUsuariosEquipo]);
+
+  useEffect(() => {
+    let vigente = true;
+    const ahora = new Date();
+    const inicio = new Date(ahora);
+    inicio.setDate(ahora.getDate() - 6);
+    const fechaIso = (fecha: Date) => (
+      `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+    );
+    const consultas = [
+      apiRequest<DashboardAdmin>('/reportes/dashboard/admin')
+        .then((resultado) => { if (vigente) setDashboard(resultado); })
+        .catch((error: unknown) => { if (vigente) setErrorDashboard(error instanceof Error ? error.message : 'No se pudo cargar el resumen.'); })
+        .finally(() => { if (vigente) setDashboardCargando(false); }),
+      apiRequest<{ periodos: IngresoDia[] }>(
+        `/reportes/ingresos?desde=${fechaIso(inicio)}&hasta=${fechaIso(ahora)}&agrupar_por=dia`,
+      ).then((resultado) => {
+        if (vigente) setIngresosSemanaApi(resultado.periodos);
+      }).catch(async (error: unknown) => {
+        try {
+          const parametros = new URLSearchParams({
+            desde: fechaIso(inicio),
+            hasta: fechaIso(ahora),
+            estado_pago: 'pagada',
+            pagina: '1',
+            por_pagina: '100',
+          });
+          const resultado = await apiRequest<RespuestaPaginada<FacturaAdmin>>(`/facturas?${parametros.toString()}`);
+          if (!vigente) return;
+          const porDia = resultado.items.reduce<Record<string, number>>((totales, factura) => {
+            const fecha = factura.fecha_emision?.slice(0, 10);
+            if (fecha) totales[fecha] = (totales[fecha] ?? 0) + factura.total;
+            return totales;
+          }, {});
+          setIngresosSemanaApi(Object.entries(porDia).map(([periodo, total_pagado]) => ({ periodo, total_pagado })));
+          setIngresosDesdeFacturas(true);
+        } catch (errorRespaldo) {
+          if (vigente) {
+            const detalleReporte = error instanceof Error ? error.message : 'Reporte no disponible.';
+            const detalleFacturas = errorRespaldo instanceof Error ? errorRespaldo.message : 'No se pudieron consultar facturas.';
+            setErrorIngresos(`${detalleReporte} ${detalleFacturas}`);
+          }
+        }
+      }).finally(() => { if (vigente) setIngresosCargando(false); }),
+      apiRequest<ServicioPopular[]>('/reportes/servicios-populares?limite=4')
+        .then((resultado) => { if (vigente) setServiciosPopulares(resultado); })
+        .catch((error: unknown) => { if (vigente) setErrorServiciosPopulares(error instanceof Error ? error.message : 'No se pudieron cargar los servicios más vendidos.'); })
+        .finally(() => { if (vigente) setServiciosPopularesCargando(false); }),
+    ];
+    void Promise.all(consultas);
+    return () => { vigente = false; };
+  }, []);
+
+  useEffect(() => {
+    if (seccion !== 'puntos') return;
+    let vigente = true;
+    setClientesPuntosCargando(true);
+    setErrorPuntos('');
+    const temporizador = setTimeout(() => {
+      const consulta = busquedaPuntos.trim();
+      const query = consulta ? `&buscar=${encodeURIComponent(consulta)}` : '';
+      apiRequest<RespuestaPaginada<ClienteFidelizacion>>(`/clientes?pagina=${paginaClientesPuntos}&por_pagina=20${query}`)
+        .then((resultado) => {
+          if (!vigente) return;
+          setClientesPuntos(resultado.items);
+          setClientesPuntosTotal(resultado.total);
+        })
+        .catch((error: unknown) => {
+          if (vigente) setErrorPuntos(error instanceof Error ? error.message : 'No se pudieron cargar los clientes.');
+        })
+        .finally(() => { if (vigente) setClientesPuntosCargando(false); });
+    }, 250);
+    return () => { vigente = false; clearTimeout(temporizador); };
+  }, [seccion, busquedaPuntos, paginaClientesPuntos]);
+
+  useEffect(() => {
+    if (seccion !== 'facturacion') return;
+    let vigente = true;
+    setFacturasCargando(true);
+    setErrorFacturas('');
+    const temporizador = setTimeout(() => {
+      const parametros = new URLSearchParams({
+        pagina: String(paginaFacturas),
+        por_pagina: String(POR_PAGINA),
+      });
+      if (estadoFacturas !== 'todas') parametros.set('estado_pago', estadoFacturas);
+      if (busquedaFacturas.trim()) parametros.set('buscar', busquedaFacturas.trim());
+      apiRequest<RespuestaPaginada<FacturaAdmin>>(`/facturas?${parametros.toString()}`)
+        .then((resultado) => {
+          if (!vigente) return;
+          setFacturas(resultado.items);
+          setTotalFacturas(resultado.total);
+        })
+        .catch((error: unknown) => {
+          if (vigente) setErrorFacturas(error instanceof Error ? error.message : 'No se pudieron cargar las facturas.');
+        })
+        .finally(() => { if (vigente) setFacturasCargando(false); });
+    }, 200);
+    return () => { vigente = false; clearTimeout(temporizador); };
+  }, [seccion, paginaFacturas, estadoFacturas, busquedaFacturas, revisionFacturas]);
+
+  const totalPaginasCitas = Math.max(1, Math.ceil(totalCitasFiltradas / POR_PAGINA));
+  const normalizarNombreServicio = (nombre: string) => nombre
+    .trim()
+    .toLocaleLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+  const nombresServiciosActivos = new Set(servicios.map((servicio) => normalizarNombreServicio(servicio.nombre)));
+  const nombresArchivadosAgregados = new Set<string>();
+  const serviciosArchivadosSinDuplicados = serviciosInactivos.filter((servicio) => {
+    const nombre = normalizarNombreServicio(servicio.nombre);
+    if (nombresServiciosActivos.has(nombre) || nombresArchivadosAgregados.has(nombre)) return false;
+    nombresArchivadosAgregados.add(nombre);
+    return true;
   });
-  const pag = paginar(filtradas, pagina, POR_PAGINA);
+  const serviciosAdmin = mostrarServiciosArchivados
+    ? [...servicios, ...serviciosArchivadosSinDuplicados]
+    : servicios;
+  const pag = {
+    items: citasPagina,
+    total: totalCitasFiltradas,
+    pagina,
+    totalPaginas: totalPaginasCitas,
+    desde: totalCitasFiltradas ? (pagina - 1) * POR_PAGINA + 1 : 0,
+    hasta: Math.min(pagina * POR_PAGINA, totalCitasFiltradas),
+  };
+  const inicioVentanaPaginas = Math.max(1, Math.min(pagina - 2, totalPaginasCitas - 4));
+  const paginasCitas = Array.from(
+    { length: Math.min(5, totalPaginasCitas) },
+    (_, indice) => inicioVentanaPaginas + indice,
+  );
 
   const mostrar = (t: string) => { setAviso(t); setTimeout(() => setAviso(''), 4000); };
+  const confirmarDesdeAdmin = async (cita: Cita) => {
+    const resultado = await confirmarCita(cita.id_cita);
+    if (resultado.ok) {
+      mostrar(`Cita ${cita.codigo_reserva} confirmada.`);
+      setRevisionCitas((revision) => revision + 1);
+    } else {
+      mostrar(resultado.mensaje);
+    }
+  };
+  const cambiarEstadoDesdeAdmin = async (idCita: number, estado: EstadoCita) => {
+    const resultado = await cambiarEstadoCita(idCita, estado);
+    if (resultado.ok) setRevisionCitas((revision) => revision + 1);
+    else mostrar(resultado.mensaje);
+  };
+  const cancelarDesdeAdmin = async (cita: Cita) => {
+    const resultado = await cancelarCita(cita.id_cita, 'Cancelada por administración');
+    if (resultado.ok) {
+      mostrar('Cita cancelada.');
+      setRevisionCitas((revision) => revision + 1);
+    } else {
+      mostrar(resultado.mensaje);
+    }
+  };
+
+  const guardarAjustePuntos = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientePuntosSeleccionado) return;
+    const puntos = Number(ajustePuntos);
+    if (!Number.isInteger(puntos) || puntos === 0) {
+      setErrorAjustePuntos('Ingresa una cantidad entera distinta de cero.');
+      return;
+    }
+    if (motivoAjustePuntos.trim().length < 3) {
+      setErrorAjustePuntos('Escribe un motivo de al menos 3 caracteres.');
+      return;
+    }
+    setGuardandoAjustePuntos(true);
+    setErrorAjustePuntos('');
+    try {
+      const saldo = await apiRequest<SaldoPuntos>(
+        `/puntos/clientes/${clientePuntosSeleccionado.id_cliente}/ajuste`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ puntos, descripcion: motivoAjustePuntos.trim() }),
+        },
+      );
+      const actualizado = {
+        ...clientePuntosSeleccionado,
+        puntos_saldo: saldo.puntos_saldo,
+        nivel_fidelizacion: saldo.nivel_fidelizacion,
+      };
+      setClientePuntosSeleccionado(actualizado);
+      setClientesPuntos((clientes) => clientes.map((cliente) => (
+        cliente.id_cliente === actualizado.id_cliente ? actualizado : cliente
+      )));
+      setAjustePuntos('');
+      setMotivoAjustePuntos('');
+      mostrar('El saldo de puntos fue actualizado.');
+    } catch (error) {
+      setErrorAjustePuntos(error instanceof Error ? error.message : 'No se pudo ajustar el saldo.');
+    } finally {
+      setGuardandoAjustePuntos(false);
+    }
+  };
+
+  const registrarPagoFactura = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!facturaPago) return;
+    setGuardandoFactura(true);
+    setErrorAccionFactura('');
+    try {
+      const actualizada = await apiRequest<FacturaAdmin>(`/facturas/${facturaPago.id_factura}/pago`, {
+        method: 'PATCH',
+        body: JSON.stringify({ metodo_pago: metodoPago }),
+      });
+      setFacturas((actuales) => actuales.map((factura) => (
+        factura.id_factura === actualizada.id_factura ? actualizada : factura
+      )));
+      setFacturasResumen((actuales) => actuales.map((factura) => (
+        factura.id_factura === actualizada.id_factura ? actualizada : factura
+      )));
+      setFacturaPago(null);
+      mostrar(`Pago de ${actualizada.numero_factura} registrado.`);
+    } catch (error) {
+      setErrorAccionFactura(error instanceof Error ? error.message : 'No se pudo registrar el pago.');
+    } finally {
+      setGuardandoFactura(false);
+    }
+  };
+
+  const emitirFactura = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!citaFacturar) return;
+    setGuardandoFactura(true);
+    setErrorAccionFactura('');
+    try {
+      const emitida = await apiRequest<FacturaAdmin>('/facturas', {
+        method: 'POST',
+        body: JSON.stringify({
+          id_cita: citaFacturar.id_cita,
+          metodo_pago: metodoNuevaFactura,
+          estado_pago: 'pendiente',
+        }),
+      });
+      setFacturas((actuales) => [emitida, ...actuales]);
+      setFacturasResumen((actuales) => [emitida, ...actuales].slice(0, 100));
+      setTotalFacturas((actual) => actual + 1);
+      setCitaFacturar(null);
+      setBusquedaFacturas('');
+      setEstadoFacturas('todas');
+      setPaginaFacturas(1);
+      mostrar(`Factura ${emitida.numero_factura} emitida.`);
+    } catch (error) {
+      setErrorAccionFactura(error instanceof Error ? error.message : 'No se pudo emitir la factura.');
+    } finally {
+      setGuardandoFactura(false);
+    }
+  };
+
+  const anularFactura = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!facturaAnular) return;
+    if (motivoAnulacion.trim().length < 3) {
+      setErrorAccionFactura('El motivo debe tener al menos 3 caracteres.');
+      return;
+    }
+    setGuardandoFactura(true);
+    setErrorAccionFactura('');
+    try {
+      const anulada = await apiRequest<FacturaAdmin>(`/facturas/${facturaAnular.id_factura}/anular`, {
+        method: 'POST',
+        body: JSON.stringify({ motivo: motivoAnulacion.trim() }),
+      });
+      setFacturas((actuales) => actuales.map((factura) => (
+        factura.id_factura === anulada.id_factura ? anulada : factura
+      )));
+      setFacturasResumen((actuales) => actuales.map((factura) => (
+        factura.id_factura === anulada.id_factura ? anulada : factura
+      )));
+      setFacturaAnular(null);
+      setMotivoAnulacion('');
+      mostrar(`Factura ${anulada.numero_factura} anulada.`);
+    } catch (error) {
+      setErrorAccionFactura(error instanceof Error ? error.message : 'No se pudo anular la factura.');
+    } finally {
+      setGuardandoFactura(false);
+    }
+  };
+
+  const hoy = new Date();
+  const isoLocal = (fecha: Date) => (
+    `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+  );
+  const fechaEncabezado = new Intl.DateTimeFormat('es-CO', {
+    weekday: 'long', day: 'numeric', month: 'short',
+  }).format(hoy);
+  const diasSemana = Array.from({ length: 7 }, (_, indice) => {
+    const fecha = new Date(hoy);
+    fecha.setDate(hoy.getDate() - 6 + indice);
+    return {
+      iso: isoLocal(fecha),
+      etiqueta: new Intl.DateTimeFormat('es-CO', { weekday: 'short' }).format(fecha).replace('.', ''),
+      esHoy: indice === 6,
+    };
+  });
+  const ventasSemana = diasSemana.map((dia) => ({
+    ...dia,
+    total: ingresosSemanaApi.find((ingreso) => ingreso.periodo.slice(0, 10) === dia.iso)?.total_pagado ?? 0,
+  }));
+  const maxVenta = Math.max(...ventasSemana.map((dia) => dia.total), 1);
+  const serviciosRanking = serviciosPopulares;
+  const totalServiciosRanking = serviciosRanking.reduce((total, servicio) => total + servicio.total_citas, 0);
+  const coloresDonut = ['#00BCD4', '#2C8298', '#F3D853', '#B6E9EE'];
+  let limiteDonut = 0;
+  const donut = totalServiciosRanking
+    ? `conic-gradient(${serviciosRanking.map((servicio, indice) => {
+        const inicio = limiteDonut;
+        limiteDonut += (servicio.total_citas / totalServiciosRanking) * 100;
+        return `${coloresDonut[indice % coloresDonut.length]} ${inicio}% ${limiteDonut}%`;
+      }).join(', ')})`
+    : 'conic-gradient(#DCE7E8 0% 100%)';
+  const diasAgenda = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const horasAgenda = [9, 11, 13, 15, 17];
+  const celdasAgenda = diasAgenda.flatMap((_, dia) => horasAgenda.map((hora) => {
+    const citasEnFranja = citas.filter((cita) => {
+      const fecha = new Date(`${cita.fecha}T00:00:00`);
+      const diaSemana = (fecha.getDay() + 6) % 7;
+      return diaSemana === dia && Number(cita.hora_inicio.slice(0, 2)) >= hora &&
+        Number(cita.hora_inicio.slice(0, 2)) < hora + 2 &&
+        !['cancelada', 'no_asistio'].includes(cita.estado);
+    }).length;
+    return { dia, hora, citas: citasEnFranja };
+  }));
+  const maxCitasFranja = Math.max(...celdasAgenda.map((celda) => celda.citas), 1);
+  const citasPorBarbero = barberos.map((barbero) => ({
+    ...barbero,
+    citas: barbero.citas_completadas,
+  }));
+  const maxCitasBarbero = Math.max(...citasPorBarbero.map((barbero) => barbero.citas), 1);
+  const totalPaginasFacturas = Math.max(1, Math.ceil(totalFacturas / POR_PAGINA));
+  const citasFacturables = citas.filter((cita) => (
+    cita.estado === 'completada' && !facturasResumen.some((factura) => factura.id_cita === cita.id_cita)
+  ));
 
   const abrirNuevoUsuario = () => {
     setModalUsuario(true); setUNombre(''); setUCorreo(''); setUTelefono(''); setUContrasena('');
@@ -110,6 +736,7 @@ export const PanelAdmin: React.FC = () => {
     const r = await crearUsuarioInterno(datos);
     setUGuardando(false);
     if (!r.ok) { setUError(r.mensaje); return; }
+    setRevisionUsuariosEquipo((revision) => revision + 1);
     setModalUsuario(false); mostrar(r.mensaje);
   };
 
@@ -183,6 +810,7 @@ export const PanelAdmin: React.FC = () => {
     setNGuardando(false);
     if (!r.ok) { setNError(r.mensaje); return; }
     setModalCita(false);
+    setRevisionCitas((revision) => revision + 1);
     mostrar(`Cita agendada para ${nCliente.nombre}.`);
   };
 
@@ -193,7 +821,9 @@ export const PanelAdmin: React.FC = () => {
       id_servicio: eServicio, observaciones: eObs, estado: eEstado,
     });
     if (!r.ok) { setEError(r.mensaje); return; }
-    setEdit(null); mostrar('Cita actualizada correctamente.');
+    setEdit(null);
+    setRevisionCitas((revision) => revision + 1);
+    mostrar('Cita actualizada correctamente.');
   };
 
   const crearServicio = async (e: React.FormEvent) => {
@@ -201,151 +831,371 @@ export const PanelAdmin: React.FC = () => {
     const r = await agregarServicio({
       nombre: sNombre, categoria: sCat, descripcion: sDesc || 'Servicio profesional de barbería.',
       precio: Number(sPrecio), duracion_minutos: Number(sDur), icono: '✂️',
-      puntos_otorga: Math.round(Number(sPrecio) / 1000), activo: true,
+      imagen_url: sImagen.trim() || undefined,
+      puntos_otorga: Number(sPuntos), activo: true,
     });
     if (!r.ok) { alert(r.mensaje); return; }
-    setModalServ(false); setSNombre(''); setSDesc('');
+    setModalServ(false); setSNombre(''); setSDesc(''); setSImagen('');
+  };
+
+  const alternarServicioAdmin = async (servicio: Servicio) => {
+    const nuevoEstado = !servicio.activo;
+    const resultado = await cambiarEstadoServicio(servicio.id_servicio, nuevoEstado);
+    if (!resultado.ok) {
+      mostrar(resultado.mensaje);
+      return;
+    }
+    if (nuevoEstado) {
+      setServiciosInactivos((prev) => prev.filter((item) => item.id_servicio !== servicio.id_servicio));
+    } else {
+      setServiciosInactivos((prev) => [...prev, { ...servicio, activo: false }]);
+    }
+    mostrar(resultado.mensaje);
+  };
+
+  const guardarPuntosServicio = async (servicio: Servicio) => {
+    const puntos = Number(puntosServicioEditados);
+    if (!Number.isInteger(puntos) || puntos < 0) {
+      mostrar('Los puntos deben ser un número entero igual o mayor que cero.');
+      return;
+    }
+    setGuardandoPuntosServicio(true);
+    const resultado = await actualizarPuntosServicio(servicio.id_servicio, puntos);
+    setGuardandoPuntosServicio(false);
+    if (!resultado.ok) {
+      mostrar(resultado.mensaje);
+      return;
+    }
+    setServiciosInactivos((prev) => prev.map((item) => (
+      item.id_servicio === servicio.id_servicio ? { ...item, puntos_otorga: puntos } : item
+    )));
+    setIdEditandoPuntosServicio(null);
+    setPuntosServicioEditados('');
+    mostrar(resultado.mensaje);
   };
 
   const tabs = [
     { id: 'resumen', t: 'Resumen', i: TrendingUp },
-    { id: 'citas', t: `Citas (${citas.length})`, i: CalendarDays },
+    { id: 'citas', t: `Citas (${dashboard?.total_citas ?? citas.length})`, i: CalendarDays },
     { id: 'servicios', t: 'Servicios', i: Scissors },
     { id: 'equipo', t: 'Equipo', i: Award },
+    { id: 'agenda', t: 'Agenda', i: CalendarDays },
     { id: 'avisos', t: 'Avisos y reportes', i: Send },
+    { id: 'puntos', t: 'Club de puntos', i: Gift },
+    { id: 'facturacion', t: 'Facturación', i: Receipt },
   ] as const;
 
-  const input = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-400/15';
+  const titulos: Record<typeof seccion, string> = {
+    resumen: 'Control total del negocio',
+    citas: 'Gestión de citas',
+    servicios: 'Catálogo de servicios',
+    equipo: 'Equipo interno',
+    agenda: 'Horarios y cierres',
+    avisos: 'Avisos y reportes',
+    puntos: 'Club de puntos',
+    facturacion: 'Facturación',
+  };
+  const input = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] placeholder-[#5A6878] outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-400/15';
 
   return (
-    <div className="min-h-[70vh] bg-[#0B0F14] py-10">
-      <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#141A21] px-3.5 py-1.5 text-xs font-bold text-teal-300 ring-1 ring-white/8">
-              <Award className="h-3.5 w-3.5" /> Panel administrativo
+    <div className="panel-dashboard panel-admin min-h-screen bg-[#0B0F14]">
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="admin-sidebar flex flex-col bg-[#0B0B0B] p-4 text-white lg:sticky lg:top-0 lg:h-screen lg:min-h-[520px]">
+          <button onClick={() => irA('inicio')} className="mb-5 flex items-center gap-3 px-2 text-left">
+            <span className="logo-marco relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#141A21]">
+              <img src="/Logo.webp" alt="Logo Globde" className="relative z-10 h-full w-full object-contain p-1" />
             </span>
-            <h1 className="font-heading mt-2 text-3xl font-black text-[#EAF0F6]">Control total del negocio</h1>
-          </div>
-          {pendientes.length > 0 && (
-            <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5">
-              <span className="text-xs font-bold text-amber-200">{pendientes.length} cita(s) por confirmar</span>
-              <button onClick={() => { pendientes.forEach((c) => confirmarCita(c.id_cita)); mostrar('Todas las citas pendientes fueron confirmadas.'); }}
-                className="rounded-xl bg-amber-400 px-3 py-1.5 text-[11px] font-black text-[#2B1E04] transition hover:bg-amber-300">
-                Confirmar todas
+            <div className="min-w-0">
+              <p className="font-heading text-sm font-black tracking-wide">GLOBDE</p>
+              <p className="mt-1 border border-cyan-400/60 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-cyan-300">Panel admin</p>
+            </div>
+          </button>
+          <nav aria-label="Secciones administrativas" className="flex gap-1.5 overflow-x-auto lg:flex-col">
+            {tabs.map((t) => (
+              <button key={t.id} onClick={() => { setSeccion(t.id); setPaginaFacturas(1); }}
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${
+                  seccion === t.id ? 'bg-cyan-400 text-[#06232A]' : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                }`}>
+                <t.i className="h-4 w-4 shrink-0" /> {t.t}
               </button>
+            ))}
+          </nav>
+          <div className="mt-5 flex items-center justify-between gap-2 rounded-xl bg-[#1B2024] p-2.5 lg:mt-auto">
+            <div className="flex min-w-0 items-center gap-2">
+              {usuario?.avatar_url
+                ? <img src={usuario.avatar_url} alt="" className="h-9 w-9 rounded-lg object-cover" />
+                : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan-400 text-[#06232A]">
+                    <UserRound className="h-5 w-5" aria-hidden="true" />
+                  </span>}
+              <div className="min-w-0">
+                <p className="truncate text-xs font-bold text-white">{usuario?.nombre ?? 'Administrador'}</p>
+                <p className="text-[10px] text-slate-400">Administrador</p>
+              </div>
+            </div>
+            <button onClick={logout} aria-label="Cerrar sesión" title="Cerrar sesión"
+              className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </aside>
+
+        <main className="min-w-0 space-y-5 bg-[#F5F6F2] p-5 sm:p-7 lg:p-9">
+          <header className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-500">Panel administrativo · {fechaEncabezado}</p>
+              <h1 className="font-heading mt-1 text-2xl font-black text-slate-950 sm:text-3xl">{titulos[seccion]}</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={alternarModo}
+                aria-label={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                title={modoOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                className="rounded-xl border border-slate-200 bg-white p-2 text-slate-700 transition hover:border-cyan-400"
+              >
+                {modoOscuro ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+              {pendientes.length > 0 && (
+                <div className="flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2">
+                  <span className="text-[10px] font-bold text-slate-700">{pendientes.length} cita(s) por confirmar</span>
+                  <button onClick={() => { pendientes.forEach((c) => confirmarCita(c.id_cita)); mostrar('Todas las citas pendientes fueron confirmadas.'); }}
+                    className="text-[10px] font-black text-slate-950 hover:text-cyan-800">
+                    Confirmar todas
+                  </button>
+                </div>
+              )}
+              {seccion === 'resumen' && (
+                <button onClick={async () => {
+                  setReporteDescargando('ingresos');
+                  const resultado = await descargarReporte('ingresos');
+                  setReporteDescargando(null);
+                  mostrar(resultado.mensaje);
+                }} disabled={reporteDescargando !== null}
+                  className="rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-black text-white transition hover:bg-slate-800 disabled:opacity-50">
+                  {reporteDescargando === 'ingresos' ? 'Generando…' : 'Exportar reporte'}
+                </button>
+              )}
+            </div>
+          </header>
+
+          {aviso && (
+            <div className="anim-aparecer flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-xs font-bold text-emerald-800">
+              <Check className="h-4 w-4" /> {aviso}
             </div>
           )}
-        </div>
 
-        {aviso && (
-          <div className="anim-aparecer flex items-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3.5 text-sm font-bold text-emerald-300">
-            <Check className="h-4 w-4" /> {aviso}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => setSeccion(t.id)}
-              className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition ${
-                seccion === t.id ? 'bg-teal-400 text-[#04211F] shadow-lg' : 'border border-white/10 bg-[#141A21] text-[#93A1B1] hover:border-teal-400/40'
-              }`}>
-              <t.i className="h-4 w-4" /> {t.t}
-            </button>
-          ))}
-        </div>
-
-        {/* RESUMEN */}
-        {seccion === 'resumen' && (
-          <div className="anim-aparecer space-y-6">
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              {[
-                { t: 'Ingresos totales', v: formatoCOP(ingresos), s: 'Facturación acumulada', i: Coins, c: 'text-emerald-300 bg-emerald-400/12' },
-                { t: 'Citas registradas', v: String(citas.length), s: `${completadas} completadas`, i: CalendarDays, c: 'text-teal-300 bg-teal-400/12' },
-                { t: 'Efectividad', v: `${efectividad}%`, s: 'Asistencia de clientes', i: TrendingUp, c: 'text-amber-300 bg-amber-400/12' },
-                { t: 'Equipo activo', v: String(barberos.length), s: 'Barberos certificados', i: Users, c: 'text-sky-300 bg-sky-400/12' },
-              ].map((k) => (
-                <div key={k.t} className="card p-5">
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${k.c}`}><k.i className="h-5 w-5" /></span>
-                  <p className="mt-3 text-[11px] font-bold uppercase text-[#6B7A8C]">{k.t}</p>
-                  <p className="font-heading text-2xl font-black text-[#EAF0F6]">{k.v}</p>
-                  <p className="text-[11px] text-[#93A1B1]">{k.s}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-              <div className="card p-6">
-                <h3 className="font-heading text-lg font-black text-[#EAF0F6]">Servicios más vendidos</h3>
-                <div className="mt-4 space-y-3">
-                  {servicios.slice(0, 5).map((s) => {
-                    const n = citas.filter((c) => c.id_servicio === s.id_servicio).length;
-                    const pct = Math.min(100, n * 25 + 20);
-                    return (
-                      <div key={s.id_servicio}>
-                        <div className="flex justify-between text-xs font-semibold">
-                          <span className="text-[#93A1B1]">{s.icono} {s.nombre}</span>
-                          <span className="text-[#EAF0F6]">{n} citas</span>
-                        </div>
-                        <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/6">
-                          <div className="h-full rounded-full bg-gradient-to-r from-teal-400 to-amber-300 transition-all duration-700" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+          {/* RESUMEN */}
+          {seccion === 'resumen' && (
+            <div className="anim-aparecer space-y-4">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-5">
+                {[
+                  { t: 'Recaudado total', v: dashboard ? formatoCOP(ingresos) : dashboardCargando ? '…' : '—', s: dashboard ? `${dashboard.facturas_pagadas} facturas pagadas` : 'Histórico', i: Coins, color: 'bg-emerald-100 text-emerald-600' },
+                  { t: 'Pendiente por cobrar', v: dashboard ? formatoCOP(dashboard.ingresos_pendientes) : dashboardCargando ? '…' : '—', s: dashboard ? `${dashboard.facturas_pendientes} facturas pendientes` : 'Histórico', i: Receipt, color: 'bg-amber-100 text-amber-700' },
+                  { t: 'Citas registradas', v: dashboard ? String(totalCitasDashboard) : dashboardCargando ? '…' : String(citas.length), s: `${completadas} completadas`, i: CalendarDays, color: 'bg-emerald-100 text-emerald-600' },
+                  { t: 'Efectividad', v: dashboardCargando ? '…' : `${efectividad}%`, s: 'Citas completadas', i: TrendingUp, color: 'bg-cyan-100 text-cyan-600' },
+                  { t: 'Equipo activo', v: dashboard ? String(dashboard.total_barberos_disponibles) : dashboardCargando ? '…' : String(barberos.filter((b) => b.disponible_hoy).length), s: 'Barberos disponibles', i: Users, color: 'bg-cyan-50 text-cyan-600' },
+                ].map((k) => (
+                  <div key={k.t} className="card min-h-28 p-5">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">{k.t}</p>
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-md ${k.color}`}><k.i className="h-3 w-3" /></span>
+                    </div>
+                    <p className="font-heading mt-2 text-xl font-black text-slate-950">{k.v}</p>
+                    <p className="text-[9px] text-slate-500">{k.s}</p>
+                  </div>
+                ))}
               </div>
+              {errorDashboard && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-[10px] font-semibold text-rose-800">{errorDashboard}</div>
+              )}
 
-              <div className="card p-6">
-                <h3 className="font-heading text-lg font-black text-[#EAF0F6]">Últimas facturas</h3>
-                <div className="mt-3 space-y-2">
-                  {facturas.slice(0, 5).map((f) => (
-                    <div key={f.id_factura} className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-2.5 text-xs">
-                      <div>
-                        <p className="font-black text-[#EAF0F6]">{f.numero_factura}</p>
-                        <p className="text-[#93A1B1]">{f.cliente_nombre} · {f.servicio_nombre}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-teal-300">{formatoCOP(f.total)}</p>
-                        <span className={`text-[10px] font-bold ${f.estado_pago === 'pagado' ? 'text-emerald-300' : 'text-amber-300'}`}>{f.estado_pago}</span>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.65fr_1fr]">
+                <section className="card min-h-56 p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="font-heading text-sm font-black text-slate-950">Ingresos de la semana</h2>
+                    <span className="text-[9px] text-slate-500">Últimos 7 días · facturas pagadas</span>
+                  </div>
+                  {ingresosCargando ? (
+                    <p className="py-12 text-center text-xs text-slate-500">Cargando ingresos…</p>
+                  ) : errorIngresos ? (
+                    <p className="py-12 text-center text-xs text-rose-700">{errorIngresos}</p>
+                  ) : (
+                    <div className="flex h-40 items-end justify-between gap-3" aria-label="Ingresos por día de la semana">
+                      {ventasSemana.map((dia) => (
+                        <div key={dia.iso} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                          <span className="text-[9px] font-semibold text-slate-500">{dia.total ? formatoCOP(dia.total) : ''}</span>
+                          <div className={`w-full max-w-20 rounded-t-md ${dia.esHoy ? 'bg-cyan-700' : 'bg-cyan-200'}`}
+                            style={{ height: `${Math.max(7, (dia.total / maxVenta) * 76)}%` }}
+                            title={`${dia.etiqueta}: ${formatoCOP(dia.total)}`} />
+                          <span className={`text-[9px] ${dia.esHoy ? 'font-black text-cyan-800' : 'text-slate-500'}`}>
+                            {dia.esHoy ? 'Hoy' : dia.etiqueta}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {ingresosDesdeFacturas && !errorIngresos && (
+                    <p className="mt-2 text-[9px] text-amber-700">Datos calculados desde facturas; el reporte de ingresos no respondió.</p>
+                  )}
+                </section>
+
+                <section className="card min-h-56 p-5">
+                  <h2 className="font-heading text-sm font-black text-slate-950">Servicios más vendidos</h2>
+                  <div className="mt-3 flex items-center gap-3">
+                    <div className="relative h-20 w-20 shrink-0 rounded-full"
+                      style={{ background: donut }} role="img" aria-label="Distribución de citas por servicio">
+                      <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-white">
+                        <strong className="text-sm text-slate-950">{totalServiciosRanking}</strong>
+                        <span className="text-[8px] text-slate-500">citas</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="min-w-0 space-y-1.5">
+                      {serviciosPopularesCargando && <p className="text-[10px] text-slate-500">Cargando servicios…</p>}
+                      {serviciosRanking.map((servicio, indice) => (
+                        <div key={servicio.id_servicio} className="flex items-center gap-1.5 text-[9px]">
+                          <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: coloresDonut[indice % coloresDonut.length] }} />
+                          <span className="truncate text-slate-600">{servicio.nombre}</span>
+                            <strong className="ml-auto text-slate-800">{servicio.total_citas}</strong>
+                        </div>
+                      ))}
+                        {errorServiciosPopulares
+                          ? <p className="text-[10px] text-rose-700">No se pudo cargar el ranking.</p>
+                          : serviciosRanking.length === 0 && <p className="text-[10px] text-slate-500">Sin citas registradas.</p>}
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <section className="card min-h-48 p-5">
+                  <h2 className="font-heading text-sm font-black text-slate-950">Horas con más citas</h2>
+                  <div className="mt-3 grid grid-cols-7 gap-1" aria-label="Mapa de calor de citas por día y hora">
+                    {diasAgenda.map((dia) => <span key={dia} className="text-center text-[8px] text-slate-500">{dia}</span>)}
+                    {celdasAgenda.map((celda) => {
+                      const intensidad = celda.citas / maxCitasFranja;
+                      return <span key={`${celda.dia}-${celda.hora}`}
+                        title={`${diasAgenda[celda.dia]} · ${celda.hora}:00: ${celda.citas} citas`}
+                        className="h-4 rounded-[3px]"
+                        style={{ backgroundColor: celda.citas ? `rgba(15, 112, 145, ${0.15 + intensidad * 0.8})` : '#E5EFF0' }} />;
+                    })}
+                  </div>
+                  <p className="mt-2 text-[8px] text-slate-500">Franjas de 9:00 a. m. a 7:00 p. m.</p>
+                </section>
+
+                <section className="card min-h-48 p-5">
+                  <h2 className="font-heading text-sm font-black text-slate-950">Equipo</h2>
+                  <div className="mt-3 space-y-3">
+                    {citasPorBarbero.slice(0, 3).map((barbero) => (
+                      <div key={barbero.id_barbero}>
+                        <div className="flex justify-between gap-2 text-[9px]">
+                          <span className="truncate font-semibold text-slate-700">{barbero.nombre}</span>
+                          <span className="shrink-0 text-slate-500">{barbero.citas} completadas</span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded-full bg-slate-100">
+                          <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-yellow-300"
+                            style={{ width: `${Math.max(5, (barbero.citas / maxCitasBarbero) * 100)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    {citasPorBarbero.length === 0 && <p className="text-[10px] text-slate-500">No hay barberos registrados.</p>}
+                  </div>
+                </section>
+
+                <section className="card min-h-48 p-5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-heading text-sm font-black text-slate-950">Últimas facturas</h2>
+                    <button onClick={() => setSeccion('facturacion')} className="text-[9px] font-bold text-cyan-800 hover:underline">Ver todas</button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {facturasCargando && <p className="py-4 text-center text-[10px] text-slate-500">Cargando…</p>}
+                    {!facturasCargando && errorFacturas && <p className="py-4 text-center text-[10px] text-rose-700">{errorFacturas}</p>}
+                    {!facturasCargando && !errorFacturas && facturasResumen.slice(0, 2).map((factura) => (
+                      <div key={factura.id_factura} className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[9px]">
+                        <div className="min-w-0">
+                          <p className="font-black text-slate-800">{factura.numero_factura}</p>
+                          <p className="truncate text-slate-500">{factura.cliente_nombre} · {factura.servicio_nombre}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="font-black text-slate-900">{formatoCOP(factura.total)}</p>
+                          <span className={factura.estado_pago === 'pagada' ? 'text-emerald-700' : 'text-cyan-800'}>
+                            {factura.estado_pago}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    {!facturasCargando && !errorFacturas && facturasResumen.length === 0 && <p className="py-4 text-center text-[10px] text-slate-500">Sin facturas.</p>}
+                  </div>
+                </section>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* CITAS */}
         {seccion === 'citas' && (
-          <div className="anim-aparecer space-y-4">
-            <div className="flex justify-end">
-              <button onClick={abrirNuevaCita} className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black">
-                <Plus className="h-4 w-4" /> Nueva cita
-              </button>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#6B7A8C]" />
-                <input value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
-                  placeholder="Buscar por cliente, código o servicio…" className={input + ' pl-10'} />
+          <div className="citas-admin anim-aparecer space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-800">Agenda de reservas</p>
+                <p className="mt-1 text-xs text-slate-500">Busca, filtra y administra las citas de tu equipo.</p>
               </div>
-              <select value={fBarbero} onChange={(e) => { setFBarbero(e.target.value); setPagina(1); }} className={input + ' sm:w-52'}>
-                <option value="todos">Todos los barberos</option>
-                {barberos.map((b) => <option key={b.id_barbero} value={b.id_barbero}>{b.nombre}</option>)}
-              </select>
-              <select value={fEstado} onChange={(e) => { setFEstado(e.target.value); setPagina(1); }} className={input + ' sm:w-48'}>
-                <option value="todos">Todos los estados</option>
-                {['pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada', 'no_asistio'].map((e) => (
-                  <option key={e} value={e}>{estiloEstado(e).texto}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-3">
+                <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700">
+                  {pag.total} {pag.total === 1 ? 'cita' : 'citas'}
+                </span>
+                <button
+                  onClick={abrirNuevaCita}
+                  className="flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-[#06232A] shadow-sm shadow-cyan-900/10 transition hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2"
+                >
+                  <Plus className="h-4 w-4" /> Nueva cita
+                </button>
+              </div>
+            </div>
+            <div className="card rounded-2xl p-3 shadow-sm sm:p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="relative min-w-[220px] flex-1">
+                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#6B7A8C]" />
+                  <input value={busqueda} onChange={(e) => { setBusqueda(e.target.value); setPagina(1); }}
+                    placeholder="Buscar por cliente, código o servicio…" className={input + ' pl-10'} />
+                </div>
+                <select value={fBarbero} onChange={(e) => { setFBarbero(e.target.value); setPagina(1); }} className={input + ' sm:w-52'}>
+                  <option value="todos">Todos los barberos</option>
+                  {barberos.map((b) => <option key={b.id_barbero} value={b.id_barbero}>{b.nombre}</option>)}
+                </select>
+                <select value={fEstado} onChange={(e) => { setFEstado(e.target.value); setPagina(1); }} className={input + ' sm:w-48'}>
+                  <option value="todos">Todos los estados</option>
+                  {['pendiente', 'confirmada', 'en_atencion', 'completada', 'cancelada', 'no_asistio'].map((e) => (
+                    <option key={e} value={e}>{estiloEstado(e).texto}</option>
+                  ))}
+                </select>
+                <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs font-semibold text-slate-600">
+                  Desde
+                  <input type="date" value={fechaDesdeCitas}
+                    max={fechaHastaCitas || undefined}
+                    onChange={(e) => { setFechaDesdeCitas(e.target.value); setPagina(1); }}
+                    className={input} />
+                </label>
+                <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-xs font-semibold text-slate-600">
+                  Hasta
+                  <input type="date" value={fechaHastaCitas}
+                    min={fechaDesdeCitas || undefined}
+                    onChange={(e) => { setFechaHastaCitas(e.target.value); setPagina(1); }}
+                    className={input} />
+                </label>
+                {(fechaDesdeCitas || fechaHastaCitas) && (
+                  <button type="button" onClick={() => {
+                    setFechaDesdeCitas('');
+                    setFechaHastaCitas('');
+                    setPagina(1);
+                  }} className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50">
+                    Limpiar fechas
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="card overflow-hidden">
+            <div className="tabla-citas-admin card overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[1080px] text-left text-sm">
                   <thead className="bg-[#0F151C] text-[11px] uppercase tracking-wide text-[#6B7A8C]">
                     <tr>
                       <th className="p-4">Código</th><th className="p-4">Cliente</th><th className="p-4">Servicio</th>
@@ -354,7 +1204,13 @@ export const PanelAdmin: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/6">
-                    {pag.items.map((c) => {
+                    {citasCargando ? (
+                      <tr><td colSpan={7} className="p-10 text-center text-sm text-[#93A1B1]">Cargando citas…</td></tr>
+                    ) : errorCitas ? (
+                      <tr><td colSpan={7} role="alert" className="p-10 text-center text-sm text-rose-300">{errorCitas}</td></tr>
+                    ) : pag.items.length === 0 ? (
+                      <tr><td colSpan={7} className="p-10 text-center text-sm text-[#93A1B1]">No hay citas que coincidan con los filtros.</td></tr>
+                    ) : pag.items.map((c) => {
                       const est = estiloEstado(c.estado);
                       const completada = c.estado === 'completada';
                       const cerrada = completada || c.estado === 'cancelada';
@@ -380,7 +1236,7 @@ export const PanelAdmin: React.FC = () => {
                           <td className="p-4">
                             <div className="flex flex-wrap items-center justify-end gap-1.5">
                               {c.estado === 'pendiente' && (
-                                <button onClick={() => { confirmarCita(c.id_cita); mostrar(`Cita ${c.codigo_reserva} confirmada.`); }}
+                                <button onClick={() => void confirmarDesdeAdmin(c)}
                                   className="flex items-center gap-1 rounded-xl bg-emerald-400 px-3 py-1.5 text-[11px] font-black text-[#04211F] transition hover:bg-emerald-300">
                                   <Check className="h-3.5 w-3.5" /> Confirmar
                                 </button>
@@ -400,7 +1256,7 @@ export const PanelAdmin: React.FC = () => {
 
                               {!cerrada && (
                                 <>
-                                  <select value={c.estado} onChange={(e) => cambiarEstadoCita(c.id_cita, e.target.value as Cita['estado'])}
+                                  <select value={c.estado} onChange={(e) => void cambiarEstadoDesdeAdmin(c.id_cita, e.target.value as EstadoCita)}
                                     className="rounded-xl border border-white/12 bg-[#0F151C] px-2 py-1.5 text-[11px] font-semibold text-[#93A1B1] outline-none">
                                     <option value="pendiente">Pendiente</option>
                                     <option value="confirmada">Confirmada</option>
@@ -408,7 +1264,7 @@ export const PanelAdmin: React.FC = () => {
                                     <option value="completada">Completada</option>
                                     <option value="no_asistio">No asistió</option>
                                   </select>
-                                  <button onClick={() => { cancelarCita(c.id_cita, 'Cancelada por administración'); mostrar('Cita cancelada.'); }}
+                                  <button onClick={() => void cancelarDesdeAdmin(c)}
                                     className="rounded-xl border border-rose-400/30 p-1.5 text-rose-300 transition hover:bg-rose-400/10" title="Cancelar">
                                     <Ban className="h-3.5 w-3.5" />
                                   </button>
@@ -430,7 +1286,7 @@ export const PanelAdmin: React.FC = () => {
                 <div className="flex items-center gap-1">
                   <button onClick={() => setPagina(pag.pagina - 1)} disabled={pag.pagina === 1}
                     className="rounded-xl border border-white/12 p-1.5 text-[#93A1B1] disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
-                  {Array.from({ length: pag.totalPaginas }, (_, i) => i + 1).map((n) => (
+                  {paginasCitas.map((n) => (
                     <button key={n} onClick={() => setPagina(n)}
                       className={`h-8 w-8 rounded-xl text-xs font-black ${n === pag.pagina ? 'bg-teal-400 text-[#04211F]' : 'border border-white/12 text-[#93A1B1]'}`}>{n}</button>
                   ))}
@@ -448,13 +1304,34 @@ export const PanelAdmin: React.FC = () => {
             <button onClick={() => setModalServ(true)} className="btn-primario flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-bold">
               <Plus className="h-4 w-4" /> Nuevo servicio
             </button>
+            {serviciosArchivadosSinDuplicados.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMostrarServiciosArchivados((mostrar) => !mostrar)}
+                aria-expanded={mostrarServiciosArchivados}
+                className="flex items-center gap-2 rounded-xl border border-white/12 px-3 py-2 text-xs font-semibold text-[#93A1B1] transition hover:bg-white/5"
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${mostrarServiciosArchivados ? 'rotate-180' : ''}`} />
+                {mostrarServiciosArchivados ? 'Ocultar archivados' : `Mostrar archivados (${serviciosArchivadosSinDuplicados.length})`}
+              </button>
+            )}
+            {errorServiciosInactivos && (
+              <p role="alert" className="rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">{errorServiciosInactivos}</p>
+            )}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {servicios.map((s) => (
+              {serviciosAdmin.map((s) => (
                 <div key={s.id_servicio} className="card p-5">
                   <div className="flex items-start justify-between">
-                    <span className="text-3xl">{s.icono}</span>
-                    <button onClick={() => eliminarServicio(s.id_servicio)} className="rounded-lg p-1.5 text-[#5A6878] transition hover:bg-rose-400/10 hover:text-rose-300">
-                      <Trash2 className="h-4 w-4" />
+                    {imagenCatalogoServicio(s.nombre) || s.imagen_url
+                      ? <img src={imagenCatalogoServicio(s.nombre) || s.imagen_url} alt={s.nombre} className="h-16 w-16 rounded-xl object-cover" />
+                      : <span className="text-3xl">{s.icono}</span>}
+                    <button onClick={() => void alternarServicioAdmin(s)}
+                      className={`rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition ${
+                        s.activo
+                          ? 'text-rose-300 hover:bg-rose-400/10'
+                          : 'bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20'
+                      }`}>
+                      {s.activo ? <><Trash2 className="mr-1 inline h-3.5 w-3.5" />Desactivar</> : 'Reactivar'}
                     </button>
                   </div>
                   <h4 className="font-heading mt-2 text-base font-black text-[#EAF0F6]">{s.nombre}</h4>
@@ -463,8 +1340,38 @@ export const PanelAdmin: React.FC = () => {
                     <span className="font-black text-teal-300">{formatoCOP(s.precio)}</span>
                     <span className="font-semibold text-[#93A1B1]">{duracionLegible(s.duracion_minutos)}</span>
                   </div>
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/8 pt-3">
+                    {idEditandoPuntosServicio === s.id_servicio ? (
+                      <>
+                        <label className="flex items-center gap-2 text-[10px] font-semibold text-[#93A1B1]">
+                          Puntos por cita completada
+                          <input type="number" min={0} step={1} value={puntosServicioEditados}
+                            onChange={(evento) => setPuntosServicioEditados(evento.target.value)}
+                            className="w-20 rounded-lg border border-white/10 bg-[#0F151C] px-2 py-1.5 text-xs text-[#EAF0F6]" />
+                        </label>
+                        <button type="button" disabled={guardandoPuntosServicio}
+                          onClick={() => void guardarPuntosServicio(s)}
+                          className="rounded-lg bg-teal-400 px-2.5 py-1.5 text-[10px] font-black text-[#04211F] disabled:opacity-50">
+                          Guardar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-[10px] font-semibold text-[#93A1B1]">{s.puntos_otorga} puntos</span>
+                        <button type="button" onClick={() => {
+                          setIdEditandoPuntosServicio(s.id_servicio);
+                          setPuntosServicioEditados(String(s.puntos_otorga));
+                        }} className="rounded-lg border border-white/12 px-2.5 py-1.5 text-[10px] font-bold text-[#93A1B1] hover:bg-white/5">
+                          Configurar puntos
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
+              {serviciosAdmin.length === 0 && !errorServiciosInactivos && (
+                <p className="card col-span-full p-8 text-center text-sm text-[#93A1B1]">No hay servicios registrados.</p>
+              )}
             </div>
           </div>
         )}
@@ -475,42 +1382,98 @@ export const PanelAdmin: React.FC = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="font-heading text-xl font-black text-[#EAF0F6]">Equipo interno</h2>
-                <p className="text-xs text-[#93A1B1]">Crea accesos para administradores y barberos.</p>
+                <p className="text-xs text-[#93A1B1]">Perfiles de administradores y barberos del sistema.</p>
               </div>
-              <button onClick={abrirNuevoUsuario} className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold">
-                <Plus className="h-4 w-4" /> Crear perfil
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRevisionUsuariosEquipo((revision) => revision + 1)}
+                  disabled={usuariosEquipoCargando}
+                  className="flex items-center gap-2 rounded-xl border border-white/12 px-3 py-2 text-xs font-semibold text-[#93A1B1] transition hover:bg-white/5 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${usuariosEquipoCargando ? 'animate-spin' : ''}`} /> Actualizar
+                </button>
+                <button onClick={abrirNuevoUsuario} className="btn-primario flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold">
+                  <Plus className="h-4 w-4" /> Crear perfil
+                </button>
+              </div>
             </div>
+            {errorUsuariosEquipo && (
+              <p role="alert" className="rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">
+                No se pudieron cargar los perfiles: {errorUsuariosEquipo}
+              </p>
+            )}
+            {usuariosEquipoCargando && usuariosEquipo.length === 0 && (
+              <p className="card p-6 text-center text-sm text-[#93A1B1]">Cargando perfiles del equipo…</p>
+            )}
             <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {barberos.map((b) => (
-              <div key={b.id_barbero} className="card p-6">
+            {usuariosEquipo.map((perfil) => {
+              const b = barberos.find((barbero) => barbero.id_usuario === perfil.id_usuario);
+              return (
+              <div key={perfil.id_usuario} className="card p-6">
                 <div className="flex items-center gap-3">
-                  <img src={b.foto_url} alt="" className="h-14 w-14 rounded-2xl object-cover" />
-                  <div>
-                    <h4 className="font-heading text-base font-black text-[#EAF0F6]">{b.nombre}</h4>
-                    <p className="text-xs font-semibold text-teal-300">{b.rol_titulo}</p>
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#1B2024] text-amber-400">
+                    {b ? (
+                      <BarberoFoto
+                        idBarbero={b.id_barbero}
+                        nombre={perfil.nombre}
+                        fotoUrl={b.foto_url}
+                        className="h-full w-full object-cover"
+                        iconClassName="h-6 w-6"
+                      />
+                    ) : perfil.avatar_url ? (
+                      <img src={perfil.avatar_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserRound className="h-6 w-6" aria-hidden="true" />
+                    )}
+                  </span>
+                  <div className="min-w-0">
+                    <h4 className="font-heading truncate text-base font-black text-[#EAF0F6]">{perfil.nombre}</h4>
+                    <p className="text-xs font-semibold text-teal-300">{perfil.id_rol === 1 ? 'Administrador' : 'Barbero'}</p>
                   </div>
                 </div>
-                <p className="mt-4 text-[11px] font-bold uppercase text-[#6B7A8C]">Nivel y comisión</p>
-                <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-                  {(['Plata', 'Oro', 'Master'] as const).map((n) => (
-                    <button key={n} onClick={() => actualizarNivelBarbero(b.id_barbero, n, n === 'Master' ? 20 : n === 'Oro' ? 10 : 0)}
-                      className={`rounded-xl py-1.5 text-[11px] font-black transition ${
-                        b.nivel === n ? 'bg-amber-400 text-[#2B1E04]' : 'bg-white/6 text-[#93A1B1] hover:bg-white/10'
-                      }`}>{n}</button>
-                  ))}
+                <div className="mt-4 space-y-1 rounded-2xl bg-[#0F151C] p-3 text-xs text-[#93A1B1]">
+                  <p className="truncate">Correo: <strong className="text-[#EAF0F6]">{perfil.correo}</strong></p>
+                  <p>Teléfono: <strong className="text-[#EAF0F6]">{perfil.telefono || 'No registrado'}</strong></p>
+                  <p>Estado: <strong className={perfil.activo ? 'text-emerald-300' : 'text-rose-300'}>{perfil.activo ? 'Activo' : 'Inactivo'}</strong></p>
+                  {b && (
+                    <>
+                      <p>Total citas: <strong className="text-[#EAF0F6]">{b.citas_completadas}</strong></p>
+                      <p>Rating: <strong className="text-[#EAF0F6]">⭐ {b.rating}</strong></p>
+                    </>
+                  )}
                 </div>
-                <div className="mt-3 space-y-1 rounded-2xl bg-[#0F151C] p-3 text-xs text-[#93A1B1]">
-                  <p>Comisión actual: <strong className="text-teal-300">{50 + b.porcentaje_incremento}%</strong></p>
-                  <p>Total citas: <strong className="text-[#EAF0F6]">{b.citas_completadas}</strong></p>
-                  <p>Rating: <strong className="text-[#EAF0F6]">⭐ {b.rating}</strong></p>
-                  <p>Jornada: <strong className="text-[#EAF0F6]">{hora12(b.hora_apertura)} – {hora12(b.hora_cierre)}</strong></p>
-                </div>
+                {b && (
+                  <>
+                    <p className="mt-4 text-[11px] font-bold uppercase text-[#6B7A8C]">Nivel y comisión</p>
+                    <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                      {(['Plata', 'Oro', 'Master'] as const).map((nivel) => (
+                        <button
+                          key={nivel}
+                          onClick={() => actualizarNivelBarbero(b.id_barbero, nivel, nivel === 'Master' ? 20 : nivel === 'Oro' ? 10 : 0)}
+                          className={`rounded-xl py-1.5 text-[11px] font-black transition ${
+                            b.nivel === nivel ? 'bg-amber-400 text-[#2B1E04]' : 'bg-white/6 text-[#93A1B1] hover:bg-white/10'
+                          }`}
+                        >
+                          {nivel}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs text-[#93A1B1]">
+                      Comisión actual: <strong className="text-teal-300">{50 + b.porcentaje_incremento}%</strong>
+                    </p>
+                  </>
+                )}
               </div>
-            ))}
+            );})}
+            {!usuariosEquipoCargando && !errorUsuariosEquipo && usuariosEquipo.length === 0 && (
+              <p className="card col-span-full p-8 text-center text-sm text-[#93A1B1]">No hay perfiles internos registrados.</p>
+            )}
             </div>
           </div>
         )}
+
+        {seccion === 'agenda' && <AgendaAdmin barberos={barberos} />}
 
         {/* AVISOS */}
         {seccion === 'avisos' && (
@@ -519,13 +1482,35 @@ export const PanelAdmin: React.FC = () => {
               <h3 className="font-heading flex items-center gap-2 text-lg font-black text-[#EAF0F6]">
                 <Send className="h-5 w-5 text-violet-300" /> Notificación masiva
               </h3>
-              <p className="mt-1 text-xs text-[#93A1B1]">Envía promociones o recordatorios a todos los clientes.</p>
-              <form onSubmit={async (e) => { e.preventDefault(); const r = await difusionMasiva(aTitulo, aMensaje); if (r.ok) { setATitulo(''); setAMensaje(''); } mostrar(r.mensaje); }}
+              <p className="mt-1 text-xs text-[#93A1B1]">Elige destinatarios y define si también se envía por correo.</p>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setAEnviando(true);
+                const rol = aRol === 'todos' ? null : Number(aRol);
+                const r = await difusionMasiva(aTitulo, aMensaje, rol, aEnviarCorreo);
+                setAEnviando(false);
+                if (r.ok) { setATitulo(''); setAMensaje(''); }
+                mostrar(r.mensaje);
+              }}
                 className="mt-4 space-y-3">
+                <select value={aRol} onChange={(e) => setARol(e.target.value as typeof aRol)} className={input}>
+                  <option value="3">Clientes</option>
+                  <option value="2">Barberos</option>
+                  <option value="1">Administradores</option>
+                  <option value="todos">Todos los usuarios activos</option>
+                </select>
                 <input value={aTitulo} onChange={(e) => setATitulo(e.target.value)} required placeholder="Título del aviso" className={input} />
                 <textarea rows={3} value={aMensaje} onChange={(e) => setAMensaje(e.target.value)} required
-                  placeholder="Mensaje para tus clientes…" className={input + ' resize-none'} />
-                <button type="submit" className="btn-primario w-full rounded-2xl py-2.5 text-sm font-bold">Enviar difusión</button>
+                  placeholder="Mensaje para los destinatarios…" className={input + ' resize-none'} />
+                <label className="flex items-center gap-2 text-xs font-semibold text-[#93A1B1]">
+                  <input type="checkbox" checked={aEnviarCorreo} onChange={(e) => setAEnviarCorreo(e.target.checked)}
+                    className="h-4 w-4 accent-cyan-500" />
+                  Enviar también por correo electrónico
+                </label>
+                <button type="submit" disabled={aEnviando}
+                  className="btn-primario w-full rounded-2xl py-2.5 text-sm font-bold disabled:cursor-wait disabled:opacity-50">
+                  {aEnviando ? 'Enviando…' : 'Enviar difusión'}
+                </button>
               </form>
             </div>
 
@@ -538,7 +1523,6 @@ export const PanelAdmin: React.FC = () => {
                 {[
                   { etiqueta: 'Reporte de ingresos y facturación (.csv)', tipo: 'ingresos' as const },
                   { etiqueta: 'Historial de citas por barbero (.csv)', tipo: 'citas' as const },
-                  { etiqueta: 'Clientes y puntos de fidelidad (.csv)', tipo: 'clientes' as const },
                 ].map((reporte) => (
                   <div key={reporte.tipo} className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-3 text-xs">
                     <span className="font-semibold text-[#93A1B1]">{reporte.etiqueta}</span>
@@ -551,6 +1535,277 @@ export const PanelAdmin: React.FC = () => {
             </div>
           </div>
         )}
+
+        {seccion === 'puntos' && (
+          <div className="club-puntos-admin anim-aparecer grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,.7fr)]">
+            <section className="card overflow-hidden">
+              <div className="border-b border-slate-100 p-4">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                    <input value={busquedaPuntos} onChange={(e) => {
+                      setBusquedaPuntos(e.target.value);
+                      setPaginaClientesPuntos(1);
+                      setClientePuntosSeleccionado(null);
+                    }}
+                      placeholder="Buscar cliente por nombre, correo o teléfono" className={input + ' pl-10'} />
+                  </div>
+                  <button onClick={async () => {
+                    setReporteDescargando('clientes');
+                    const resultado = await descargarReporte('clientes');
+                    setReporteDescargando(null);
+                    mostrar(resultado.mensaje);
+                  }} disabled={reporteDescargando !== null}
+                    className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                    {reporteDescargando === 'clientes' ? 'Generando…' : 'Exportar puntos'}
+                  </button>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">
+                  Mostrando {clientesPuntos.length} de {clientesPuntosTotal} cliente(s).
+                </p>
+              </div>
+              {errorPuntos && <p className="m-4 rounded-lg bg-rose-50 p-3 text-xs font-semibold text-rose-700">{errorPuntos}</p>}
+              {clientesPuntosCargando ? (
+                <p className="p-8 text-center text-xs text-slate-500">Buscando clientes…</p>
+              ) : (
+                <div aria-label="Clientes del club de puntos" className="club-puntos-lista max-h-[min(62vh,600px)] overflow-y-auto divide-y divide-slate-100">
+                  {clientesPuntos.map((cliente) => (
+                    <button key={cliente.id_cliente} onClick={() => {
+                      setClientePuntosSeleccionado(cliente);
+                      setAjustePuntos('');
+                      setMotivoAjustePuntos('');
+                      setErrorAjustePuntos('');
+                    }}
+                      aria-pressed={clientePuntosSeleccionado?.id_cliente === cliente.id_cliente}
+                      className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition hover:bg-cyan-50 ${
+                        clientePuntosSeleccionado?.id_cliente === cliente.id_cliente ? 'club-puntos-seleccionado bg-cyan-50' : ''
+                      }`}>
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="club-puntos-icono flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-100 text-cyan-800">
+                          <UserRound className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-bold text-slate-800">{cliente.nombre}</span>
+                          <span className="block truncate text-[10px] text-slate-500">{cliente.correo}</span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <strong className="block text-xs text-slate-900">{cliente.puntos_saldo} pts</strong>
+                        <span className="text-[9px] text-cyan-800">{cliente.nivel_fidelizacion}</span>
+                      </span>
+                    </button>
+                  ))}
+                  {!clientesPuntosCargando && !errorPuntos && clientesPuntos.length === 0 && (
+                    <p className="p-8 text-center text-xs text-slate-500">No se encontraron clientes.</p>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+                <span className="text-[9px] text-slate-500">
+                  Página {paginaClientesPuntos} de {Math.max(1, Math.ceil(clientesPuntosTotal / 20))}
+                </span>
+                <div className="flex gap-1">
+                  <button onClick={() => setPaginaClientesPuntos((actual) => actual - 1)}
+                    disabled={paginaClientesPuntos <= 1 || clientesPuntosCargando}
+                    className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setPaginaClientesPuntos((actual) => actual + 1)}
+                    disabled={paginaClientesPuntos >= Math.ceil(clientesPuntosTotal / 20) || clientesPuntosCargando}
+                    className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section className="card w-full p-5 xl:sticky xl:top-6">
+              <h2 className="font-heading text-base font-black text-slate-950">Ajustar saldo</h2>
+              {!clientePuntosSeleccionado ? (
+                <div className="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 p-4">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700">
+                    <Gift className="h-5 w-5" />
+                  </span>
+                  <p className="text-xs leading-relaxed text-slate-600">Elige un cliente de la lista para consultar su saldo y registrar un ajuste.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="club-puntos-cliente mt-4 rounded-xl bg-cyan-50 p-4">
+                    <p className="club-puntos-nombre text-xs font-bold text-slate-800">{clientePuntosSeleccionado.nombre}</p>
+                    <p className="club-puntos-correo mt-1 text-[10px] text-slate-500">{clientePuntosSeleccionado.correo}</p>
+                    <div className="mt-3 flex items-end justify-between">
+                      <span className="club-puntos-saldo-label text-[10px] text-slate-600">Saldo actual</span>
+                      <strong className="club-puntos-saldo font-heading text-2xl font-black text-cyan-800">{clientePuntosSeleccionado.puntos_saldo} pts</strong>
+                    </div>
+                    <p className="club-puntos-nivel text-right text-[9px] text-slate-500">Nivel {clientePuntosSeleccionado.nivel_fidelizacion}</p>
+                  </div>
+                  <form onSubmit={guardarAjustePuntos} className="mt-4 space-y-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold text-slate-600">Ajuste de puntos</label>
+                      <input type="number" step="1" required value={ajustePuntos}
+                        onChange={(e) => setAjustePuntos(e.target.value)} className={input}
+                        placeholder="Ej. 50 para sumar o -20 para descontar" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] font-bold text-slate-600">Motivo (queda registrado)</label>
+                      <textarea required minLength={3} maxLength={255} rows={3}
+                        value={motivoAjustePuntos} onChange={(e) => setMotivoAjustePuntos(e.target.value)}
+                        className={input + ' resize-none'} placeholder="Describe la razón del ajuste" />
+                    </div>
+                    {errorAjustePuntos && <p className="rounded-lg bg-rose-50 p-2.5 text-[10px] font-semibold text-rose-700">{errorAjustePuntos}</p>}
+                    <button type="submit" disabled={guardandoAjustePuntos}
+                      className="w-full rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-black text-[#06232A] transition hover:bg-cyan-400 disabled:opacity-50">
+                      {guardandoAjustePuntos ? 'Guardando…' : 'Registrar ajuste'}
+                    </button>
+                  </form>
+                </>
+              )}
+            </section>
+          </div>
+        )}
+
+        {seccion === 'facturacion' && (
+          <div className="anim-aparecer space-y-4">
+            {errorFacturas && (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+                <span>{errorFacturas}</span>
+                <button onClick={() => {
+                  void cargarFacturas();
+                  setRevisionFacturas((revision) => revision + 1);
+                }} className="font-black underline">Reintentar</button>
+              </div>
+            )}
+            <section className="facturacion-tabla card overflow-hidden">
+              <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                  <input value={busquedaFacturas} onChange={(e) => { setBusquedaFacturas(e.target.value); setPaginaFacturas(1); }}
+                    placeholder="Buscar por factura, cliente o código de cita" className={input + ' pl-10'} />
+                </div>
+                <select value={estadoFacturas} onChange={(e) => {
+                  setEstadoFacturas(e.target.value as 'todas' | EstadoFacturaAdmin);
+                  setPaginaFacturas(1);
+                }} className={input + ' lg:w-48'}>
+                  <option value="todas">Todos los estados</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="pagada">Pagada</option>
+                  <option value="anulada">Anulada</option>
+                  <option value="reembolsada">Reembolsada</option>
+                </select>
+                <button onClick={() => {
+                  void cargarFacturas();
+                  setRevisionFacturas((revision) => revision + 1);
+                }} disabled={facturasCargando}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                  {facturasCargando ? 'Actualizando…' : 'Actualizar'}
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[780px] text-left text-xs">
+                  <thead className="bg-slate-50 text-[9px] uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="p-3">Factura</th><th className="p-3">Cliente / servicio</th>
+                      <th className="p-3">Emisión</th><th className="p-3">Total</th>
+                      <th className="p-3">Estado</th><th className="p-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {facturas.map((factura) => (
+                      <tr key={factura.id_factura} className="hover:bg-slate-50">
+                        <td className="p-3">
+                          <strong className="block text-slate-900">{factura.numero_factura}</strong>
+                          <span className="text-[9px] text-slate-500">{factura.metodo_pago}</span>
+                        </td>
+                        <td className="p-3">
+                          <strong className="block text-slate-800">{factura.cliente_nombre ?? 'Cliente'}</strong>
+                          <span className="text-[9px] text-slate-500">{factura.servicio_nombre ?? 'Servicio'}</span>
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {factura.fecha_emision ? fechaLarga(factura.fecha_emision.slice(0, 10)) : '—'}
+                        </td>
+                        <td className="p-3 font-black text-slate-900">{formatoCOP(factura.total)}</td>
+                        <td className="p-3">
+                          <span className={`rounded-full px-2.5 py-1 text-[9px] font-bold ${
+                            factura.estado_pago === 'pagada' ? 'bg-emerald-100 text-emerald-800'
+                            : factura.estado_pago === 'pendiente' ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-600'
+                          }`}>{factura.estado_pago}</span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex justify-end gap-1.5">
+                            {factura.estado_pago === 'pendiente' && (
+                              <button onClick={() => {
+                                setFacturaPago(factura);
+                                setMetodoPago(factura.metodo_pago);
+                                setErrorAccionFactura('');
+                              }} className="rounded-lg bg-cyan-100 px-2.5 py-1.5 text-[9px] font-black text-cyan-900 hover:bg-cyan-200">
+                                Registrar pago
+                              </button>
+                            )}
+                            {!['anulada', 'reembolsada'].includes(factura.estado_pago) && (
+                              <button onClick={() => {
+                                setFacturaAnular(factura);
+                                setMotivoAnulacion('');
+                                setErrorAccionFactura('');
+                              }} title={factura.estado_pago === 'pagada' ? 'Anular y registrar reembolso' : 'Anular factura'}
+                                className="rounded-lg border border-rose-200 p-1.5 text-rose-700 hover:bg-rose-50">
+                                <Ban className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {!facturasCargando && facturas.length === 0 && (
+                      <tr><td colSpan={6} className="p-10 text-center text-slate-500">No hay facturas que coincidan con los filtros.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+                {facturasCargando && <p className="p-8 text-center text-xs text-slate-500">Cargando facturas…</p>}
+              </div>
+              <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+                <span className="text-[10px] text-slate-500">
+                  {totalFacturas} factura(s) · página {paginaFacturas} de {totalPaginasFacturas}
+                </span>
+                <div className="flex gap-1">
+                  <button onClick={() => setPaginaFacturas((actual) => actual - 1)} disabled={paginaFacturas <= 1 || facturasCargando}
+                    className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+                  <button onClick={() => setPaginaFacturas((actual) => actual + 1)} disabled={paginaFacturas >= totalPaginasFacturas || facturasCargando}
+                    className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+                </div>
+              </div>
+            </section>
+
+            <section className="card p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-heading text-sm font-black text-slate-950">Citas completadas por facturar</h2>
+                  <p className="mt-1 text-[10px] text-slate-500">Solo se pueden emitir facturas para citas completadas que aún no tengan una.</p>
+                </div>
+                <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-[10px] font-black text-cyan-800">{citasFacturables.length}</span>
+              </div>
+              <div className="mt-3 divide-y divide-slate-100">
+                {citasFacturables.slice(0, 5).map((cita) => (
+                  <div key={cita.id_cita} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">{cita.cliente_nombre} · {cita.servicio_nombre}</p>
+                      <p className="text-[9px] text-slate-500">{cita.codigo_reserva} · {fechaLarga(cita.fecha)} · {formatoCOP(cita.precio_total)}</p>
+                    </div>
+                    <button onClick={() => {
+                      setCitaFacturar(cita);
+                      setMetodoNuevaFactura('efectivo');
+                      setErrorAccionFactura('');
+                    }} className="rounded-lg bg-slate-950 px-3 py-1.5 text-[9px] font-black text-white hover:bg-slate-800">
+                      Emitir factura
+                    </button>
+                  </div>
+                ))}
+                {citasFacturables.length === 0 && <p className="py-4 text-center text-[10px] text-slate-500">No hay citas pendientes de facturación.</p>}
+              </div>
+            </section>
+          </div>
+        )}
+        </main>
       </div>
 
       {/* MODAL NUEVO PERFIL INTERNO */}
@@ -665,7 +1920,7 @@ export const PanelAdmin: React.FC = () => {
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-[#93A1B1]">Fecha</label>
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div role="group" aria-label="Seleccionar fecha" className="agenda-fechas-scroll flex gap-2 overflow-x-auto pb-1">
                   {Array.from({ length: 10 }, (_, i) => sumarDiasISO(i)).map((d) => {
                     const inf = desglosarFecha(d);
                     return (
@@ -689,7 +1944,7 @@ export const PanelAdmin: React.FC = () => {
                   {franjasEdit.map((f) => (
                     <button key={f.ini} disabled={!f.libre} onClick={() => setEHora(f.ini)}
                       className={`rounded-xl border px-1.5 py-1.5 text-center text-[11px] transition ${
-                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#3D4855] line-through'
+                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#93A1B1] line-through'
                         : eHora === f.ini ? 'border-teal-400 bg-teal-400 text-[#04211F]'
                         : 'border-white/10 text-[#93A1B1] hover:border-teal-400/50'
                       }`}>
@@ -783,7 +2038,7 @@ export const PanelAdmin: React.FC = () => {
 
               <div>
                 <label className="mb-1.5 block text-xs font-bold text-[#93A1B1]">Fecha</label>
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div role="group" aria-label="Seleccionar fecha" className="agenda-fechas-scroll flex gap-2 overflow-x-auto pb-1">
                   {Array.from({ length: 10 }, (_, i) => sumarDiasISO(i)).map((d) => {
                     const inf = desglosarFecha(d);
                     return (
@@ -807,7 +2062,7 @@ export const PanelAdmin: React.FC = () => {
                   {franjasNueva.map((f) => (
                     <button key={f.ini} disabled={!f.libre} onClick={() => setNHora(f.ini)}
                       className={`rounded-xl border px-1.5 py-1.5 text-center text-[11px] transition ${
-                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#3D4855] line-through'
+                        !f.libre ? 'cursor-not-allowed border-white/5 bg-[#0F151C] text-[#93A1B1] line-through'
                         : nHora === f.ini ? 'border-teal-400 bg-teal-400 text-[#04211F]'
                         : 'border-white/10 text-[#93A1B1] hover:border-teal-400/50'
                       }`}>
@@ -816,7 +2071,10 @@ export const PanelAdmin: React.FC = () => {
                     </button>
                   ))}
                   {franjasNueva.length === 0 && (
-                    <p className="col-span-full text-xs text-[#6B7A8C]">El barbero no tiene franjas ese día.</p>
+                    <p role="status" className="col-span-full flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                      <CalendarDays className="h-4 w-4 shrink-0 text-cyan-600" />
+                      No hay horarios disponibles para este barbero en esta fecha. Prueba otro día.
+                    </p>
                   )}
                 </div>
               </div>
@@ -840,22 +2098,456 @@ export const PanelAdmin: React.FC = () => {
       {/* MODAL NUEVO SERVICIO */}
       {modalServ && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="anim-zoom card w-full max-w-md overflow-hidden">
-            <div className="flex items-start justify-between bg-gradient-to-r from-teal-600 to-teal-400 px-6 py-5 text-[#04211F]">
-              <h3 className="font-heading text-2xl font-black">Nuevo servicio</h3>
-              <button onClick={() => setModalServ(false)} className="rounded-full bg-[#04211F]/15 p-2"><X className="h-4 w-4" /></button>
-            </div>
-            <form onSubmit={crearServicio} className="space-y-3 p-6">
-              <input value={sNombre} onChange={(e) => setSNombre(e.target.value)} required placeholder="Nombre del servicio" className={input} />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="number" value={sPrecio} onChange={(e) => setSPrecio(Number(e.target.value))} placeholder="Precio" className={input} />
-                <input type="number" value={sDur} onChange={(e) => setSDur(Number(e.target.value))} placeholder="Duración (min)" className={input} />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-nuevo-servicio"
+            className="anim-zoom card max-h-[92vh] w-full max-w-2xl overflow-y-auto"
+          >
+            <header className="sticky top-0 z-10 flex items-start justify-between gap-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-5 text-white sm:px-6">
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/40">
+                  <Scissors className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">Catálogo de servicios</p>
+                  <h2 id="modal-nuevo-servicio" className="font-heading mt-1 text-xl font-black sm:text-2xl">Nuevo servicio</h2>
+                  <p className="mt-1 text-xs text-slate-300">Define cómo se mostrará y cuánto costará.</p>
+                </div>
               </div>
-              <select value={sCat} onChange={(e) => setSCat(e.target.value as CategoriaServicio)} className={input}>
-                {['Cortes', 'Barba', 'Combos', 'Tratamientos', 'Infantil'].map((c) => <option key={c}>{c}</option>)}
-              </select>
-              <textarea rows={2} value={sDesc} onChange={(e) => setSDesc(e.target.value)} placeholder="Descripción" className={input + ' resize-none'} />
-              <button type="submit" className="btn-primario w-full rounded-2xl py-3 text-sm font-black">Guardar servicio</button>
+              <button
+                type="button"
+                onClick={() => setModalServ(false)}
+                aria-label="Cerrar"
+                className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            <form onSubmit={crearServicio} className="space-y-5 p-5 sm:p-6">
+              <div>
+                <label htmlFor="servicio-nombre" className="mb-1.5 block text-xs font-bold text-slate-700">
+                  Nombre del servicio <span className="text-cyan-700">*</span>
+                </label>
+                <input
+                  id="servicio-nombre"
+                  value={sNombre}
+                  onChange={(e) => setSNombre(e.target.value)}
+                  required
+                  placeholder="Ej. Corte clásico"
+                  className={input}
+                />
+              </div>
+
+              <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-cyan-700" />
+                  <h3 className="text-sm font-bold text-slate-800">Precio y fidelización</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <label className="text-xs font-semibold text-slate-600">
+                    Precio (COP)
+                    <div className="relative mt-1.5">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">$</span>
+                      <input
+                        type="number"
+                        value={sPrecio}
+                        onChange={(e) => setSPrecio(Number(e.target.value))}
+                        className={`${input} pl-7 pr-3`}
+                      />
+                    </div>
+                  </label>
+                  <label className="text-xs font-semibold text-slate-600">
+                    Duración
+                    <div className="relative mt-1.5">
+                      <input
+                        type="number"
+                        value={sDur}
+                        onChange={(e) => setSDur(Number(e.target.value))}
+                        className={`${input} pr-12`}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500">min</span>
+                    </div>
+                  </label>
+                  <label className="text-xs font-semibold text-slate-600">
+                    Puntos al completar
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={sPuntos}
+                      onChange={(e) => setSPuntos(Number(e.target.value))}
+                      className={`${input} mt-1.5`}
+                    />
+                  </label>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">Los puntos se asignan cuando la cita queda completada.</p>
+              </section>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="servicio-categoria" className="mb-1.5 block text-xs font-bold text-slate-700">Categoría</label>
+                  <select
+                    id="servicio-categoria"
+                    value={sCat}
+                    onChange={(e) => setSCat(e.target.value as CategoriaServicio)}
+                    className={input}
+                  >
+                    {['Cortes', 'Barba', 'Combos', 'Tratamientos', 'Infantil'].map((categoria) => (
+                      <option key={categoria}>{categoria}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="servicio-imagen" className="mb-1.5 block text-xs font-bold text-slate-700">
+                    Imagen <span className="font-normal text-slate-500">· opcional</span>
+                  </label>
+                  <input
+                    id="servicio-imagen"
+                    type="url"
+                    value={sImagen}
+                    onChange={(e) => setSImagen(e.target.value)}
+                    placeholder="https://..."
+                    className={input}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="servicio-descripcion" className="mb-1.5 block text-xs font-bold text-slate-700">
+                  Descripción <span className="font-normal text-slate-500">· opcional</span>
+                </label>
+                <textarea
+                  id="servicio-descripcion"
+                  rows={3}
+                  value={sDesc}
+                  onChange={(e) => setSDesc(e.target.value)}
+                  placeholder="Describe brevemente qué incluye el servicio."
+                  className={`${input} resize-y`}
+                />
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setModalServ(false)}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-black text-[#06232A] shadow-lg shadow-cyan-900/15 transition hover:bg-cyan-400"
+                >
+                  <Plus className="h-4 w-4" />
+                  Guardar servicio
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {citaFacturar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-emitir-factura"
+            className="modal-pago-superficie anim-zoom w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/30"
+          >
+            <header className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-5 text-white sm:px-6">
+              <div className="absolute -right-8 -top-12 h-36 w-36 rounded-full border-[18px] border-cyan-400/10" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/40">
+                    <Receipt className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                      Cita completada · {citaFacturar.codigo_reserva}
+                    </p>
+                    <h2 id="modal-emitir-factura" className="font-heading mt-1 text-xl font-black sm:text-2xl">
+                      Emitir factura
+                    </h2>
+                    <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200">
+                      <Check className="h-3 w-3" /> Servicio completado
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCitaFacturar(null)}
+                  aria-label="Cerrar"
+                  className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </header>
+
+            <form onSubmit={emitirFactura} className="space-y-5 p-5 sm:p-6">
+              <section className="modal-pago-resumen rounded-2xl border border-cyan-900/10 bg-gradient-to-r from-cyan-50 to-slate-50 p-4 sm:p-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Resumen de la cita</p>
+                <p className="mt-1 text-sm font-black text-slate-900">
+                  {citaFacturar.cliente_nombre} · {citaFacturar.servicio_nombre}
+                </p>
+                <div className="mt-3 flex flex-wrap items-end justify-between gap-3 border-t border-slate-200/80 pt-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Total a facturar</p>
+                    <p className="font-heading mt-0.5 text-2xl font-black tracking-tight text-slate-950">
+                      {formatoCOP(citaFacturar.precio_total)}
+                    </p>
+                  </div>
+                  <span className="rounded-lg bg-white/70 px-2.5 py-1.5 text-[10px] font-bold text-slate-600">
+                    {fechaLarga(citaFacturar.fecha)}
+                  </span>
+                </div>
+              </section>
+
+              {errorAccionFactura && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs font-semibold text-rose-700">
+                  {errorAccionFactura}
+                </p>
+              )}
+
+              <fieldset>
+                <legend className="mb-1 text-sm font-bold text-slate-800">Medio de pago esperado</legend>
+                <p className="mb-2.5 text-xs text-slate-500">Puedes registrar el pago cuando lo recibas.</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {METODOS_PAGO.map((metodo) => {
+                    const IconoMetodo = ICONOS_METODO_PAGO[metodo];
+                    const seleccionado = metodoNuevaFactura === metodo;
+                    return (
+                      <label key={metodo} className="relative cursor-pointer">
+                        <input
+                          className="peer sr-only"
+                          type="radio"
+                          name="medio-pago-factura"
+                          value={metodo}
+                          checked={seleccionado}
+                          onChange={() => setMetodoNuevaFactura(metodo)}
+                        />
+                        <span className={`flex min-h-[68px] items-center gap-2 rounded-xl border px-3 py-2.5 transition peer-focus-visible:ring-2 peer-focus-visible:ring-cyan-500 peer-focus-visible:ring-offset-2 ${
+                          seleccionado
+                            ? 'modal-metodo-seleccionado border-cyan-600 bg-cyan-50 text-cyan-950 shadow-sm'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:bg-slate-50'
+                        }`}>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                            seleccionado ? 'bg-cyan-500 text-white' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            <IconoMetodo className="h-4 w-4" />
+                          </span>
+                          <span className="text-xs font-bold">{ETIQUETAS_METODO_PAGO[metodo]}</span>
+                          {seleccionado && <Check className="modal-metodo-check ml-auto h-4 w-4 shrink-0 text-cyan-700" />}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <div className="modal-factura-pendiente flex items-start gap-2 rounded-xl border border-amber-200/70 bg-amber-50/80 px-3.5 py-3 text-xs text-amber-900">
+                <Receipt className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>La factura se emitirá como pendiente. El método elegido es una referencia; podrás confirmar el pago después.</p>
+              </div>
+
+              <div className="modal-pago-acciones flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setCitaFacturar(null)}
+                  className="modal-pago-cancelar flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoFactura}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-black text-[#06232A] shadow-lg shadow-cyan-900/15 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {guardandoFactura ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+                      Emitiendo…
+                    </>
+                  ) : (
+                    <>
+                      <Receipt className="h-4 w-4" />
+                      Emitir factura
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {facturaPago && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-registrar-pago"
+            className="modal-pago-superficie anim-zoom w-full max-w-lg overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/30"
+          >
+            <header className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 px-5 py-5 text-white sm:px-6">
+              <div className="absolute -right-8 -top-12 h-36 w-36 rounded-full border-[18px] border-cyan-400/10" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-950/40">
+                    <Receipt className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                      {facturaPago.numero_factura}
+                    </p>
+                    <h2 id="modal-registrar-pago" className="font-heading mt-1 text-xl font-black sm:text-2xl">
+                      Registrar pago
+                    </h2>
+                    <span className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[10px] font-bold text-amber-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-300" />
+                      Factura pendiente
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFacturaPago(null)}
+                  aria-label="Cerrar"
+                  className="rounded-full bg-white/10 p-2 text-white/80 transition hover:bg-white/20 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </header>
+
+            <form onSubmit={registrarPagoFactura} className="space-y-5 p-5 sm:p-6">
+              <section className="modal-pago-resumen rounded-2xl border border-cyan-900/10 bg-gradient-to-r from-cyan-50 to-slate-50 p-4 sm:p-5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Total recibido
+                </p>
+                <p className="mt-1 font-heading text-3xl font-black tracking-tight text-slate-950">
+                  {formatoCOP(facturaPago.total)}
+                </p>
+                {(facturaPago.cliente_nombre || facturaPago.servicio_nombre) && (
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-200/80 pt-3 text-xs text-slate-600">
+                    {facturaPago.cliente_nombre && <span>{facturaPago.cliente_nombre}</span>}
+                    {facturaPago.servicio_nombre && <span>{facturaPago.servicio_nombre}</span>}
+                  </div>
+                )}
+              </section>
+
+              {errorAccionFactura && (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-3 text-xs font-semibold text-rose-700">
+                  {errorAccionFactura}
+                </p>
+              )}
+
+              <fieldset>
+                <legend className="mb-2.5 text-sm font-bold text-slate-800">
+                  ¿Cómo recibiste el pago?
+                </legend>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {METODOS_PAGO.map((metodo) => {
+                    const IconoMetodo = ICONOS_METODO_PAGO[metodo];
+                    const seleccionado = metodoPago === metodo;
+                    return (
+                      <label key={metodo} className="relative cursor-pointer">
+                        <input
+                          className="peer sr-only"
+                          type="radio"
+                          name="metodo-pago"
+                          value={metodo}
+                          checked={seleccionado}
+                          onChange={() => setMetodoPago(metodo)}
+                        />
+                        <span className={`flex min-h-[68px] items-center gap-2 rounded-xl border px-3 py-2.5 transition peer-focus-visible:ring-2 peer-focus-visible:ring-cyan-500 peer-focus-visible:ring-offset-2 ${
+                          seleccionado
+                            ? 'modal-metodo-seleccionado border-cyan-600 bg-cyan-50 text-cyan-950 shadow-sm'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-300 hover:bg-slate-50'
+                        }`}>
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                            seleccionado ? 'bg-cyan-500 text-white' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            <IconoMetodo className="h-4 w-4" />
+                          </span>
+                          <span className="text-xs font-bold">{ETIQUETAS_METODO_PAGO[metodo]}</span>
+                          {seleccionado && <Check className="modal-metodo-check ml-auto h-4 w-4 shrink-0 text-cyan-700" />}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <div className="modal-pago-acciones flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setFacturaPago(null)}
+                  className="modal-pago-cancelar flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoFactura}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-black text-[#06232A] shadow-lg shadow-cyan-900/15 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {guardandoFactura ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+                      Guardando…
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Confirmar pago
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {facturaAnular && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="modal-anular-factura"
+            className="anim-zoom card w-full max-w-md overflow-hidden">
+            <div className="flex items-start justify-between bg-rose-100 px-5 py-4 text-rose-950">
+              <div>
+                <p className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest"><XCircle className="h-3 w-3" /> {facturaAnular.numero_factura}</p>
+                <h2 id="modal-anular-factura" className="font-heading text-lg font-black">
+                  {facturaAnular.estado_pago === 'pagada' ? 'Anular y reembolsar' : 'Anular factura'}
+                </h2>
+              </div>
+              <button onClick={() => setFacturaAnular(null)} aria-label="Cerrar"
+                className="rounded-full bg-rose-900/10 p-1.5 hover:bg-rose-900/20"><X className="h-4 w-4" /></button>
+            </div>
+            <form onSubmit={anularFactura} className="space-y-4 p-5">
+              <p className="text-xs text-slate-600">
+                {facturaAnular.estado_pago === 'pagada'
+                  ? 'Esta factura quedará marcada como reembolsada. Registra el motivo para auditoría.'
+                  : 'La factura quedará anulada. Registra el motivo para auditoría.'}
+              </p>
+              {errorAccionFactura && <p className="rounded-lg bg-rose-50 p-2.5 text-[10px] font-semibold text-rose-700">{errorAccionFactura}</p>}
+              <div>
+                <label className="mb-1 block text-[10px] font-bold text-slate-600">Motivo de anulación</label>
+                <textarea required minLength={3} maxLength={255} rows={3} value={motivoAnulacion}
+                  onChange={(e) => setMotivoAnulacion(e.target.value)} className={input + ' resize-none'}
+                  placeholder="Motivo (requerido)" />
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setFacturaAnular(null)}
+                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600">Volver</button>
+                <button type="submit" disabled={guardandoFactura}
+                  className="flex-1 rounded-xl bg-rose-700 py-2.5 text-xs font-black text-white disabled:opacity-50">
+                  {guardandoFactura ? 'Anulando…' : 'Confirmar anulación'}
+                </button>
+              </div>
             </form>
           </div>
         </div>

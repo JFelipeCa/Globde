@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# start.sh — Levanta GLOBDE (backend + frontend + MySQL) con Docker.
+# start.sh — Levanta GLOBDE (backend + frontend conectado a TiDB Cloud) con Docker.
 # Uso:  bash scripts/start.sh
-# El instructor solo ejecuta `bash scripts/start.sh` y el sistema queda arriba.
+# Ejecuta `bash scripts/start.sh` para iniciar la aplicación.
 set -euo pipefail
 
 # La carpeta del proyecto es un nivel ARRIBA de scripts/ (donde vive docker-compose.yml).
@@ -18,11 +18,21 @@ if [ ! -f "$ENV_FILE" ]; then
   cp "$ENV_EXAMPLE" "$ENV_FILE"
 fi
 
-# 2) Generar/asegurar secretos obligatorios (sin default en producción).
-#    Si están vacíos, se generan automáticamente para que arranque sin fricción.
+# 2) Generar secretos locales si faltan. Se conservan entre reinicios.
 set_secret() {
   local key="$1"
-  if ! grep -qE "^${key}=.+" "$ENV_FILE"; then
+  if ! python3 - "$ENV_FILE" "$key" <<'PY' >/dev/null 2>&1
+from pathlib import Path
+import sys
+
+env_file, key = sys.argv[1:]
+for line in Path(env_file).read_text().splitlines():
+    name, separator, value = line.partition("=")
+    if separator and name.strip() == key:
+        sys.exit(0 if value.strip().strip("\"'").strip() else 1)
+sys.exit(1)
+PY
+  then
     local val
     val="$(python3 -c "import secrets; print(secrets.token_urlsafe(48))" 2>/dev/null || head -c 48 /dev/urandom | base64 | tr -d '/+=' | head -c 48)"
     if ! grep -qE "^${key}=" "$ENV_FILE"; then
@@ -33,11 +43,30 @@ set_secret() {
     echo "→ Generado ${key}."
   fi
 }
-set_secret "JWT_SECRET"
-set_secret "DB_PASSWORD"
 
-# 3) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
-#    La visibilidad publica requiere una sesion autenticada de GitHub CLI.
+set_secret "JWT_SECRET"
+
+# Codespaces usa TiDB Cloud y Gmail; los valores explícitos del entorno tienen prioridad.
+if [ "${CODESPACES:-false}" = "true" ]; then
+  export DB_PORT="${DB_PORT:-4000}"
+  export DB_NAME="${DB_NAME:-globde}"
+  export EMAIL_ENABLED="${EMAIL_ENABLED:-true}"
+  export SMTP_HOST="${SMTP_HOST:-smtp.gmail.com}"
+  export SMTP_PORT="${SMTP_PORT:-587}"
+  export SMTP_FROM="${SMTP_FROM:-${SMTP_USER:-}}"
+  export SMTP_STARTTLS="${SMTP_STARTTLS:-true}"
+  export SMTP_TIMEOUT="${SMTP_TIMEOUT:-15}"
+fi
+
+# 3) Validar la configuración antes de modificar puertos o construir imágenes.
+echo "→ Validando configuración de TiDB y SMTP..."
+if ! docker compose --env-file "$ENV_FILE" config --quiet; then
+  echo "❌ Configuración incompleta." >&2
+  echo "   Define las variables requeridas en Codespaces Secrets o en backend/.env." >&2
+  exit 1
+fi
+
+# 4) En Codespaces, el enlace del correo debe usar la URL reenviada del puerto.
 if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then
   PORT_FORWARDING_DOMAIN="${GITHUB_CODESPACE_PORT_FORWARDING_DOMAIN:-app.github.dev}"
   CODESPACE_FRONTEND_URL="https://${CODESPACE_NAME}-5173.${PORT_FORWARDING_DOMAIN}"
@@ -61,14 +90,26 @@ if [ "${CODESPACES:-false}" = "true" ] && [ -n "${CODESPACE_NAME:-}" ]; then
   fi
 fi
 
-# 4) Levantar el stack.
-echo "→ Levantando contenedores (docker compose up -d --build)..."
-docker compose --env-file backend/.env up -d --build
+# 5) Construir las imagenes y levantar el stack.
+echo "→ Construyendo imagenes..."
+if ! docker compose --env-file backend/.env build; then
+  # Un cache BuildKit local dañado puede impedir exportar capas. Reintentar
+  # con un builder aislado evita borrar la cache compartida de Docker.
+  echo "⚠️  Fallo la compilacion predeterminada; reintentando con un builder aislado..."
+  BUILDER="globde-start-fallback"
+  if ! docker buildx inspect "$BUILDER" >/dev/null 2>&1; then
+    docker buildx create --name "$BUILDER" --driver docker-container --bootstrap
+  fi
+  docker compose --env-file backend/.env build --builder "$BUILDER"
+fi
 
-# 5) Esperar a que la base de datos y la API estén listas.
+echo "→ Levantando contenedores..."
+docker compose --env-file backend/.env up -d --no-build
+
+# 6) Esperar a que la API esté lista.
 echo "→ Esperando a que la API responda..."
 for i in $(seq 1 60); do
-  if curl -s http://localhost:8000/api/health 2>/dev/null | grep -q '"estado":"ok"'; then
+  if curl -fsS --max-time 3 http://127.0.0.1:8000/api/health 2>/dev/null | grep -q '"estado":"ok"'; then
     echo "✅ GLOBDE listo:"
     echo "   Frontend: http://localhost:5173"
     echo "   API/docs: http://localhost:8000/docs"

@@ -15,7 +15,13 @@ from app.schemas.operaciones import (
     CitaUpdate,
     DisponibilidadOut,
 )
+from app.schemas.invitados import (
+    CitaInvitadoSolicitar,
+    VerificacionInvitadoOut,
+    VerificarInvitadoRequest,
+)
 from app.services import citas_service
+from app.services import invitados_service
 from app.utils.paginacion import offset_de, paginar
 
 router = APIRouter(prefix="/citas", tags=["Citas"])
@@ -82,8 +88,11 @@ def disponibilidad(
     fecha: date = Query(description="Fecha YYYY-MM-DD"),
     id_servicio: int | None = None,
     paso: int | None = Query(default=None, ge=5, le=120),
+    duracion_adicional_minutos: int = Query(default=0, ge=0, le=180),
 ):
-    return citas_service.calcular_disponibilidad(id_barbero, fecha, id_servicio, paso)
+    return citas_service.calcular_disponibilidad(
+        id_barbero, fecha, id_servicio, paso, duracion_adicional_minutos
+    )
 
 
 @router.get("/codigo/{codigo}", response_model=CitaOut, summary="Buscar por codigo de reserva")
@@ -114,6 +123,37 @@ def _verificar_lectura(cita: dict, usuario) -> None:
 )
 def crear(datos: CitaCreate, usuario: UsuarioAuth, contexto: DatosPeticion):
     return citas_service.crear(datos.model_dump(mode="json", exclude_none=True), usuario, contexto)
+
+
+@router.post(
+    "/invitado/verificacion",
+    response_model=VerificacionInvitadoOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Enviar código para reservar como invitado",
+)
+def solicitar_verificacion_invitado(
+    datos: CitaInvitadoSolicitar, contexto: DatosPeticion
+):
+    return invitados_service.solicitar_verificacion(
+        "cita", datos.model_dump(mode="json"), contexto
+    )
+
+
+@router.post(
+    "/invitado/confirmar",
+    response_model=CitaOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Confirmar reserva de invitado",
+)
+def confirmar_reserva_invitado(
+    datos: VerificarInvitadoRequest, contexto: DatosPeticion
+):
+    payload, id_cliente = invitados_service.verificar_codigo(
+        datos.id_solicitud, datos.codigo, "cita"
+    )
+    payload["id_cliente"] = id_cliente
+    payload["estado"] = "confirmada"
+    return citas_service.crear(payload, None, contexto)
 
 
 @router.put("/{id_cita}", response_model=CitaOut, summary="Reprogramar o editar una cita")

@@ -141,8 +141,8 @@ def comparar_seguro(a: str, b: str) -> bool:
 
 
 def generar_codigo_reserva(prefijo: str = "GB") -> str:
-    """Codigo de reserva legible y unico para citas: GB-A1B2C3D4."""
-    return f"{prefijo}-{secrets.token_hex(4).upper()}"
+    """Codigo de reserva corto y unico para citas: GB-A1B2C3."""
+    return f"{prefijo}-{secrets.token_hex(3).upper()}"
 
 
 def generar_numero_factura(secuencia: int, anio: int | None = None) -> str:

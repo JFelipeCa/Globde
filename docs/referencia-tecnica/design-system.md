@@ -142,13 +142,16 @@ Para tamaños y pesos se usan las utilidades estándar de Tailwind
 
 ## 6. Deuda técnica de estilos
 
-Auditoría del código actual de `frontend/src`:
+Auditoría del código actual de `frontend/src` (26 de noviembre de 2026):
 
 | Hallazgo | Cantidad |
 | :--- | ---: |
-| Clases con color arbitrario `[#hex]` en los `.tsx` | **453** |
-| Tokens de `@theme` realmente usados en los componentes | **0 de 8** |
-| Reglas `!important` en `index.css` | **13** |
+| Clases con color hexadecimal arbitrario `[#hex]` en `.tsx` | **803** |
+| Tokens definidos en `@theme` | **8** |
+| Declaraciones `!important` en `index.css` | **122** |
+
+El conteo de clases corresponde a coincidencias del patrón `[#hex]` en archivos
+TSX, no a componentes únicos.
 
 ### Qué pasó
 
@@ -166,32 +169,22 @@ Funciona, pero tiene tres costes: el CSS pelea contra sí mismo con
 `!important`, los tokens de `@theme` quedan muertos, y leer un componente no
 dice de qué color se va a ver.
 
-### Colores literales más repetidos
-
-| Literal | Apariciones | Debería ser |
-| :--- | ---: | :--- |
-| `[#EAF0F6]` | 117 | `text-carbon` |
-| `[#93A1B1]` | 111 | texto atenuado (`text-neutral-500`) |
-| `[#6B7A8C]` | 56 | texto muy atenuado |
-| `[#141A21]` | 37 | superficie (`bg-white`) |
-| `[#0F151C]` | 37 | superficie de input |
-| `[#0B0F14]` | 19 | fondo de página |
-
-### Plan de normalización (recomendación 5 del instructor)
+### Plan de normalización
 
 1. Renombrar en `@theme` los tokens `turquesa*` → `acento*` y añadir los tokens
    que faltan: `--color-fondo: #FDFCFA`, `--color-borde: #E7E2D3`,
    `--color-texto-suave: #6B6B6B`.
-2. Sustituir los literales por utilidades de token, empezando por los seis de la
-   tabla anterior (cubren **377 de las 453** apariciones, un 83 %).
-3. Borrar el bloque de remapeos con `!important` a medida que cada literal
-   desaparece.
+2. Sustituir los colores literales por utilidades semánticas de los tokens.
+3. Retirar progresivamente los remapeos CSS con `!important` cuando ningún
+   componente dependa de ellos.
 4. Extraer los patrones repetidos (badges de estado, encabezado de tabla) a
    clases propias o a un componente, en lugar de repetir cadenas largas de
    utilidades.
 
-Es un trabajo **incremental y sin riesgo funcional**: se puede hacer archivo por
-archivo verificando con `pnpm run build` que nada se rompe.
+Prioridad sugerida: deuda de mantenibilidad visual, no bloqueante para el flujo
+principal. El seguimiento existente está en
+[#21](https://github.com/JFelipeCa/Globde/issues/21). Validar cada cambio con
+`pnpm exec tsc -b --force`, `pnpm run lint` y `pnpm run build`.
 
 ---
 
@@ -214,4 +207,3 @@ el color con el que se representan en la interfaz:
 ## 📎 Ver también
 
 - [`docs/referencia-tecnica/architecture.md`](architecture.md) — estructura del frontend.
-- [`.github/copilot-instructions.md`](../../.github/copilot-instructions.md) — convenciones de código.

@@ -20,6 +20,7 @@ export interface Usuario {
   id_cliente?: number;
   /** PK de la tabla `barberos`. No coincide con id_usuario. */
   id_barbero?: number;
+  id_barbero_favorito?: number | null;
 }
 
 export interface UsuarioInternoCreate {
@@ -45,7 +46,7 @@ export interface Barbero {
   rating: number;
   total_resenas: number;
   especialidades: string[];
-  foto_url: string;
+  foto_url: string | null;
   disponible_hoy: boolean;
   hora_apertura: string; // HH:MM 24h
   hora_cierre: string;   // HH:MM 24h
@@ -112,6 +113,7 @@ export interface Cita {
   observaciones: string;
   extras: string[];
   creado_en: string;
+  completada_en?: string | null;
   resena?: Resena;
   metodo_pago?: string;
 }
@@ -136,9 +138,12 @@ export interface EntradaListaEspera {
   barbero_nombre?: string;
   fecha_deseada: string;
   franja_horaria: 'manana' | 'tarde' | 'cualquiera';
-  estado: 'en_espera' | 'notificado' | 'convertido';
+  estado: 'en_espera' | 'ofrecida' | 'reservando' | 'convertida' | 'vencida' | 'cancelada';
   creado_en: string;
   observaciones?: string;
+  oferta_hora_inicio?: string | null;
+  oferta_hora_fin?: string | null;
+  oferta_expira?: string | null;
 }
 
 export interface Factura {
@@ -158,6 +163,9 @@ export interface Factura {
 
 export interface CatalogoCorte {
   id_corte: number;
+  // Servicio que hace agendable este corte. Lo resuelve AppContext contra los
+  // servicios activos; si es null, el corte solo existe en el catálogo.
+  id_servicio?: number | null;
   nombre: string;
   categoria: string;
   descripcion: string;
@@ -176,7 +184,7 @@ export interface Testimonio {
   texto: string;
   rating: number;
   barbero_favorito: string;
-  avatar_url: string;
+  avatar_url?: string | null;
   corte: string;
   fecha: string;
 }

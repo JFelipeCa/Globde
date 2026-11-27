@@ -7,83 +7,158 @@
   ¿Impacto? Garantiza la correcta interacción con la base de datos sin incurrir en violaciones de integridad referencial.
 -->
 
-> **Motor**: MySQL 8.0+ / MariaDB 10.5+  
+> **Motor del proyecto**: TiDB Cloud (compatible con MySQL), alojada remotamente
+> **Motor en CI**: MySQL 8.0; la compatibilidad con otros motores requiere validación específica
 > **Nombre de Base de Datos**: `globde`  
 > **Fuente de verdad del esquema**: migraciones de Alembic en `backend/alembic/versions/`  
-> **Migración del esquema inicial**: `dd2ee59368e5_esquema_inicial.py`  
-> **Migración de datos semilla**: `b2c3d4e5f6a7` (head)  
-> **Tablas Relacionales**: 20  
-> **Vistas SQL**: 4  
+> **Revisión inicial**: `dd2ee59368e5_esquema_inicial`
+> **Revisión vigente**: `h8b9c0d1e2f3_invitados_verificados`
+> **Tablas relacionales vigentes**: 26
+> **Vistas SQL**: 4
 
 > [!IMPORTANT]
-> El esquema **ya no se crea con `database/database.sql`**. Ese archivo se conserva
+> El esquema **no se crea con `database/database.sql`**. Ese archivo se conserva
 > únicamente como referencia histórica. El esquema real se crea y versiona con Alembic:
-> `alembic upgrade head` (o automáticamente al levantar el contenedor `backend`).
-> Este documento se deriva de la migración inicial; si cambias el esquema, crea una nueva
-> migración y actualiza esta página.
+> `alembic upgrade head` (también durante el arranque del contenedor `backend`).
+> El entorno del equipo usa TiDB Cloud; Docker Compose no levanta ni contiene esa base.
+> El diccionario cubre las 20 tablas de la revisión inicial y las seis tablas añadidas
+> por revisiones posteriores; las columnas evolucionadas se indican en la tabla de cambios.
 
 ---
 
 ## 1. Diagrama Entidad-Relación (ER)
 
+Diagrama lógico de las tablas persistentes vigentes. Los campos y restricciones
+completos se definen en Alembic.
+
+```mermaid
+erDiagram
+    ROLES ||--o{ USUARIOS : asigna
+    USUARIOS ||--o| CLIENTES : perfil
+    USUARIOS ||--o| BARBEROS : perfil
+    USUARIOS ||--o{ AUDIT_LOGS : registra
+    USUARIOS ||--o{ NOTIFICACIONES : recibe
+    USUARIOS ||--o{ EMAIL_LOGS : destinatario
+    USUARIOS ||--o{ PASSWORD_RESET_TOKENS : solicita
+    CLIENTES ||--o{ CITAS : reserva
+    BARBEROS ||--o{ CITAS : atiende
+    SERVICIOS ||--o{ CITAS : solicitado
+    BARBEROS ||--o{ BARBERO_SERVICIO : ofrece
+    SERVICIOS ||--o{ BARBERO_SERVICIO : asignado
+    BARBEROS ||--o{ HORARIOS_BARBERO : configura
+    BARBEROS ||--o{ BLOQUEOS_AGENDA : bloquea
+    CLIENTES ||--o{ PUNTOS_MOVIMIENTOS : acumula
+    CLIENTES ||--o{ PENALIDADES : recibe
+    CITAS ||--o| FACTURAS : factura
+    FACTURAS ||--o{ DETALLE_FACTURA : contiene
+    SERVICIOS ||--o{ DETALLE_FACTURA : detalle
+    CITAS ||--o{ CITA_EXTRAS : incluye
+    CITAS ||--o| RECORDATORIOS_CITAS : programa
+    CLIENTES ||--o{ RESENAS : escribe
+    BARBEROS ||--o{ RESENAS : recibe
+    CLIENTES ||--o{ LISTA_ESPERA : solicita
+    SERVICIOS ||--o{ LISTA_ESPERA : busca
+    BARBEROS o|--o{ LISTA_ESPERA : prefiere
+    SERVICIOS ||--o{ CATALOGO_CORTES : categoriza
+    HORARIOS_NEGOCIO {
+        bigint id_horario PK
+        tinyint dia_semana
+        time hora_inicio
+        time hora_fin
+        boolean activo
+    }
+    CIERRES_NEGOCIO {
+        bigint id_cierre PK
+        date fecha
+        string motivo
+    }
+    LOGIN_ATTEMPTS {
+        bigint id_intento PK
+        string correo_intentado
+        datetime creado_en
+    }
+    VERIFICACIONES_INVITADO {
+        bigint id_solicitud PK
+        string tipo
+        string correo
+        datetime expira_en
+    }
 ```
-┌─────────────────────────┐             ┌─────────────────────────┐
-│          roles          │             │        usuarios         │
-├─────────────────────────┤             ├─────────────────────────┤
-│ PK  id_rol  INT         │ 1 ──────── N│ PK  id_usuario INT      │
-│     nombre  VARCHAR(50) │             │ FK  id_rol     INT      │
-└─────────────────────────┘             │     nombre     VARCHAR  │
-                                        │     email      VARCHAR  │
-                                        │ contrasena_hash VARCHAR │
-                                        │     telefono   VARCHAR  │
-                                        │     activo     TINYINT  │
-                                        └────────────┬────────────┘
-                                                     │ 1
-                                       ┌─────────────┴─────────────┐
-                                       │ 1                         │ 1
-                                       ▼                           ▼
-                        ┌─────────────────────────┐ ┌─────────────────────────┐
-                        │        clientes         │ │  password_reset_tokens  │
-                        ├─────────────────────────┤ ├─────────────────────────┤
-                        │ PK  id_cliente INT      │ │ PK  id_token INT        │
-                        │ FK  id_usuario INT      │ │ FK  id_usuario INT      │
-                        │     puntos     INT      │ │     token      VARCHAR  │
-                        │     direccion  VARCHAR  │ │     expira_en  DATETIME │
-                        └────────────┬────────────┘ │     usado      TINYINT  │
-                                     │ 1            └─────────────────────────┘
-                                     │
-                                     │ N
-                                     ▼
-┌─────────────────────────┐     ┌─────────────────────────┐     ┌─────────────────────────┐
-│        servicios        │     │          citas          │     │    ranking_barberos     │
-├─────────────────────────┤     ├─────────────────────────┤     ├─────────────────────────┤
-│ PK  id_servicio INT     │1───N│ PK  id_cita    INT      │1───1│ PK  id_ranking INT      │
-│     nombre      VARCHAR │     │ FK  id_cliente INT      │     │ FK  id_barbero INT      │
-│     precio      DECIMAL │     │ FK  id_barbero INT      │     │     calificacion INT    │
-│     duracion_min INT    │     │ FK  id_servicio INT     │     │     comentarios  TEXT   │
-│     puntos_otorga INT   │     │     fecha      DATE     │     └─────────────────────────┘
-│     activo      TINYINT │     │     hora       TIME     │
-└────────────┬────────────┘     │     estado     ENUM     │
-             │ 1                │     notas      TEXT     │
-             │                  └────────────┬────────────┘
-             │ N                             │ 1
-             ▼                               │ 1
-┌─────────────────────────┐                  ▼
-│     catalogo_cortes     │     ┌─────────────────────────┐     ┌─────────────────────────┐
-├─────────────────────────┤     │        facturas         │     │     detalle_factura     │
-│ PK  id_corte    INT     │     ├─────────────────────────┤     ├─────────────────────────┤
-│ FK  id_servicio INT     │     │ PK  id_factura INT      │1───N│ PK  id_detalle INT      │
-│     nombre_corte VARCHAR│     │ FK  id_cita    INT      │     │ FK  id_factura INT      │
-│     foto_url    VARCHAR │     │     fecha_emision DT    │     │ FK  id_servicio INT     │
-│     descripcion TEXT    │     │     total      DECIMAL  │     │     precio_unit DECIMAL │
-└─────────────────────────┘     │     metodo_pago VARCHAR │     └─────────────────────────┘
-                                └─────────────────────────┘
+
+`v_citas_detalle`, `v_dashboard_admin`, `v_ranking_barberos` y
+`v_resumen_clientes` son vistas, no tablas. `HORARIOS_NEGOCIO` y
+`CIERRES_NEGOCIO` almacenan configuración global; `VERIFICACIONES_INVITADO`
+conserva solicitudes temporales de verificación.
+
+## Diagrama de clases del dominio
+
+Vista conceptual de las entidades y asociaciones principales. No representa
+clases Python ni un ORM: el backend valida con Pydantic y persiste mediante SQL.
+
+```mermaid
+classDiagram
+    class Usuario {
+        +id_usuario
+        +id_rol
+        +correo
+        +activo
+    }
+    class Cliente {
+        +id_cliente
+        +puntos_saldo
+        +id_barbero_favorito
+    }
+    class Barbero {
+        +id_barbero
+        +rating
+        +disponible
+    }
+    class Servicio {
+        +id_servicio
+        +nombre
+        +precio
+        +duracion_minutos
+    }
+    class Cita {
+        +id_cita
+        +fecha
+        +hora_inicio
+        +hora_fin
+        +estado
+    }
+    class Factura {
+        +id_factura
+        +total
+        +estado_pago
+    }
+    class Resena {
+        +id_resena
+        +rating
+        +comentario
+    }
+    class ListaEspera {
+        +id_espera
+        +fecha_deseada
+        +franja_horaria
+        +estado
+    }
+    Usuario "1" --> "0..1" Cliente : perfil
+    Usuario "1" --> "0..1" Barbero : perfil
+    Cliente "1" --> "0..*" Cita : reserva
+    Barbero "1" --> "0..*" Cita : atiende
+    Servicio "1" --> "0..*" Cita : solicitado
+    Cita "1" --> "0..1" Factura : genera
+    Cita "1" --> "0..1" Resena : recibe
+    Barbero "1" --> "0..*" Resena : calificado
+    Cliente "1" --> "0..*" ListaEspera : solicita
+    Servicio "1" --> "0..*" ListaEspera : solicitado
+    Barbero "0..1" --> "0..*" ListaEspera : preferido
 ```
 
 ---
 
 
-## 2. Diccionario de Datos (20 Tablas)
+## 2. Diccionario de Datos (26 Tablas)
 
 > Generado a partir de `backend/alembic/versions/dd2ee59368e5_esquema_inicial.py`.
 
@@ -549,6 +624,92 @@
 - **ÍNDICE** `idx_detalle_factura` (id_factura)
 - **ÍNDICE** `idx_detalle_servicio` (id_servicio)
 
+### 2.21 Tabla `horarios_negocio`
+
+| Columna | Tipo | Nulo | Default | Notas |
+|---|---|---|---|---|
+| `id_horario` | BIGINT UNSIGNED | No | — | AUTO_INCREMENT, PK |
+| `dia_semana` | TINYINT UNSIGNED | No | — | 1 a 7 |
+| `hora_inicio` | TIME | No | — | Inicio de atención |
+| `hora_fin` | TIME | No | — | Debe ser posterior al inicio |
+| `activo` | TINYINT(1) | No | `1` | — |
+| `creado_en` | DATETIME | No | `current_timestamp()` | — |
+
+- **Índice único:** `uq_horario_negocio_dia_rango` (`dia_semana`, `hora_inicio`, `hora_fin`)
+
+### 2.22 Tabla `cierres_negocio`
+
+| Columna | Tipo | Nulo | Default | Notas |
+|---|---|---|---|---|
+| `id_cierre` | BIGINT UNSIGNED | No | — | AUTO_INCREMENT, PK |
+| `fecha` | DATE | No | — | Única por fecha |
+| `motivo` | VARCHAR(255) | No | — | — |
+| `creado_en` | DATETIME | No | `current_timestamp()` | — |
+
+- **Índice único:** `uq_cierre_negocio_fecha` (`fecha`)
+
+### 2.23 Tabla `cita_extras`
+
+| Columna | Tipo | Nulo | Default | Notas |
+|---|---|---|---|---|
+| `id_cita_extra` | BIGINT UNSIGNED | No | — | AUTO_INCREMENT, PK |
+| `id_cita` | BIGINT UNSIGNED | No | — | FK a `citas.id_cita` |
+| `nombre` | VARCHAR(80) | No | — | — |
+| `precio` | DECIMAL(10,2) | No | — | — |
+| `duracion_minutos` | SMALLINT UNSIGNED | No | — | — |
+
+### 2.24 Tabla `recordatorios_citas`
+
+| Columna | Tipo | Nulo | Default | Notas |
+|---|---|---|---|---|
+| `id_recordatorio` | BIGINT UNSIGNED | No | — | AUTO_INCREMENT, PK |
+| `id_cita` | BIGINT UNSIGNED | No | — | FK y único por cita |
+| `proximo_intento` | DATETIME | No | — | — |
+| `estado` | ENUM | No | `pendiente` | pendiente, procesando, enviado, fallido, cancelado |
+| `intentos` | TINYINT UNSIGNED | No | `0` | Máximo 2 |
+| `claim_token` | VARCHAR(36) | Sí | — | Reclamo de procesamiento |
+| `enviado_en` | DATETIME | Sí | — | — |
+| `actualizado_en` | DATETIME | No | `current_timestamp()` | — |
+
+### 2.25 Tabla `lista_espera`
+
+| Columna | Tipo | Nulo | Default | Notas |
+|---|---|---|---|---|
+| `id_espera` | BIGINT UNSIGNED | No | — | AUTO_INCREMENT, PK |
+| `id_cliente` | BIGINT UNSIGNED | No | — | FK a `clientes.id_cliente` |
+| `id_servicio` | BIGINT UNSIGNED | No | — | FK a `servicios.id_servicio` |
+| `id_barbero` | BIGINT UNSIGNED | Sí | — | FK a `barberos.id_barbero` |
+| `fecha_deseada` | DATE | No | — | — |
+| `franja_horaria` | ENUM | No | — | manana, tarde, cualquiera |
+| `estado` | ENUM | No | `en_espera` | Estado de solicitud/oferta |
+| `oferta_hora_inicio` | TIME | Sí | — | — |
+| `oferta_hora_fin` | TIME | Sí | — | — |
+| `oferta_expira` | DATETIME | Sí | — | — |
+| `creado_en` | DATETIME | No | `current_timestamp()` | — |
+| `actualizado_en` | DATETIME | No | `current_timestamp()` | — |
+
+### 2.26 Tabla `verificaciones_invitado`
+
+| Columna | Tipo | Nulo | Default | Notas |
+|---|---|---|---|---|
+| `id_solicitud` | BIGINT UNSIGNED | No | — | AUTO_INCREMENT, PK |
+| `tipo` | VARCHAR(16) | No | — | cita o lista_espera |
+| `correo` | VARCHAR(180) | No | — | — |
+| `payload` | JSON | No | — | Solicitud pendiente |
+| `codigo_hash` | VARCHAR(64) | No | — | No almacena el código en claro |
+| `intentos` | SMALLINT UNSIGNED | No | `0` | — |
+| `expira_en` | DATETIME | No | — | — |
+| `consumido_en` | DATETIME | Sí | — | — |
+| `request_ip` | VARCHAR(45) | Sí | — | — |
+| `creado_en` | DATETIME | No | `current_timestamp()` | — |
+
+### Cambios posteriores a la revisión inicial
+
+Las migraciones agregan, entre otros cambios, `clientes.id_barbero_favorito`,
+`citas.completada_en` y `usuarios.es_invitado`. Para el esquema exacto de cada
+columna, prevalecen las migraciones ordenadas desde
+`dd2ee59368e5` hasta `h8b9c0d1e2f3`.
+
 ---
 
 ## 3. Vistas SQL Precompiladas
@@ -603,21 +764,20 @@ Una fila por cliente con su actividad acumulada.
 
 ```bash
 # Crear la base desde cero (contenedor backend ya lo hace en su entrypoint)
-docker compose exec backend alembic upgrade head
+docker compose --env-file backend/.env exec backend alembic upgrade head
 
 # Ver en qué revisión está la base
-docker compose exec backend alembic current
+docker compose --env-file backend/.env exec backend alembic current
 
 # Crear una migración nueva
-docker compose exec backend alembic revision -m "descripcion del cambio"
+docker compose --env-file backend/.env exec backend alembic revision -m "descripcion del cambio"
 # ...editar upgrade() y downgrade() a mano, luego:
-docker compose restart backend
-
-# Adoptar una base que ya existía (creada antes con database.sql)
-docker compose exec backend alembic stamp head
+docker compose --env-file backend/.env restart backend
 ```
 
 > [!WARNING]
 > MySQL **no revierte DDL dentro de una transacción**. Si una migración falla a mitad,
-> la base queda a medias: recréala (`docker compose down -v && docker compose up --build`)
-> antes de reintentar.
+> la base puede quedar en un estado intermedio. No marques una base anterior como
+> `head` con `alembic stamp` sin verificarla: ese comando no aplica ni valida el esquema.
+> En local, solo recrea una base desechable si no necesitas conservar sus datos; para
+> una base compartida o productiva, detén el despliegue y revisa una recuperación segura.

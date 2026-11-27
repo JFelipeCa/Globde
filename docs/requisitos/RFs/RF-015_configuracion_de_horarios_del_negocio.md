@@ -16,15 +16,13 @@
 | **Nombre** | Configuración de Horarios del Negocio y Festivos |
 | **Módulo** | Configuración del Sistema |
 | **Prioridad** | Media |
-| **Estado** | Parcial |
+| **Estado** | Implementado en código |
 | **HUs Asociadas** | HU-27, HU-28 |
 | **Fecha** | Febrero 2026 |
 
-> [!WARNING]
-> **Estado real (verificado contra el código, agosto 2026): parcial.**
-> Implementado el horario **por barbero** (`horarios_barbero`, `bloqueos_agenda`).
-> Pendiente el horario **comercial global** del negocio (HU-027) y los cierres de
-> día completo por festivo (HU-028).
+El backend persiste horarios globales y cierres de día completo en
+`horarios_negocio` y `cierres_negocio`. El panel administrativo permite
+gestionarlos y el flujo de disponibilidad respeta las fechas cerradas.
 
 ---
 
@@ -57,4 +55,8 @@ El sistema debe permitir configurar la franja horaria general de atención (hora
 
 | Método | Ruta | Auth Requerida | Descripción |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/datos` | No | Retorna configuración general y catálogos |
+| `GET` | `/api/agenda/horarios-negocio` | No | Consulta horario semanal |
+| `PUT` | `/api/agenda/horarios-negocio` | Sí (Admin) | Actualiza horario semanal |
+| `GET` | `/api/agenda/cierres` | No | Consulta cierres especiales |
+| `POST` | `/api/agenda/cierres` | Sí (Admin) | Registra cierre de día |
+| `DELETE` | `/api/agenda/cierres/{id_cierre}` | Sí (Admin) | Elimina cierre |

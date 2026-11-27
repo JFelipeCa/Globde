@@ -1,198 +1,87 @@
-# Guía de Instalación y Despliegue con Docker — GLOBDE
-
 <!--
-  ¿Qué? Guía paso a paso para levantar el entorno completo de GLOBDE utilizando Docker Compose.
-  ¿Para qué? Proveer un método de despliegue estandarizado, reproducible y sin conflictos de librerías locales.
-  ¿Impacto? Reduce el tiempo de configuración del entorno de horas a pocos minutos en cualquier sistema operativo.
+  ¿Qué? Guía para iniciar GLOBDE con Docker Compose.
+  ¿Para qué? Configura la aplicación para Codespaces y la base externa TiDB sin guardar secretos en Git.
+  ¿Impacto? Permite que cada integrante use credenciales autorizadas y que Alembic migre el esquema correcto.
 -->
 
-> **Requisitos**: Docker Desktop 24.0+ y Docker Compose v2.20+ instalados y en ejecución.
+# Guía de instalación con Docker — GLOBDE
 
----
+## Requisitos
 
-## 🚀 Pasos de Instalación Rápida
+- Docker Desktop o Docker Engine con Docker Compose v2.
+- Acceso de red a la instancia de desarrollo TiDB del equipo. Compose **no** inicia una base de datos.
+- Credenciales válidas de TiDB y Gmail SMTP, disponibles localmente o como Codespaces Secrets.
 
-### 1. Clonar el repositorio
-```bash
-git clone https://github.com/JFelipeCa/Globde.git
-cd Globde
-```
+## Configurar Codespaces Secrets
 
-### 2. Configurar variables de entorno del Backend
-```bash
-cd backend
-cp .env.example .env
-```
+Cada integrante configura estos secretos una vez en **GitHub → Settings → Codespaces → Codespaces secrets** y limita su acceso al repositorio Globde:
 
-Edita `backend/.env`. Hay **dos variables obligatorias** que vienen vacías a propósito
-(el proyecto no trae contraseñas por defecto):
+| Nombre | Uso |
+|---|---|
+| `DB_HOST` | Host asignado por TiDB Cloud |
+| `DB_USER` | Usuario de la base |
+| `DB_PASSWORD` | Contraseña de la base |
+| `SMTP_USER` | Cuenta Gmail del proyecto |
+| `SMTP_PASSWORD` | Contraseña de aplicación de Gmail |
 
-```env
-# --- Base de datos ---
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=          # ← OBLIGATORIA. Sin ella docker compose falla al arrancar.
-DB_NAME=globde
+En Codespaces, `DB_PORT` usa `4000`, `DB_NAME` usa `globde` y `SMTP_FROM` usa `SMTP_USER` si no se definen; el correo queda habilitado por defecto. Se pueden definir esos valores en el entorno si la instancia o el remitente son distintos. Usa una contraseña de aplicación de Gmail, no la contraseña normal de la cuenta.
 
-# --- Autenticación JWT ---
-JWT_SECRET=           # ← OBLIGATORIA. Genera una con el comando de abajo.
+Los Codespaces Secrets personales solo están disponibles para la cuenta que los configura. Cada integrante debe añadirlos a su cuenta; un administrador puede centralizarlos como secretos de organización si corresponde. Después de agregarlos, crea o reconstruye el Codespace para que estén disponibles en su entorno.
 
-# --- App ---
-APP_ENV=development
-DEBUG=true
+## Configurar el entorno local
 
-# --- Correo (SMTP) ---
-EMAIL_ENABLED=false   # déjala en false si no vas a configurar un SMTP real
-
-# --- Frontend / CORS ---
-FRONTEND_URL=http://localhost:5173
-```
-
-Genera un `JWT_SECRET` real:
+Para ejecutar fuera de Codespaces, copia la plantilla y completa los valores privados localmente:
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(48))"
+cp backend/.env.example backend/.env
 ```
 
-> [!NOTE]
-> `DB_HOST=127.0.0.1` y `DB_PORT=3306` son los valores para ejecutar el backend **fuera** de Docker.
-> Cuando levantas con Docker Compose, el propio `docker-compose.yml` los sobreescribe a
-> `DB_HOST=mysql` y `DB_PORT=3306` (red interna de Docker), así que no tienes que cambiarlos.
+`scripts/start.sh` crea `backend/.env` si falta y genera un `JWT_SECRET` local. Las variables de entorno de Codespaces tienen prioridad sobre el archivo para los servicios de Docker. No compartas ni subas `backend/.env`, y nunca pongas credenciales en `docker-compose.yml` ni en `.env.example`.
 
-> [!IMPORTANT]
-> `DB_PASSWORD` también la lee `docker-compose.yml` desde el entorno del shell. Si al ejecutar
-> `docker compose up` ves el error *"define DB_PASSWORD en tu archivo .env"*, exporta la variable
-> o crea un `.env` en la **raíz** del proyecto con la misma `DB_PASSWORD`.
+> **Importante:** al iniciar el backend, el entrypoint ejecuta `alembic upgrade head` contra la instancia TiDB configurada. La instancia debe ser de desarrollo del equipo y el usuario necesita permisos para aplicar migraciones. Revisa y aprueba cada migración antes de integrarla: una migración puede cambiar datos o esquema compartidos. Alembic falla deliberadamente si no puede conectar o migrar; no se debe ocultar ese error ni arrancar la API con un esquema desactualizado.
 
-### 3. Levantar los Contenedores
-Regresa a la raíz del proyecto y ejecuta:
+## Iniciar la aplicación
+
 ```bash
-docker compose up -d --build
-```
-Verifica el estado:
-```bash
+bash scripts/start.sh
 docker compose ps
 ```
-Deberías ver tres servicios en `Up` / `healthy`: **`mysql`** (MySQL 8.0), **`backend`** (FastAPI)
-y **`frontend`** (React + Vite).
 
-### 4. Esquema de base de datos (automático)
+El script valida las variables necesarias antes de construir o iniciar contenedores. Si falta una credencial, indica configurarla en Codespaces Secrets o `backend/.env`; no imprime sus valores.
 
-**No tienes que ejecutar ningún `.sql`.** El contenedor `backend` corre `docker-entrypoint.sh`,
-que espera a que MySQL esté listo y ejecuta:
+| Servicio | URL |
+|---|---|
+| Frontend | <http://localhost:5173> |
+| API | <http://localhost:8000> |
+| Swagger | <http://localhost:8000/docs> |
 
-```bash
-alembic upgrade head
-```
+## Logs y migraciones
 
-Eso crea las **20 tablas**, las **4 vistas** y los **datos semilla** (roles, servicios, etc.).
-Puedes confirmarlo en los logs:
-
-```bash
-docker compose logs backend | grep -i alembic
-```
-
-### 5. Acceder a la aplicación
-
-El frontend ya viene levantado por Compose en **`http://localhost:5173`**.
-Si prefieres correrlo fuera de Docker:
-
-```bash
-cd frontend
-pnpm install
-pnpm run dev
-```
-
----
-
-## 🔍 Puertos y URLs de Servicios
-
-| Servicio | Puerto Host | URL |
-| :--- | :---: | :--- |
-| **Frontend React** | `5173` | `http://localhost:5173` |
-| **Backend FastAPI** | `8000` | `http://localhost:8000` |
-| **Swagger UI (Docs)**| `8000` | `http://localhost:8000/docs` |
-| **Base de Datos MySQL**| `3307` | `localhost:3307` (`user: root`) |
-
-> [!WARNING]
-> MySQL se publica en el puerto **`3307`** del host (mapeo `3307:3306`), no en el 3306.
-> Esto evita chocar con una instalación local de MySQL. Para conectarte con un cliente
-> externo (Workbench, DBeaver, CLI) usa el **3307**:
->
-> ```bash
-> mysql -h 127.0.0.1 -P 3307 -u root -p globde
-> ```
->
-> Dentro de la red de Docker, en cambio, los contenedores se hablan por el puerto interno
-> `3306` con el host `mysql`.
-
----
-
-## 🛠️ Comandos de Mantenimiento y Troubleshooting
-
-### Ver logs en tiempo real
 ```bash
 docker compose logs -f backend
-docker compose logs -f mysql
-```
-
-### Reiniciar contenedores
-```bash
-docker compose restart
-```
-
-### Aplicar cambios de dependencias o de código del backend
-```bash
-docker compose up -d --build
-```
-
-### Trabajar con migraciones de Alembic
-```bash
-# Ver en qué revisión está la base
+docker compose logs -f frontend
 docker compose exec backend alembic current
+```
 
-# Aplicar migraciones pendientes (el entrypoint ya lo hace al arrancar)
-docker compose exec backend alembic upgrade head
+Para crear una migración, hazlo solo como parte de un cambio de esquema y revisa
+`upgrade()` y `downgrade()` antes de aplicarla:
 
-# Crear una migración nueva (luego edita upgrade() y downgrade() a mano)
+```bash
 docker compose exec backend alembic revision -m "descripcion del cambio"
 ```
 
-### Ejecutar las pruebas
+No uses `docker compose down -v` como método de reinicio de la base: Compose no
+gestiona la base de datos y ese comando no revierte cambios ya aplicados a una
+instancia externa.
+
+## Ejecutar pruebas
+
+Las pruebas de integración requieren una base de datos aislada con el esquema
+aplicado. No las ejecutes contra datos compartidos:
+
 ```bash
 docker compose exec backend uv run pytest
 ```
 
-### Reset completo de la base de datos
-
-Si la base quedó a medias (una migración falló, o venías de un esquema viejo creado con
-`database.sql`), la forma limpia de arreglarla es **borrar el volumen**:
-
-```bash
-docker compose down -v      # ⚠️ ESTO BORRA TODOS LOS DATOS
-docker compose up -d --build
-```
-
-> [!WARNING]
-> El flag `-v` elimina el volumen `mysql_data`. Es irreversible: se pierden usuarios, citas
-> y facturas de tu entorno local. Sin `-v`, el volumen sobrevive y la base rota sigue rota.
-
-### Adoptar una base preexistente sin borrarla
-
-Si ya tenías la base `globde` creada con el antiguo `database/database.sql` y no quieres
-perder los datos, marca la base como "ya migrada" en lugar de reaplicar el esquema:
-
-```bash
-docker compose exec backend alembic stamp head
-```
-
-Sin esto, `alembic upgrade head` falla con `1050 Table 'roles' already exists`.
-
----
-
-## 📎 Ver también
-
-- [`docs/setup/sin-docker.md`](sin-docker.md) — instalación manual con `uv` y `pnpm`.
-- [`database/README_DB.md`](../../database/README_DB.md) — cómo se gestiona el esquema.
-- [`docs/referencia-tecnica/database-schema.md`](../referencia-tecnica/database-schema.md) — diccionario de datos.
+Para más información consulta [la guía del backend](../../backend/README.md) y
+[la documentación de migraciones](../../backend/alembic/README.md).

@@ -139,6 +139,8 @@ class TestAutenticacion:
             "/api/auth/password/forgot", json={"correo": "fantasma@example.com"}
         )
         assert existente.status_code == inexistente.status_code == 200
+        assert existente.json() == inexistente.json()
+        assert "detalle" not in existente.json()
 
     def test_reset_con_token_invalido(self, cliente_api):
         r = cliente_api.post(
@@ -171,10 +173,54 @@ class TestPermisos:
     def test_admin_si_lista_usuarios(self, cliente_api, token_admin, auth):
         assert cliente_api.get("/api/usuarios", headers=auth(token_admin)).status_code == 200
 
+    def test_barbero_no_actualiza_barbero_favorito(self, cliente_api, token_barbero, auth):
+        r = cliente_api.put(
+            "/api/usuarios/me/barbero-favorito",
+            headers=auth(token_barbero),
+            json={"id_barbero": 1},
+        )
+        assert r.status_code == 403
+
     def test_endpoints_protegidos_sin_token(self, cliente_api):
         for ruta in ("/api/usuarios", "/api/citas", "/api/facturas",
                      "/api/puntos/saldo", "/api/notificaciones", "/api/auditoria"):
             assert cliente_api.get(ruta).status_code == 401, ruta
+
+
+class TestBarberoFavorito:
+    def test_cliente_puede_guardar_y_quitar_barbero_favorito(
+        self, cliente_api, token_cliente, auth
+    ):
+        headers = auth(token_cliente)
+        perfil = cliente_api.get("/api/usuarios/me", headers=headers)
+        barberos = cliente_api.get("/api/barberos").json()
+        assert perfil.status_code == 200
+        assert barberos
+
+        favorito_original = perfil.json().get("id_barbero_favorito")
+        favorito_nuevo = barberos[0]["id_barbero"]
+        try:
+            guardado = cliente_api.put(
+                "/api/usuarios/me/barbero-favorito",
+                headers=headers,
+                json={"id_barbero": favorito_nuevo},
+            )
+            assert guardado.status_code == 200
+            assert guardado.json()["id_barbero_favorito"] == favorito_nuevo
+
+            eliminado = cliente_api.put(
+                "/api/usuarios/me/barbero-favorito",
+                headers=headers,
+                json={"id_barbero": None},
+            )
+            assert eliminado.status_code == 200
+            assert eliminado.json()["id_barbero_favorito"] is None
+        finally:
+            cliente_api.put(
+                "/api/usuarios/me/barbero-favorito",
+                headers=headers,
+                json={"id_barbero": favorito_original},
+            )
 
 
 # ----------------------------------------------------------------------

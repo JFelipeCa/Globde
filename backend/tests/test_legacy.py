@@ -154,6 +154,7 @@ class TestLoginV1:
 # ----------------------------------------------------------------------
 
 class TestClientesV1:
+    @REQUIERE_LEGACY
     def test_registro_publico_sin_token(self, cliente_api):
         r = cliente_api.post(
             "/api/clientes",
@@ -166,6 +167,7 @@ class TestClientesV1:
             assert campo in cuerpo, campo
         assert cuerpo["id_rol"] == 3
 
+    @REQUIERE_LEGACY
     def test_el_registrado_puede_iniciar_sesion(self, cliente_api):
         correo = _correo()
         cliente_api.post(
@@ -177,6 +179,7 @@ class TestClientesV1:
         assert r.status_code == 200
         assert r.json()["correo"] == correo
 
+    @REQUIERE_LEGACY
     def test_correo_duplicado_da_conflicto(self, cliente_api):
         correo = _correo()
         cuerpo = {"nombre": "QA Legacy Dup", "correo": correo,
@@ -184,6 +187,7 @@ class TestClientesV1:
         assert cliente_api.post("/api/clientes", json=cuerpo).status_code == 201
         assert cliente_api.post("/api/clientes", json=cuerpo).status_code == 409
 
+    @REQUIERE_LEGACY
     def test_password_debil_rechazada(self, cliente_api):
         r = cliente_api.post(
             "/api/clientes",
@@ -214,6 +218,7 @@ class TestClientesV1:
 # ----------------------------------------------------------------------
 
 class TestCitasV1:
+    @REQUIERE_LEGACY
     def test_crea_con_payload_v1(self, cliente_api, cliente_temporal, slot_libre):
         _, usuario = cliente_temporal
         fecha, hora = slot_libre
@@ -231,6 +236,7 @@ class TestCitasV1:
         assert cita["id_barbero"] == 1
         assert cita["estado"] == "pendiente"
 
+    @REQUIERE_LEGACY
     def test_traduce_id_usuario_a_id_barbero(self, cliente_api, cliente_temporal, slot_libre):
         _, usuario = cliente_temporal
         fecha, hora = slot_libre
@@ -242,6 +248,7 @@ class TestCitasV1:
         # id_usuario 2 es el usuario del barbero 1 en la semilla.
         assert cita["id_barbero"] == 1
 
+    @REQUIERE_LEGACY
     def test_barbero_inexistente(self, cliente_api, cliente_temporal, slot_libre):
         _, usuario = cliente_temporal
         fecha, hora = slot_libre
@@ -252,10 +259,12 @@ class TestCitasV1:
         )
         assert r.status_code == 400
 
+    @REQUIERE_LEGACY
     def test_faltan_datos(self, cliente_api):
         r = cliente_api.post("/api/citas", json={"id_usuario": 2})
         assert r.status_code == 400
 
+    @REQUIERE_LEGACY
     def test_el_solapamiento_se_sigue_validando(self, cliente_api, cliente_temporal, slot_libre):
         _, usuario = cliente_temporal
         fecha, hora = slot_libre

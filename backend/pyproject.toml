@@ -12,11 +12,11 @@ dependencies = [
     # >=1.2.2 corrige PYSEC-2026-2270 (set_key()/unset_key() seguian symlinks
     # al reescribir el .env, permitiendo sobrescribir archivos arbitrarios).
     "python-dotenv==1.2.2",
-    "mysql-connector-python==9.1.0",
+    "mysql-connector-python==9.2.0",
     "pydantic==2.10.4",
     "email-validator==2.2.0",
     "bcrypt==4.2.1",
-    "PyJWT==2.13.0",
+    "PyJWT==2.15.0",
     # >=0.0.22 corrige la CVE-2026-24486 (escritura de archivo arbitraria via
     # traversal de nombre). El proyecto no usa UPLOAD_DIR ni Form/File, pero
     # se mantiene al dia para que la auditoria de dependencias quede limpia.

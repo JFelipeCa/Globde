@@ -5,7 +5,7 @@ import { AuthModal } from './components/ui/AuthModal';
 import { TicketModal } from './components/ui/TicketModal';
 import { BookingWizard } from './components/ui/BookingWizard';
 import { Toasts, QuizModal, EsperaModal, Footer } from './components/ui/Extras';
-import { Hero, Beneficios, Servicios, Barberos, Catalogo, Fidelizacion, Resenas } from './components/sections/Landing';
+import { Hero, Beneficios, Barberos, Catalogo, Fidelizacion, Resenas } from './components/sections/Landing';
 import { PanelCliente } from './components/paneles/PanelCliente';
 import { PanelBarbero } from './components/paneles/PanelBarbero';
 import { PanelAdmin } from './components/paneles/PanelAdmin';
@@ -52,6 +52,9 @@ const AccesoRestringido: React.FC<{ vista: string }> = ({ vista }) => {
 const Contenido: React.FC = () => {
   const { vista, usuario } = useApp();
 
+  const esBarbero = usuario?.id_rol === ROL_BARBERO;
+  const vistaPublicaDelBarbero = ['inicio', 'catalogo'].includes(vista);
+
   // Si se intenta acceder a un panel sin sesión o con un rol que no corresponde
   // (p. ej. un cliente forzando 'panel-admin'), se muestra el guard en lugar del
   // panel. El rol proviene del backend vía /auth/me.
@@ -65,10 +68,11 @@ const Contenido: React.FC = () => {
 
   return (
     <>
-      {vista === 'inicio' && (
+      {esBarbero && vistaPublicaDelBarbero && renderizadorPanel(<PanelBarbero />)}
+
+      {!esBarbero && vista === 'inicio' && (
         <>
           <Hero />
-          <Servicios />
           <Beneficios />
           <Barberos />
           <Catalogo />
@@ -79,17 +83,17 @@ const Contenido: React.FC = () => {
       {vista === 'catalogo' && (
         <>
           <Catalogo />
-          <Servicios />
           <Barberos />
         </>
       )}
 
-      {vista === 'fidelizacion' && (
+      {vista === 'fidelizacion' && !esBarbero && (
         <>
           <Fidelizacion />
           <Resenas />
         </>
       )}
+      {vista === 'fidelizacion' && esBarbero && renderizadorPanel(<PanelBarbero />)}
 
       {vista === 'panel-cliente' && renderizadorPanel(<PanelCliente />)}
       {vista === 'panel-barbero' && renderizadorPanel(<PanelBarbero />)}
@@ -98,7 +102,8 @@ const Contenido: React.FC = () => {
   );
 };
 
-export default function App() {
+const Aplicacion: React.FC = () => {
+  const { vista } = useApp();
   const [esRutaRecuperacion, setEsRutaRecuperacion] = useState(() => (
     window.location.pathname === '/restablecer-password' &&
     new URLSearchParams(window.location.search).has('token')
@@ -114,24 +119,31 @@ export default function App() {
   }, []);
 
   return (
-    <AppProvider>
-      <div className="flex min-h-screen flex-col bg-[#FDFBF7]">
-        {!esRutaRecuperacion && <Navbar />}
-        {!esRutaRecuperacion && (
-          <main className="flex-1">
-            <Contenido />
-          </main>
-        )}
-        {!esRutaRecuperacion && <Footer />}
+    <div className="flex min-h-screen flex-col bg-[#FDFBF7]">
+      {!esRutaRecuperacion && vista !== 'panel-admin' && <Navbar />}
+      {!esRutaRecuperacion && vista === 'panel-admin' && <Contenido />}
+      {!esRutaRecuperacion && vista !== 'panel-admin' && (
+        <main className="flex-1">
+          <Contenido />
+        </main>
+      )}
+      {!esRutaRecuperacion && vista !== 'panel-admin' && <Footer />}
 
-        {/* Capas superpuestas */}
-        <AuthModal />
-        <BookingWizard />
-        <TicketModal />
-        <QuizModal />
-        <EsperaModal />
-        <Toasts />
-      </div>
+      {/* Capas superpuestas */}
+      <AuthModal />
+      <BookingWizard />
+      <TicketModal />
+      <QuizModal />
+      <EsperaModal />
+      <Toasts />
+    </div>
+  );
+};
+
+export default function App() {
+  return (
+    <AppProvider>
+      <Aplicacion />
     </AppProvider>
   );
 }

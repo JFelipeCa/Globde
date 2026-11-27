@@ -1,14 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  CalendarDays, Crown, Plus, QrCode, Star, Timer, Ban, Check,
-  RotateCcw, CircleAlert, Gift, History, Hourglass, X, Eye, Sparkles, Camera,
+  CalendarDays, Plus, QrCode, Star, Timer, Ban, Check,
+  RotateCcw, CircleAlert, History, Hourglass, X, Eye, Sparkles, Camera, UserRound, Scissors,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import type { Cita } from '../../types';
+import type { Cita, Servicio, PremioFidelidad, NivelFidelizacion } from '../../types';
+import { apiRequest } from '../../utils/apiClient';
+import { imagenCatalogoServicio } from '../../data/mockData';
 import {
   formatoCOP, fechaLarga, rangoHorario, duracionLegible, estiloEstado,
-  hoyISO, sumarDiasISO, generarFranjas, franjasVigentes, sumarMinutos, hora12, haySolape, desglosarFecha,
+  hoyISO, sumarDiasISO, hora12, desglosarFecha,
 } from '../../utils/helpers';
+import { CodigoQRReserva } from '../ui/CodigoQRReserva';
+import { BarberoFoto } from '../ui/BarberoFoto';
+
+const SERVICIOS_RAPIDOS = [
+  'Mid Skin Fade + Crop Texturizado',
+  'Low Taper con Barba Integrada',
+  'Pompadour Moderno con Drop Fade',
+  'Buzz Cut con Line-up a Navaja',
+] as const;
 
 const MOTIVOS = [
   'Me surgió un imprevisto',
@@ -18,31 +29,169 @@ const MOTIVOS = [
   'Otro motivo',
 ];
 
+const fechaHoraCita = (fecha: string, hora: string): Date =>
+  new Date(`${fecha}T${hora.slice(0, 5)}:00`);
+
+interface SaldoFidelizacion {
+  puntos_saldo: number;
+  nivel_fidelizacion: NivelFidelizacion;
+  proximo_nivel: NivelFidelizacion | null;
+  puntos_para_proximo_nivel: number | null;
+  progreso_nivel: number;
+}
+
+interface MovimientoFidelizacion {
+  id_movimiento: number;
+  tipo: string;
+  puntos: number;
+  saldo_resultante: number | null;
+  descripcion: string | null;
+  creado_en: string | null;
+}
+
+interface RespuestaMovimientos {
+  items: MovimientoFidelizacion[];
+  total: number;
+}
+
+interface SlotReprogramacion {
+  hora_inicio: string;
+  hora_fin: string;
+  disponible: boolean;
+}
+
 export const PanelCliente: React.FC = () => {
   const {
-    usuario, citas, barberos, abrirReserva, verTicket, cancelarCita,
-    editarCita, calificarCita, actualizarAvatar, setEsperaAbierta, irA, listaEspera, franjasOcupadas,
+    usuario, citas, servicios, barberos, abrirReserva, verTicket, cancelarCita,
+    editarCita, calificarCita, actualizarAvatar, setEsperaAbierta, irA, listaEspera,
+    aceptarOfertaEspera, cancelarSolicitudEspera,
+    setQuizAbierto, actualizarBarberoFavorito, premios,
   } = useApp();
 
-  const [tab, setTab] = useState<'proximas' | 'historial' | 'espera'>('proximas');
+  const [tab, setTab] = useState<'resumen' | 'proximas' | 'historial' | 'puntos' | 'espera'>('resumen');
+  const [movimientosPuntos, setMovimientosPuntos] = useState<MovimientoFidelizacion[]>([]);
+  const [totalMovimientosPuntos, setTotalMovimientosPuntos] = useState(0);
+  const [paginaMovimientos, setPaginaMovimientos] = useState(1);
+  const [revisionMovimientos, setRevisionMovimientos] = useState(0);
+  const [cargandoMovimientos, setCargandoMovimientos] = useState(false);
+  const [errorMovimientos, setErrorMovimientos] = useState('');
+  const porPaginaMovimientos = 10;
+  const [saldoFidelizacion, setSaldoFidelizacion] = useState<SaldoFidelizacion | null>(null);
+  const [errorSaldo, setErrorSaldo] = useState('');
   const [aCancelar, setACancelar] = useState<Cita | null>(null);
   const [motivo, setMotivo] = useState(MOTIVOS[0]);
   const [aReprogramar, setAReprogramar] = useState<Cita | null>(null);
   const [nFecha, setNFecha] = useState(hoyISO());
   const [nHora, setNHora] = useState('');
+  const [slotsReprogramacion, setSlotsReprogramacion] = useState<SlotReprogramacion[]>([]);
+  const [cargandoSlotsReprogramacion, setCargandoSlotsReprogramacion] = useState(false);
+  const [errorSlotsReprogramacion, setErrorSlotsReprogramacion] = useState('');
+  const [guardandoReprogramacion, setGuardandoReprogramacion] = useState(false);
   const [aCalificar, setACalificar] = useState<Cita | null>(null);
   const [rating, setRating] = useState(5);
   const [comentario, setComentario] = useState('');
   const [aviso, setAviso] = useState('');
   const [error, setError] = useState('');
   const [subiendoAvatar, setSubiendoAvatar] = useState(false);
+  const [actualizandoFavorito, setActualizandoFavorito] = useState(false);
+  const [errorFavorito, setErrorFavorito] = useState('');
+  const idUsuario = usuario?.id_usuario;
+  const rolUsuario = usuario?.id_rol;
 
-  const mias = citas.filter((c) => c.id_cliente === usuario?.id_usuario || c.cliente_correo === usuario?.correo);
-  const proximas = mias.filter((c) => ['pendiente', 'confirmada', 'en_atencion'].includes(c.estado));
+  useEffect(() => {
+    let vigente = true;
+    if (rolUsuario !== 3) {
+      setSaldoFidelizacion(null);
+      setErrorSaldo('');
+      return () => { vigente = false; };
+    }
+
+    apiRequest<SaldoFidelizacion>('/puntos/saldo')
+      .then((saldo) => {
+        if (vigente) {
+          setSaldoFidelizacion(saldo);
+          setErrorSaldo('');
+        }
+      })
+      .catch((causa: unknown) => {
+        if (vigente) {
+          setErrorSaldo('No se pudo actualizar tu saldo de puntos.');
+          console.error('Error al consultar el saldo de fidelización:', causa);
+        }
+      });
+
+    return () => { vigente = false; };
+  }, [idUsuario, rolUsuario]);
+
+  useEffect(() => {
+    if (rolUsuario !== 3 || tab !== 'puntos') return;
+    const controlador = new AbortController();
+    setCargandoMovimientos(true);
+    setErrorMovimientos('');
+    apiRequest<RespuestaMovimientos>(
+      `/puntos/movimientos?pagina=${paginaMovimientos}&por_pagina=${porPaginaMovimientos}`,
+      { signal: controlador.signal },
+    )
+      .then((respuesta) => {
+        setMovimientosPuntos(respuesta.items);
+        setTotalMovimientosPuntos(respuesta.total);
+      })
+      .catch((causa: unknown) => {
+        if (!controlador.signal.aborted) {
+          setErrorMovimientos(causa instanceof Error ? causa.message : 'No se pudo cargar el historial de puntos.');
+        }
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setCargandoMovimientos(false);
+      });
+    return () => controlador.abort();
+  }, [rolUsuario, tab, paginaMovimientos, revisionMovimientos]);
+
+  const mias = citas.filter((c) => c.id_cliente === usuario?.id_cliente || c.cliente_correo === usuario?.correo);
+  const ahora = new Date();
+  const proximas = mias.filter((c) => {
+    if (!['pendiente', 'confirmada', 'en_atencion'].includes(c.estado)) return false;
+    const inicio = fechaHoraCita(c.fecha, c.hora_inicio);
+    if (Number.isNaN(inicio.getTime())) return false;
+    if (inicio >= ahora) return true;
+    return c.estado === 'en_atencion' && fechaHoraCita(c.fecha, c.hora_fin) >= ahora;
+  });
+  const proximasOrdenadas = [...proximas].sort((a, b) =>
+    `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`),
+  );
+  const citaProxima = proximasOrdenadas[0];
   const historial = mias.filter((c) => ['completada', 'cancelada', 'no_asistio'].includes(c.estado));
-  const misEsperas = listaEspera.filter((e) => e.id_cliente === usuario?.id_usuario);
+  const historialOrdenado = [...historial].sort((a, b) =>
+    `${b.fecha} ${b.hora_inicio}`.localeCompare(`${a.fecha} ${a.hora_inicio}`),
+  );
+  const historialReciente = historialOrdenado.slice(0, 2);
+  const misEsperas = listaEspera.filter((e) => e.id_cliente === usuario?.id_cliente);
+  const barberoFavorito = barberos.find((b) => b.id_barbero === usuario?.id_barbero_favorito);
+  const barberoTarjeta = barberoFavorito
+    ?? barberos.find((b) => b.id_barbero === citaProxima?.id_barbero)
+    ?? barberos.find((b) => b.id_barbero === historialOrdenado[0]?.id_barbero);
+  const serviciosRapidos = SERVICIOS_RAPIDOS
+    .map((nombre) => servicios.find((s) => s.nombre === nombre))
+    .filter((s): s is Servicio => Boolean(s));
+  const saldoActual = saldoFidelizacion?.puntos_saldo ?? usuario?.puntos ?? 0;
+  const nivelActual = saldoFidelizacion?.nivel_fidelizacion ?? usuario?.nivel_fidelizacion ?? 'Bronce';
+  const premiosVisibles = [...premios].sort((a, b) => a.costo_puntos - b.costo_puntos).slice(0, 2);
+  const puntosCitaProxima = servicios.find((s) => s.id_servicio === citaProxima?.id_servicio)?.puntos_otorga;
 
   const mostrarAviso = (t: string) => { setAviso(t); setTimeout(() => setAviso(''), 4500); };
+
+  const guardarBarberoFavorito = async (valor: string) => {
+    setActualizandoFavorito(true);
+    setErrorFavorito('');
+    const idBarbero = valor ? Number(valor) : null;
+    const resultado = await actualizarBarberoFavorito(idBarbero);
+    setActualizandoFavorito(false);
+    if (!resultado.ok) {
+      setErrorFavorito(resultado.mensaje);
+      return;
+    }
+    mostrarAviso(idBarbero === null ? 'Se eliminó tu barbero favorito.' : 'Tu barbero favorito quedó guardado.');
+  };
 
   const seleccionarAvatar = async (evento: React.ChangeEvent<HTMLInputElement>) => {
     const archivo = evento.target.files?.[0];
@@ -66,29 +215,62 @@ export const PanelCliente: React.FC = () => {
   const confirmarCancelacion = async () => {
     if (!aCancelar) return;
     const r = await cancelarCita(aCancelar.id_cita, motivo);
-    setACancelar(null);
+    if (r.ok) setACancelar(null);
     mostrarAviso(r.ok ? `Cita ${aCancelar.codigo_reserva} cancelada. ${r.mensaje}` : r.mensaje);
   };
 
   const barberoRep = barberos.find((b) => b.id_barbero === aReprogramar?.id_barbero) ?? barberos[0];
-  const ocupadasRep = aReprogramar ? franjasOcupadas(nFecha, aReprogramar.id_barbero) : [];
+  const horasParaCita = aCancelar
+    ? (new Date(`${aCancelar.fecha}T${aCancelar.hora_inicio}:00`).getTime() - Date.now()) / 3_600_000
+    : null;
+  useEffect(() => {
+    if (!aReprogramar || !barberoRep) {
+      setSlotsReprogramacion([]);
+      return;
+    }
+
+    const controlador = new AbortController();
+    const servicio = servicios.find((item) => item.id_servicio === aReprogramar.id_servicio);
+    const minutosAdicionales = Math.max(0, aReprogramar.duracion_minutos - (servicio?.duracion_minutos ?? aReprogramar.duracion_minutos));
+    setCargandoSlotsReprogramacion(true);
+    setErrorSlotsReprogramacion('');
+    apiRequest<{ slots: SlotReprogramacion[] }>(
+      `/barberos/${barberoRep.id_barbero}/disponibilidad?fecha=${encodeURIComponent(nFecha)}&id_servicio=${aReprogramar.id_servicio}&duracion_adicional_minutos=${minutosAdicionales}`,
+      { signal: controlador.signal },
+    )
+      .then((respuesta) => {
+        if (!controlador.signal.aborted) setSlotsReprogramacion(respuesta.slots);
+      })
+      .catch((causa: unknown) => {
+        if (!controlador.signal.aborted) {
+          setSlotsReprogramacion([]);
+          setErrorSlotsReprogramacion(causa instanceof Error ? causa.message : 'No se pudieron consultar los horarios.');
+        }
+      })
+      .finally(() => {
+        if (!controlador.signal.aborted) setCargandoSlotsReprogramacion(false);
+      });
+    return () => controlador.abort();
+  }, [aReprogramar, barberoRep, nFecha, servicios]);
+
   const franjasRep = aReprogramar
-    ? franjasVigentes(
-        generarFranjas(barberoRep.hora_apertura, barberoRep.hora_cierre, 15, aReprogramar.duracion_minutos),
-        nFecha,
-      ).map((ini) => {
-        const fin = sumarMinutos(ini, aReprogramar.duracion_minutos);
-        const propia = aReprogramar.fecha === nFecha && aReprogramar.hora_inicio === ini;
-        return { ini, fin, libre: propia || !ocupadasRep.some((o) => haySolape(ini, fin, o.inicio, o.fin)) };
+    ? slotsReprogramacion.map((slot) => {
+        const propia = aReprogramar.fecha === nFecha && aReprogramar.hora_inicio === slot.hora_inicio;
+        return { ini: slot.hora_inicio, fin: slot.hora_fin, libre: propia || slot.disponible };
       })
     : [];
 
   const guardarReprogramacion = async () => {
     if (!aReprogramar || !nHora) { setError('Selecciona una nueva franja horaria.'); return; }
-    const r = await editarCita(aReprogramar.id_cita, { fecha: nFecha, hora_inicio: nHora });
-    if (!r.ok) { setError(r.mensaje); return; }
-    setAReprogramar(null); setError(''); setNHora('');
-    mostrarAviso('Tu cita fue reprogramada correctamente.');
+    setGuardandoReprogramacion(true);
+    try {
+      const r = await editarCita(aReprogramar.id_cita, { fecha: nFecha, hora_inicio: nHora });
+      if (!r.ok) { setError(r.mensaje); return; }
+      setAReprogramar(null); setError(''); setNHora('');
+      mostrarAviso('Tu cita fue reprogramada correctamente.');
+    } finally {
+      setGuardandoReprogramacion(false);
+    }
   };
 
   const enviarResena = async () => {
@@ -101,65 +283,258 @@ export const PanelCliente: React.FC = () => {
   const inputCls = 'w-full rounded-xl border border-white/10 bg-[#0F151C] px-3.5 py-2.5 text-sm text-[#EAF0F6] outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-400/15';
 
   return (
-    <div className="min-h-[70vh] bg-[#0B0F14] py-10">
-      <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-        {/* Encabezado */}
-        <div className="card overflow-hidden">
-          <div className="flex flex-col items-start gap-5 malla-suave p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-            <div className="flex items-center gap-4">
-      <div className="relative shrink-0">
-      {usuario?.avatar_url
-        ? <img src={usuario.avatar_url} alt="Foto de perfil" className="h-16 w-16 rounded-2xl object-cover shadow-md sm:h-20 sm:w-20" />
-        : <span className="avatar-respaldo flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl font-heading text-2xl font-black text-[#06232A] shadow-md ring-1 ring-cyan-300/60 sm:h-20 sm:w-20 sm:text-3xl">
-      {(usuario?.nombre.trim()[0] ?? '?').toUpperCase()}
-    </span>}
-        <label className="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-[#0B0F14] bg-amber-400 text-[#1A1400] shadow-lg transition hover:bg-amber-300" title="Cambiar foto de perfil">
-          <Camera className="h-4 w-4" />
-          <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={seleccionarAvatar} disabled={subiendoAvatar} />
-        </label>
-      </div>
-              <div>
-                <h1 className="font-heading text-2xl font-black text-[#EAF0F6] sm:text-3xl">
-                  ¡Hola, {usuario?.nombre.split(' ')[0]}! 💈
-                </h1>
-                <p className="text-sm text-[#93A1B1]">Gestiona tus citas, cancela o reprograma cuando quieras.</p>
-                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-3 py-1 text-xs font-black text-amber-300">
-                  <Crown className="h-3.5 w-3.5" /> {usuario?.puntos} pts · Nivel {usuario?.nivel_fidelizacion}
-                </span>
-              </div>
+    <div className="panel-cliente-dashboard min-h-[70vh] bg-[#f7f8f4] py-5 text-[#172124]">
+      <div className="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
+        <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e6e9e3] bg-gradient-to-r from-[#f7f2e7] to-[#e2f5f4] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="relative shrink-0">
+              {usuario?.avatar_url
+                ? <img src={usuario.avatar_url} alt="Foto de perfil" className="h-11 w-11 rounded-full object-cover" />
+                : <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#55d7e5] text-[#12383c]">
+                    <UserRound className="h-6 w-6" aria-hidden="true" />
+                  </span>}
+              <label className="absolute -bottom-1 -right-1 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#172124] text-white" title="Cambiar foto de perfil">
+                <Camera className="h-3 w-3" />
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={seleccionarAvatar} disabled={subiendoAvatar} />
+              </label>
             </div>
-            <div className="flex w-full gap-2 sm:w-auto">
-              <button onClick={() => abrirReserva()} className="btn-primario flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black sm:flex-none">
-                <Plus className="h-4 w-4" /> Nueva cita
-              </button>
-              <button onClick={() => irA('fidelizacion')} className="flex items-center justify-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-bold text-amber-700 transition hover:bg-amber-400/20">
-                <Gift className="h-4 w-4" /> Premios
-              </button>
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#66716d]">Bienvenido de nuevo</p>
+              <h1 className="truncate font-heading text-lg font-black leading-tight text-[#172124]">Hola, {usuario?.nombre.split(' ')[0]}</h1>
+              <p className="text-[10px] text-[#5d6965]">Tu estilo, tus citas y tus beneficios.</p>
             </div>
           </div>
-        </div>
+          <div className="flex gap-2">
+            {[
+              { label: 'Puntos', value: saldoActual, action: () => irA('fidelizacion') },
+              { label: 'Próximas', value: proximas.length, action: () => setTab('proximas') },
+              { label: 'Historial', value: historial.length, action: () => setTab('historial') },
+            ].map((dato) => (
+              <button key={dato.label} onClick={dato.action} className="min-w-[58px] rounded-lg border border-white/70 bg-white/70 px-2 py-1.5 text-center transition hover:bg-white">
+                <span className="block text-sm font-black leading-none text-[#172124]">{dato.value}</span>
+                <span className="mt-1 block text-[8px] font-semibold text-[#66716d]">{dato.label}</span>
+              </button>
+            ))}
+          </div>
+        </header>
 
         {aviso && (
-          <div className="anim-aparecer flex items-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3.5 text-sm font-bold text-emerald-300">
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-xs font-bold text-emerald-800">
             <Check className="h-4 w-4" /> {aviso}
           </div>
         )}
 
+        <section className="grid gap-5 md:grid-cols-[minmax(0,1.8fr)_minmax(300px,0.9fr)]">
+          <div className="space-y-3">
+            <section id="mis-citas" className="overflow-hidden rounded-xl border border-[#e4e8e2] bg-white shadow-sm">
+              <div className="flex items-center justify-between px-3.5 pb-2 pt-3">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#6a7772]">Tu agenda</p>
+                  <h2 className="font-heading text-sm font-black text-[#172124]">Próxima cita</h2>
+                </div>
+                <button onClick={() => setTab('proximas')} className="text-[9px] font-bold text-[#18899a] hover:underline">Ver todas</button>
+              </div>
+              {citaProxima ? (
+                <div className="grid min-h-[94px] grid-cols-[82px_minmax(0,1fr)] sm:grid-cols-[100px_minmax(0,1fr)_68px]">
+                  <div className="flex flex-col items-center justify-center bg-[#55d7e5] px-2 py-3 text-center text-[#12383c]">
+                    <span className="text-[8px] font-black uppercase tracking-wider">{desglosarFecha(citaProxima.fecha).diaSemanaCorto}</span>
+                    <span className="font-heading text-2xl font-black leading-none">{desglosarFecha(citaProxima.fecha).dia}</span>
+                    <span className="mt-1 text-[9px] font-bold uppercase">{desglosarFecha(citaProxima.fecha).mesCorto}</span>
+                    <span className="mt-1 text-[9px] font-bold">{hora12(citaProxima.hora_inicio)}</span>
+                  </div>
+                  <div className="flex min-w-0 flex-col justify-center px-3 py-2">
+                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#75817c]">{citaProxima.codigo_reserva} · {citaProxima.estado === 'confirmada' ? 'Confirmada' : 'Pendiente'}</span>
+                    <p className="mt-0.5 truncate text-xs font-black text-[#172124]">{citaProxima.servicio_nombre}</p>
+                    <p className="truncate text-[10px] text-[#65716d]">Con {citaProxima.barbero_nombre} · {rangoHorario(citaProxima.hora_inicio, citaProxima.hora_fin)}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button onClick={() => verTicket(citaProxima)} className="rounded-md bg-[#172124] px-2 py-1 text-[9px] font-bold text-white">Pase QR</button>
+                      <button onClick={() => { setAReprogramar(citaProxima); setNFecha(citaProxima.fecha); setNHora(''); setError(''); setErrorSlotsReprogramacion(''); }} className="rounded-md border border-[#dce4e1] px-2 py-1 text-[9px] font-bold text-[#273532]">Reprogramar</button>
+                    </div>
+                  </div>
+                  <div className="hidden items-center justify-center pr-2 sm:flex">
+                    <button onClick={() => verTicket(citaProxima)} className="rounded-md border border-[#e7eae6] bg-white p-1.5" aria-label="Ver pase QR">
+                      <CodigoQRReserva codigo={citaProxima.codigo_reserva} tamano={52} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3 bg-[#f8faf8] px-4 py-4">
+                  <p className="text-xs text-[#65716d]">Todavía no tienes una cita programada.</p>
+                  <button onClick={() => irA('catalogo')} className="shrink-0 rounded-md bg-[#172124] px-3 py-2 text-[10px] font-bold text-white">Ver catálogo</button>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#6a7772]">Servicios destacados</p>
+                  <h2 className="font-heading text-sm font-black text-[#172124]">Ideas para tu próxima visita</h2>
+                </div>
+                <button onClick={() => irA('catalogo')} className="text-[9px] font-bold text-[#18899a] hover:underline">Ver catálogo</button>
+              </div>
+              {serviciosRapidos.length ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {serviciosRapidos.map((servicio) => {
+                    const imagen = imagenCatalogoServicio(servicio.nombre) ?? servicio.imagen_url;
+                    return (
+                      <article key={servicio.id_servicio} className="flex min-w-0 items-center gap-2 rounded-lg border border-[#edf0ec] p-2">
+                        {imagen ? (
+                          <img src={imagen} alt="" loading="lazy" className="h-11 w-11 shrink-0 rounded-md object-cover" />
+                        ) : (
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#e9f4f3] text-[#18899a]">
+                            <Scissors className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h3 className="line-clamp-1 text-[10px] font-black text-[#172124]">{servicio.nombre}</h3>
+                          <p className="text-[9px] text-[#65716d]">{duracionLegible(servicio.duracion_minutos)} · {formatoCOP(servicio.precio)}</p>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="rounded-lg bg-[#f8faf8] p-3 text-[10px] text-[#65716d]">Los servicios destacados no están disponibles en el catálogo activo.</p>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#6a7772]">Tus visitas</p>
+                  <h2 className="font-heading text-sm font-black text-[#172124]">Historial reciente</h2>
+                </div>
+                <button onClick={() => setTab('historial')} className="text-[9px] font-bold text-[#18899a] hover:underline">Ver historial</button>
+              </div>
+              {historialReciente.length ? (
+                <div className="divide-y divide-[#edf0ec]">
+                  {historialReciente.map((cita) => (
+                    <div key={cita.id_cita} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#f2f4f0] text-sm">✂</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[10px] font-bold text-[#172124]">{cita.servicio_nombre}</p>
+                        <p className="text-[9px] text-[#65716d]">{fechaLarga(cita.fecha)} · {cita.barbero_nombre}</p>
+                      </div>
+                      <button onClick={() => abrirReserva({ servicioId: cita.id_servicio, barberoId: cita.id_barbero })} className="rounded-md border border-[#dce4e1] px-2 py-1 text-[9px] font-bold text-[#263532] hover:bg-[#f5faf9]">Repetir</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-[#65716d]">Tus citas completadas aparecerán aquí.</p>
+              )}
+            </section>
+          </div>
+
+          <aside className="space-y-3">
+            <section className="rounded-xl bg-[#172124] p-3.5 text-white shadow-sm">
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-[66px] w-[66px] shrink-0 items-center justify-center rounded-full p-[5px]"
+                  style={{ background: `conic-gradient(#55d7e5 ${saldoFidelizacion?.progreso_nivel ?? 0}%, #435052 0)` }}
+                  aria-label={saldoFidelizacion ? `${saldoFidelizacion.progreso_nivel}% de progreso al siguiente nivel` : 'Progreso de nivel pendiente de actualizar'}
+                >
+                  <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-[#172124]">
+                    <span className="font-heading text-lg font-black leading-none">{saldoActual}</span>
+                    <span className="text-[8px] text-[#becac7]">puntos</span>
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-[#55d7e5]">Club Globde · {nivelActual}</p>
+                  {saldoFidelizacion?.proximo_nivel && saldoFidelizacion.puntos_para_proximo_nivel !== null ? (
+                    <p className="mt-1 text-[10px] font-semibold text-white">{saldoFidelizacion.puntos_para_proximo_nivel} pts para nivel {saldoFidelizacion.proximo_nivel}</p>
+                  ) : saldoFidelizacion ? (
+                    <p className="mt-1 text-[10px] font-semibold text-white">Has alcanzado el nivel máximo.</p>
+                  ) : (
+                    <p className="mt-1 text-[10px] font-semibold text-white">Consulta tu saldo y nivel.</p>
+                  )}
+                  {puntosCitaProxima
+                    ? <p className="mt-1 text-[9px] text-[#becac7]">Gana {puntosCitaProxima} pts al completar tu próxima cita.</p>
+                    : <p className="mt-1 text-[9px] text-[#becac7]">Acumula puntos en tus servicios completados.</p>}
+                </div>
+              </div>
+              {errorSaldo && <p role="alert" className="mt-2 text-[9px] font-semibold text-[#ffb4a9]">{errorSaldo}</p>}
+              <button onClick={() => irA('fidelizacion')} className="mt-3 flex w-full items-center justify-between border-t border-white/10 pt-2 text-[9px] font-bold text-[#55d7e5]">
+                Ver puntos y beneficios <span aria-hidden="true">→</span>
+              </button>
+            </section>
+
+            <button onClick={() => setQuizAbierto(true)} className="w-full rounded-xl bg-[#55d7e5] p-3.5 text-left text-[#12383c] shadow-sm transition hover:bg-[#45cbd9]">
+              <span className="flex items-center gap-2 text-[8px] font-black uppercase tracking-[0.16em]"><Sparkles className="h-3.5 w-3.5" /> Asesor de estilo</span>
+              <p className="mt-1 text-xs font-black">Descubre qué corte va con tu rostro</p>
+              <span className="mt-2 inline-flex rounded-md bg-[#172124] px-2.5 py-1.5 text-[9px] font-bold text-white">Probar asesor <span className="ml-1">→</span></span>
+            </button>
+
+            <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="text-[8px] font-bold uppercase tracking-[0.16em] text-[#6a7772]">Tu barbero</p>
+                  <p className="mt-0.5 text-xs font-black text-[#172124]">{barberoTarjeta?.nombre ?? 'Elige un barbero'}</p>
+                  {barberoTarjeta && <p className="text-[9px] text-[#65716d]">{barberoTarjeta.rol_titulo}</p>}
+                </div>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#74563f] text-sm font-black text-white">
+                  {barberoTarjeta
+                    ? <BarberoFoto
+                      idBarbero={barberoTarjeta.id_barbero}
+                      nombre={barberoTarjeta.nombre}
+                      fotoUrl={barberoTarjeta.foto_url}
+                      className="h-full w-full object-cover"
+                      iconClassName="h-4 w-4"
+                    />
+                    : <Scissors className="h-4 w-4" aria-hidden="true" />}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  id="barbero-favorito"
+                  aria-label="Barbero favorito"
+                  value={usuario?.id_barbero_favorito ?? ''}
+                  onChange={(evento) => void guardarBarberoFavorito(evento.target.value)}
+                  disabled={actualizandoFavorito || !barberos.length}
+                  className="min-w-0 flex-1 rounded-md border border-[#dce4e1] bg-white px-2 py-1.5 text-[9px] text-[#263532]"
+                >
+                  <option value="">Guardar como favorito</option>
+                  {barberos.map((barbero) => (
+                    <option key={barbero.id_barbero} value={barbero.id_barbero}>{barbero.nombre}</option>
+                  ))}
+                </select>
+                <button onClick={() => abrirReserva({ barberoId: usuario?.id_barbero_favorito ?? barberoTarjeta?.id_barbero })} className="rounded-md bg-[#172124] px-2.5 py-1.5 text-[9px] font-bold text-white">Reservar</button>
+              </div>
+              {errorFavorito && <p role="alert" className="mt-1.5 text-[9px] font-semibold text-rose-700">{errorFavorito}</p>}
+            </section>
+
+            <section className="rounded-xl border border-[#e4e8e2] bg-white p-3.5 shadow-sm">
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="font-heading text-xs font-black text-[#172124]">Premios disponibles</h2>
+                <button onClick={() => irA('fidelizacion')} className="text-[9px] font-bold text-[#18899a]">Ver todos</button>
+              </div>
+              {premiosVisibles.length ? premiosVisibles.map((premio: PremioFidelidad) => (
+                <div key={premio.id_premio} className="flex items-center justify-between gap-2 border-t border-[#edf0ec] py-1.5 first:border-0">
+                  <p className="min-w-0 truncate text-[9px] font-semibold text-[#394642]">{premio.icono} {premio.titulo}</p>
+                  <span className="shrink-0 text-[9px] font-bold text-[#73817b]">{premio.costo_puntos} pts</span>
+                </div>
+              )) : <p className="text-[9px] text-[#65716d]">No hay premios publicados.</p>}
+            </section>
+          </aside>
+        </section>
+
         {/* Pestañas */}
-        <div className="flex flex-wrap gap-2">
+        {tab !== 'resumen' && <div className="flex flex-wrap gap-2">
           {[
             { id: 'proximas', t: `Próximas (${proximas.length})`, i: CalendarDays },
             { id: 'historial', t: `Historial (${historial.length})`, i: History },
+            { id: 'puntos', t: 'Movimientos de puntos', i: Sparkles },
             { id: 'espera', t: `Lista de espera (${misEsperas.length})`, i: Hourglass },
           ].map((x) => (
             <button key={x.id} onClick={() => setTab(x.id as typeof tab)}
-              className={`flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition ${
-                tab === x.id ? 'bg-amber-400 text-[#1A1400] shadow-lg' : 'border border-white/10 bg-[#141A21] text-[#93A1B1] hover:border-amber-400/40'
+              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-bold transition ${
+                tab === x.id ? 'bg-[#172124] text-white' : 'border border-[#e4e8e2] bg-white text-[#65716d] hover:border-[#55d7e5]'
               }`}>
               <x.i className="h-4 w-4" /> {x.t}
             </button>
           ))}
-        </div>
+          <button onClick={() => setTab('resumen')} className="rounded-lg px-3 py-2 text-[10px] font-bold text-[#65716d] hover:bg-white">Cerrar</button>
+        </div>}
 
         {/* PRÓXIMAS */}
         {tab === 'proximas' && (
@@ -175,7 +550,7 @@ export const PanelCliente: React.FC = () => {
               </div>
             )}
 
-            {proximas.map((c) => {
+            {proximasOrdenadas.map((c) => {
               const est = estiloEstado(c.estado);
               return (
                 <article key={c.id_cita} className="card card-hover overflow-hidden">
@@ -208,6 +583,21 @@ export const PanelCliente: React.FC = () => {
                         <p className="font-bold text-amber-300">{c.barbero_nombre}</p>
                       </div>
                     </div>
+
+                    {citaProxima?.id_cita === c.id_cita && (
+                      <div className="flex items-center gap-4 rounded-2xl border border-amber-400/20 bg-[#0F151C] p-3">
+                        <div className="shrink-0 rounded-xl bg-white p-2">
+                          <CodigoQRReserva codigo={c.codigo_reserva} />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-amber-600">
+                            <QrCode className="h-3.5 w-3.5" /> Pase digital
+                          </span>
+                          <p className="mt-1 text-sm font-black text-[#EAF0F6]">Presenta este QR al llegar</p>
+                          <p className="mt-1 break-all font-mono text-xs tracking-wider text-[#93A1B1]">{c.codigo_reserva}</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between rounded-2xl bg-[#0F151C] px-4 py-2.5">
                       <span className="text-xs font-semibold text-[#93A1B1]">Total</span>
@@ -286,6 +676,64 @@ export const PanelCliente: React.FC = () => {
           </div>
         )}
 
+        {tab === 'puntos' && (
+          <section className="card overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/8 p-4">
+              <div>
+                <h2 className="font-heading text-base font-black text-[#EAF0F6]">Historial de puntos</h2>
+                <p className="mt-1 text-xs text-[#93A1B1]">Consulta tus puntos ganados, canjeados y ajustes.</p>
+              </div>
+              <span className="rounded-xl bg-amber-400/10 px-3 py-2 text-sm font-black text-amber-300">
+                Saldo: {saldoActual} pts
+              </span>
+            </div>
+            {errorMovimientos && (
+              <div role="alert" className="m-4 flex items-center justify-between gap-3 rounded-xl bg-rose-400/10 p-3 text-xs text-rose-300">
+                {errorMovimientos}
+                <button onClick={() => setRevisionMovimientos((revision) => revision + 1)} className="font-bold underline">Reintentar</button>
+              </div>
+            )}
+            {cargandoMovimientos ? (
+              <p className="p-8 text-center text-sm text-[#93A1B1]">Cargando movimientos…</p>
+            ) : !errorMovimientos && movimientosPuntos.length === 0 ? (
+              <p className="p-8 text-center text-sm text-[#93A1B1]">Todavía no tienes movimientos de puntos.</p>
+            ) : (
+              <div className="divide-y divide-white/6">
+                {movimientosPuntos.map((movimiento) => (
+                  <article key={movimiento.id_movimiento} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-[#EAF0F6]">{movimiento.descripcion || movimiento.tipo}</p>
+                      <p className="mt-1 text-[11px] text-[#6B7A8C]">
+                        {movimiento.creado_en ? new Date(movimiento.creado_en).toLocaleString('es-CO') : 'Fecha no disponible'}
+                        {' · '}{movimiento.tipo}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-heading text-base font-black ${movimiento.puntos >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                        {movimiento.puntos > 0 ? '+' : ''}{movimiento.puntos} pts
+                      </p>
+                      {movimiento.saldo_resultante !== null && (
+                        <p className="text-[10px] text-[#6B7A8C]">Saldo: {movimiento.saldo_resultante}</p>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center justify-between border-t border-white/8 px-4 py-3 text-xs text-[#93A1B1]">
+              <span>{totalMovimientosPuntos} movimiento(s) · Página {paginaMovimientos} de {Math.max(1, Math.ceil(totalMovimientosPuntos / porPaginaMovimientos))}</span>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setPaginaMovimientos((pagina) => Math.max(1, pagina - 1))}
+                  disabled={paginaMovimientos <= 1 || cargandoMovimientos}
+                  className="rounded-lg border border-white/12 px-3 py-1.5 font-bold disabled:opacity-40">Anterior</button>
+                <button type="button" onClick={() => setPaginaMovimientos((pagina) => pagina + 1)}
+                  disabled={paginaMovimientos >= Math.ceil(totalMovimientosPuntos / porPaginaMovimientos) || cargandoMovimientos}
+                  className="rounded-lg border border-white/12 px-3 py-1.5 font-bold disabled:opacity-40">Siguiente</button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* LISTA DE ESPERA */}
         {tab === 'espera' && (
           <div className="space-y-4">
@@ -298,10 +746,47 @@ export const PanelCliente: React.FC = () => {
                 <div key={e.id_espera} className="card p-5">
                   <div className="flex items-center justify-between">
                     <h4 className="font-heading font-black text-[#EAF0F6]">{e.servicio_nombre}</h4>
-                    <span className="rounded-full bg-neutral-500/15 px-3 py-1 text-[11px] font-black text-neutral-800">En espera</span>
+                    <span className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                      e.estado === 'ofrecida' ? 'bg-emerald-400/15 text-emerald-300'
+                      : ['convertida', 'cancelada', 'vencida'].includes(e.estado) ? 'bg-neutral-500/15 text-[#93A1B1]'
+                      : 'bg-amber-400/15 text-amber-300'
+                    }`}>
+                      {e.estado === 'en_espera' ? 'En espera'
+                        : e.estado === 'ofrecida' ? 'Turno disponible'
+                        : e.estado === 'reservando' ? 'Confirmando turno'
+                        : e.estado === 'convertida' ? 'Cita confirmada'
+                        : e.estado === 'vencida' ? 'Oferta vencida'
+                        : 'Cancelada'}
+                    </span>
                   </div>
                   <p className="mt-1 text-xs text-[#93A1B1]">{fechaLarga(e.fecha_deseada)} · franja {e.franja_horaria}</p>
                   {e.barbero_nombre && <p className="text-xs font-semibold text-amber-300">Con {e.barbero_nombre}</p>}
+                  {e.estado === 'ofrecida' && e.oferta_hora_inicio && e.oferta_hora_fin && (
+                    <div className="mt-3 rounded-xl border border-emerald-400/20 bg-emerald-400/8 p-3">
+                      <p className="text-xs font-bold text-emerald-200">
+                        Turno ofrecido: {rangoHorario(e.oferta_hora_inicio, e.oferta_hora_fin)}
+                      </p>
+                      {e.oferta_expira && (
+                        <p className="mt-1 text-[10px] text-[#93A1B1]">
+                          Disponible hasta {new Date(e.oferta_expira).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      )}
+                      <button type="button" onClick={async () => {
+                        const resultado = await aceptarOfertaEspera(e.id_espera);
+                        mostrarAviso(resultado.mensaje);
+                      }} className="mt-2 rounded-lg bg-emerald-400 px-3 py-2 text-[11px] font-black text-[#052019]">
+                        Aceptar y confirmar cita
+                      </button>
+                    </div>
+                  )}
+                  {['en_espera', 'ofrecida'].includes(e.estado) && (
+                    <button type="button" onClick={async () => {
+                      const resultado = await cancelarSolicitudEspera(e.id_espera);
+                      mostrarAviso(resultado.mensaje);
+                    }} className="mt-3 rounded-lg border border-rose-400/30 px-3 py-1.5 text-[10px] font-bold text-rose-300">
+                      Cancelar solicitud
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -334,9 +819,15 @@ export const PanelCliente: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex items-start gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 text-[11px] font-semibold text-amber-800">
+              <div className={`flex items-start gap-2 rounded-2xl border p-3 text-[11px] font-semibold ${
+                horasParaCita !== null && horasParaCita < 2
+                  ? 'border-rose-400/30 bg-rose-400/10 text-rose-300'
+                  : 'border-amber-400/30 bg-amber-400/10 text-amber-800'
+              }`}>
                 <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                Cancelando con más de 2 horas de anticipación no se aplica ninguna penalidad y tus puntos se conservan.
+                {horasParaCita !== null && horasParaCita < 2
+                  ? 'Faltan menos de 2 horas para tu cita. Esta cancelación puede generar una penalidad según las condiciones del servicio.'
+                  : 'Al cancelar con 2 o más horas de anticipación no se aplica penalidad y tus puntos se conservan.'}
               </div>
 
               <div className="flex gap-2">
@@ -370,7 +861,7 @@ export const PanelCliente: React.FC = () => {
                 {Array.from({ length: 8 }, (_, i) => sumarDiasISO(i)).map((d) => {
                   const inf = desglosarFecha(d);
                   return (
-                    <button key={d} onClick={() => { setNFecha(d); setNHora(''); }}
+                    <button key={d} onClick={() => { setNFecha(d); setNHora(''); setErrorSlotsReprogramacion(''); }}
                       className={`min-w-[68px] rounded-2xl border px-3 py-2 text-center transition ${
                         nFecha === d ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-white/10 bg-[#141A21] text-[#93A1B1]'
                       }`}>
@@ -381,6 +872,14 @@ export const PanelCliente: React.FC = () => {
                 })}
               </div>
 
+              {errorSlotsReprogramacion && (
+                <p role="alert" className="rounded-xl bg-rose-400/10 p-3 text-xs font-semibold text-rose-300">
+                  {errorSlotsReprogramacion}
+                </p>
+              )}
+              {cargandoSlotsReprogramacion && (
+                <p role="status" className="text-center text-xs text-[#93A1B1]">Consultando disponibilidad…</p>
+              )}
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {franjasRep.map((f) => (
                   <button key={f.ini} disabled={!f.libre} onClick={() => setNHora(f.ini)}
@@ -394,9 +893,18 @@ export const PanelCliente: React.FC = () => {
                   </button>
                 ))}
               </div>
+              {!cargandoSlotsReprogramacion && !errorSlotsReprogramacion && franjasRep.length === 0 && (
+                <p className="rounded-xl bg-[#0F151C] p-3 text-center text-xs text-[#93A1B1]">
+                  No hay horarios disponibles para esta fecha.
+                </p>
+              )}
 
-              <button onClick={guardarReprogramacion} className="btn-primario w-full rounded-2xl py-3 text-sm font-black">
-                Guardar nuevo horario
+              <button
+                onClick={guardarReprogramacion}
+                disabled={guardandoReprogramacion || !nHora}
+                className="btn-primario w-full rounded-2xl py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {guardandoReprogramacion ? 'Guardando…' : 'Guardar nuevo horario'}
               </button>
             </div>
           </div>

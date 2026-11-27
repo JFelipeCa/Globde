@@ -1,12 +1,12 @@
 name: CI
 
 # Ejecuta las pruebas del backend con una base de datos MySQL real.
-# Sin base de datos, 91 de las 132 pruebas se saltan y la cobertura
-# reportada cae a 7%, un numero que no refleja el estado del proyecto.
+# Las pruebas de integración requieren MySQL; el job provisiona un servicio
+# efímero para que ninguna prueba se omita por falta de base de datos.
 
 on:
   push:
-    branches: [main, develop, "feature/**"]
+    branches: [main, develop, "feature/**", "docs/**"]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
@@ -106,8 +106,8 @@ jobs:
 
       - name: Verificar esquema y datos semilla
         run: |
-          # Sin las semillas, los tests de integracion se saltan en silencio
-          # y la cobertura vuelve a caer a 7%.
+          # Comprueba que las migraciones crearon el esquema esperado y
+          # cargaron los registros de prueba usados por integración.
           tablas=$(mysql -h 127.0.0.1 -P 3306 -uroot -p"$DB_PASSWORD" -N -B -e \
             "SELECT COUNT(*) FROM information_schema.tables
              WHERE table_schema='$DB_NAME' AND table_name <> 'alembic_version';")
@@ -136,7 +136,7 @@ jobs:
 
       - name: Fallar si alguna prueba se salto
         # Una prueba saltada casi siempre significa que la base de datos no
-        # estaba lista. Sin este control el CI pasaria en verde con 41 de 132.
+        # estaba lista; el job no debe ocultar pruebas que no se ejecutaron.
         if: always() && hashFiles('backend/resultados-pytest.xml') != ''
         working-directory: backend
         run: |

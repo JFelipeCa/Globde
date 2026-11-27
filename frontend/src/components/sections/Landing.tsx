@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
   CalendarDays, Sparkles, Scissors, ArrowRight, Star, Crown, Clock,
-  ShieldCheck, Timer, Check, QrCode, Bell, Award, Eye, X, MapPin, Gift, Zap,
+  ShieldCheck, Timer, Check, QrCode, Bell, Award, Eye, X, MapPin, Gift, Zap, UserRound,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { formatoCOP, duracionLegible, hora12 } from '../../utils/helpers';
 import type { CatalogoCorte, PremioFidelidad } from '../../types';
+import { BarberoFoto } from '../ui/BarberoFoto';
 
 /* ---------------------------------------------------------------
    HERO
@@ -14,93 +15,63 @@ export const Hero: React.FC = () => {
   const { abrirReserva, irA, setQuizAbierto } = useApp();
 
   return (
-    <section className="relative overflow-hidden malla-suave">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:py-20 lg:px-8">
+    <section className="relative isolate overflow-hidden malla-suave">
+      <img
+        src={new URL('../../assets/hero-barber.jpg', import.meta.url).href}
+        alt=""
+        aria-hidden="true"
+        className="hero-imagen-fade absolute inset-y-0 right-0 h-full w-[62%] object-cover object-[center_40%]"
+        fetchPriority="high"
+      />
+
+      <div className="relative z-10 mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-12 lg:py-20 lg:px-8">
         <div className="anim-aparecer space-y-6 lg:col-span-6">
           <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-1.5 text-xs font-bold text-amber-700 backdrop-blur">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
             </span>
-            Agenda disponible hoy · respuesta inmediata
+            Agenda en línea · horarios según disponibilidad
           </span>
 
           <h1 className="font-heading text-4xl font-black leading-[1.05] text-[#EAF0F6] sm:text-5xl lg:text-6xl">
             Tu mejor versión empieza con un
-            <span className="text-aqua"> corte perfecto</span> y
-            <span className="text-oro"> cero espera</span>.
+            <span className="text-aqua"> corte perfecto</span> y una
+            <span className="text-oro"> cita a tu medida</span>.
           </h1>
 
           <p className="max-w-xl text-base leading-relaxed text-[#93A1B1]">
-            Reserva por rangos horarios exactos, elige a tu barbero favorito, recibe tu pase digital con QR
-            y acumula puntos canjeables en cada visita. Todo en menos de un minuto.
+            Reserva según la duración de tu servicio, elige a tu barbero, recibe un pase digital con QR
+            y acumula puntos por tus citas completadas.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button onClick={() => abrirReserva()} className="btn-primario group flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-black">
-              <CalendarDays className="h-5 w-5" /> Reservar mi cita
+            <button onClick={() => abrirReserva()} className="btn-primario group inline-flex h-12 items-center gap-2 rounded-xl px-5 text-sm font-bold">
+              <CalendarDays className="h-4 w-4" /> Reservar cita
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </button>
-            <button onClick={() => irA('catalogo')} className="flex items-center gap-2 rounded-2xl border border-white/12 bg-[#141A21] px-6 py-4 text-sm font-bold text-[#C6D0DC] transition hover:-translate-y-0.5 hover:border-amber-400/50">
-              <Scissors className="h-4 w-4 text-amber-600" /> Ver catálogo de cortes
+            <button onClick={() => irA('catalogo')} className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/12 bg-[#141A21] px-5 text-sm font-bold text-[#C6D0DC] transition hover:-translate-y-0.5 hover:border-amber-400/50">
+              <Scissors className="h-4 w-4 text-amber-600" /> Catálogo de servicios
             </button>
-            <button onClick={() => setQuizAbierto(true)} className="flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-4 text-sm font-bold text-amber-700 transition hover:-translate-y-0.5 hover:bg-amber-400/20">
+            <button onClick={() => setQuizAbierto(true)} className="inline-flex h-12 items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-5 text-sm font-bold text-amber-700 transition hover:-translate-y-0.5 hover:bg-amber-400/20">
               <Sparkles className="h-4 w-4" /> Asesor de estilo
             </button>
           </div>
 
           <div className="grid grid-cols-3 gap-3 border-t border-white/8 pt-6">
             {[
-              { i: Clock, t: '0 min', s: 'de espera en sala', c: 'text-[#EAF0F6] bg-white/8' },
-              { i: Crown, t: '+1.400', s: 'clientes con puntos', c: 'text-amber-700 bg-amber-400/12' },
-              { i: Star, t: '4.9/5', s: 'calificación media', c: 'text-[#EAF0F6] bg-white/8' },
+              { i: QrCode, t: 'Pase QR', s: 'para tu reserva' },
+              { i: Crown, t: 'Puntos', s: 'por tus citas completadas' },
+              { i: Clock, t: 'Horario', s: 'según cada servicio' },
             ].map((x) => (
               <div key={x.t} className="flex items-center gap-2.5">
-                <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${x.c}`}><x.i className="h-5 w-5" /></span>
+                <span className="icono-acento flex h-10 w-10 items-center justify-center rounded-2xl"><x.i className="h-5 w-5" /></span>
                 <span>
                   <span className="font-heading block text-lg font-black leading-none text-[#EAF0F6]">{x.t}</span>
-                  <span className="text-[11px] text-[#6B7A8C]">{x.s}</span>
+                  <span className="text-xs text-[#6B7A8C]">{x.s}</span>
                 </span>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Imagen */}
-        <div className="anim-aparecer retraso-2 relative lg:col-span-6">
-          <div className="absolute -left-6 -top-6 h-40 w-40 rounded-full bg-white/10 blur-3xl anim-latido" />
-          <div className="absolute -bottom-8 -right-4 h-52 w-52 rounded-full bg-amber-400/20 blur-3xl anim-latido" />
-
-          <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#141A21] p-2 shadow-[0_40px_90px_-40px_rgba(0,0,0,1)]">
-            <img
-              src="https://images.pexels.com/photos/34702982/pexels-photo-34702982.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=760&w=680&fm=webp"
-              alt="Barbero atendiendo a un cliente en Globde"
-              className="h-[440px] w-full rounded-[1.6rem] object-cover"
-            />
-
-            <div className="anim-flotar absolute left-6 top-6 flex items-center gap-2.5 rounded-2xl border border-white/10 bg-[#0B0F14]/90 p-2.5 pr-4 shadow-xl backdrop-blur">
-              <img src="https://images.pexels.com/photos/12304510/pexels-photo-12304510.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=120&w=120&fm=webp" alt="Carlos" className="h-10 w-10 rounded-xl object-cover" />
-              <div>
-                <p className="text-xs font-black text-[#EAF0F6]">Carlos Méndez</p>
-                <p className="flex items-center gap-1 text-[10px] font-bold text-emerald-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Libre a las 11:00 a.m.
-                </p>
-              </div>
-            </div>
-
-            <div className="absolute bottom-6 right-6 w-48 rounded-2xl border border-white/10 bg-[#0B0F14]/90 p-3.5 shadow-xl backdrop-blur">
-              <div className="flex items-center gap-2">
-                <span className="puntos-icono flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400/15"><Crown className="puntos-corona h-4 w-4" /></span>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-300">Club Globde</p>
-                  <p className="text-xs font-black text-[#EAF0F6]">+25 pts por cita</p>
-                </div>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8">
-                <div className="puntos-progreso h-full w-3/4 rounded-full bg-gradient-to-r from-amber-300 to-amber-500" />
-              </div>
-              <p className="mt-1 text-[10px] text-[#6B7A8C]">185/250 pts para nivel Oro</p>
-            </div>
           </div>
         </div>
       </div>
@@ -114,12 +85,12 @@ export const Hero: React.FC = () => {
 export const Beneficios: React.FC = () => {
   const { abrirReserva, setEsperaAbierta } = useApp();
   const items = [
-    { i: CalendarDays, t: 'Reserva por rangos horarios', d: 'Ves la hora exacta de inicio y fin de tu cita según la duración real del servicio.', c: 'bg-amber-400/12 text-amber-700' },
-    { i: QrCode, t: 'Pase digital con QR', d: 'Recibes un comprobante con código único para validar tu turno al llegar.', c: 'bg-neutral-900/8 text-neutral-900' },
-    { i: Bell, t: 'Lista de espera inteligente', d: 'Si se libera un turno antes, te avisamos de inmediato por WhatsApp.', c: 'bg-neutral-900/8 text-neutral-900' },
-    { i: Crown, t: 'Puntos que se canjean', d: 'Acumula en cada visita y cámbialos por servicios, productos o descuentos.', c: 'bg-amber-400/12 text-amber-700' },
-    { i: Award, t: 'Ranking de barberos', d: 'Nivel Master, Oro y Plata según desempeño, puntualidad y calificaciones.', c: 'bg-neutral-900/8 text-neutral-900' },
-    { i: ShieldCheck, t: 'Seguridad y bioseguridad', d: 'Contraseñas cifradas, navaja de un solo uso y esterilización UV certificada.', c: 'bg-neutral-900/8 text-neutral-900' },
+    { i: CalendarDays, t: 'Reserva por rangos horarios', d: 'Ves la hora exacta de inicio y fin de tu cita según la duración real del servicio.' },
+    { i: QrCode, t: 'Pase digital con QR', d: 'Recibes un comprobante con código único para validar tu turno al llegar.' },
+    { i: Bell, t: 'Lista de espera inteligente', d: 'Te avisamos cuando se libera un turno compatible con tu solicitud.' },
+    { i: Crown, t: 'Puntos que se canjean', d: 'Acumula en cada visita y cámbialos por servicios, productos o descuentos.' },
+    { i: Award, t: 'Barberos mejor valorados', d: 'Consulta sus calificaciones y experiencia antes de elegir con quién reservar.' },
+    { i: ShieldCheck, t: 'Cuenta protegida', d: 'Protegemos las contraseñas y limitamos el acceso a la información según el rol.' },
   ];
 
   return (
@@ -140,7 +111,7 @@ export const Beneficios: React.FC = () => {
         <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {items.map((x, i) => (
             <div key={x.t} className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} p-6`}>
-              <span className={`beneficio-icono flex h-12 w-12 items-center justify-center rounded-2xl ${x.c}`}><x.i className="h-6 w-6" /></span>
+              <span className="icono-acento flex h-12 w-12 items-center justify-center rounded-2xl"><x.i className="h-6 w-6" /></span>
               <h3 className="font-heading mt-4 text-lg font-black text-[#EAF0F6]">{x.t}</h3>
               <p className="mt-1.5 text-sm leading-relaxed text-[#93A1B1]">{x.d}</p>
             </div>
@@ -167,89 +138,6 @@ export const Beneficios: React.FC = () => {
 };
 
 /* ---------------------------------------------------------------
-   SERVICIOS
---------------------------------------------------------------- */
-export const Servicios: React.FC = () => {
-  const { servicios, abrirReserva } = useApp();
-  const [cat, setCat] = useState('Todos');
-  const cats = ['Todos', 'Cortes', 'Barba', 'Combos', 'Tratamientos', 'Infantil'];
-  const lista = servicios.filter((s) => cat === 'Todos' || s.categoria === cat);
-
-  return (
-    <section className="bg-[#0B0F14] py-16 lg:py-24 patron-puntos">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col items-start justify-between gap-5 md:flex-row md:items-end">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#141A21] px-4 py-1.5 text-xs font-bold text-amber-700 ring-1 ring-white/8">
-              <Scissors className="h-3.5 w-3.5" /> Carta de servicios
-            </span>
-            <h2 className="font-heading mt-3 text-3xl font-black text-[#EAF0F6] sm:text-4xl">
-              Servicios con <span className="text-aqua">tiempo y precio claros</span>
-            </h2>
-            <p className="mt-2 max-w-xl text-sm text-[#93A1B1]">
-              Cada servicio muestra su duración exacta para que sepas cuánto dura tu cita antes de reservar.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5 rounded-2xl bg-[#141A21] p-1.5 ring-1 ring-white/8">
-            {cats.map((c) => (
-              <button key={c} onClick={() => setCat(c)}
-                className={`rounded-xl px-3.5 py-1.5 text-xs font-bold transition ${
-                  cat === c ? 'bg-amber-400 text-[#1A1400] shadow' : 'text-[#93A1B1] hover:bg-white/5'
-                }`}>
-                {c}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {lista.map((s, i) => (
-            <article key={s.id_servicio} className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} group overflow-hidden`}>
-              <div className="relative h-40 overflow-hidden">
-                <img src={s.imagen_url} alt={s.nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#141A21] via-[#141A21]/30 to-transparent" />
-                <span className="absolute left-3 top-3 rounded-full border border-white/10 bg-[#0B0F14]/85 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-300 backdrop-blur">
-                  {s.categoria}
-                </span>
-                {s.popular && (
-                  <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-[#2B1E04]">
-                    ⭐ Más pedido
-                  </span>
-                )}
-                <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full border border-white/10 bg-[#0B0F14]/85 px-2.5 py-1 text-[11px] font-black text-[#EAF0F6] backdrop-blur">
-                  <Timer className="h-3.5 w-3.5 text-amber-300" /> {duracionLegible(s.duracion_minutos)}
-                </span>
-              </div>
-
-              <div className="p-5">
-                <h3 className="font-heading text-lg font-black leading-tight text-[#EAF0F6]">{s.icono} {s.nombre}</h3>
-                <p className="mt-2 text-xs leading-relaxed text-[#93A1B1] line-clamp-3">{s.descripcion}</p>
-
-                <div className="mt-4 flex items-end justify-between border-t border-white/8 pt-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-[#6B7A8C]">Valor</span>
-                    <p className="font-heading text-xl font-black text-[#EAF0F6]">{formatoCOP(s.precio)}</p>
-                  </div>
-                  <span className="flex items-center gap-1 rounded-full bg-amber-400/12 px-2.5 py-1 text-[11px] font-black text-amber-300">
-                    <Sparkles className="h-3 w-3" /> +{s.puntos_otorga} pts
-                  </span>
-                </div>
-
-                <button onClick={() => abrirReserva({ servicioId: s.id_servicio })}
-                  className="btn-primario mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-bold">
-                  Agendar <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
-
-/* ---------------------------------------------------------------
    BARBEROS
 --------------------------------------------------------------- */
 export const Barberos: React.FC = () => {
@@ -267,11 +155,17 @@ export const Barberos: React.FC = () => {
           </h2>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {barberos.map((b, i) => (
-            <article key={b.id_barbero} className={`card card-hover anim-aparecer retraso-${i + 1} overflow-hidden`}>
-              <div className="relative h-64 overflow-hidden">
-                <img src={b.foto_url} alt={b.nombre} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+            <article key={b.id_barbero} className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} overflow-hidden`}>
+              <div className="relative flex h-64 items-center justify-center overflow-hidden bg-[#1B2024] text-[#D4AF37]">
+                <BarberoFoto
+                  idBarbero={b.id_barbero}
+                  nombre={b.nombre}
+                  fotoUrl={b.foto_url}
+                  className="h-full w-full object-cover transition-transform duration-700 hover:scale-105"
+                  iconClassName="h-14 w-14"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#141A21] via-transparent to-transparent" />
                 <span className="absolute right-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-black text-white shadow" style={{ backgroundColor: b.color }}>
                   Nivel {b.nivel}
@@ -285,7 +179,8 @@ export const Barberos: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <h3 className="font-heading text-xl font-black text-[#EAF0F6]">{b.nombre}</h3>
                   <span className="flex items-center gap-1 rounded-lg bg-amber-400/12 px-2 py-1 text-xs font-black text-amber-300">
-                    <Star className="h-3.5 w-3.5 fill-amber-300" /> {b.rating}
+                    <Star className="h-3.5 w-3.5 fill-amber-300" />
+                    {b.total_resenas > 0 ? b.rating.toFixed(1) : 'Sin calificaciones aún'}
                   </span>
                 </div>
                 <p className="text-xs font-bold text-[#6B7A8C]">{b.rol_titulo}</p>
@@ -332,13 +227,13 @@ export const Catalogo: React.FC = () => {
         <div className="flex flex-col items-start justify-between gap-5 md:flex-row md:items-end">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-[#141A21] px-4 py-1.5 text-xs font-bold text-amber-700 ring-1 ring-white/8">
-              <Scissors className="h-3.5 w-3.5" /> Lookbook 2026
+              <Scissors className="h-3.5 w-3.5" /> Catálogo de servicios
             </span>
             <h2 className="font-heading mt-3 text-3xl font-black text-[#EAF0F6] sm:text-4xl">
               Encuentra tu <span className="text-aqua">estilo ideal</span>
             </h2>
             <p className="mt-2 max-w-xl text-sm text-[#93A1B1]">
-              Explora resultados reales, mira la duración estimada y agenda con un clic.
+              Explora los servicios disponibles, consulta su duración y precio y reserva con un clic.
             </p>
           </div>
           <button onClick={() => setQuizAbierto(true)} className="flex items-center gap-2 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-5 py-2.5 text-sm font-bold text-amber-700 transition hover:bg-amber-400/20">
@@ -356,11 +251,22 @@ export const Catalogo: React.FC = () => {
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {!lista.length && (
+            <p className="col-span-full rounded-2xl border border-white/10 bg-[#141A21] p-6 text-center text-sm text-[#C6D0DC]">
+              No hay servicios activos en esta categoría por ahora.
+            </p>
+          )}
           {lista.map((c, i) => (
             <button key={c.id_corte} onClick={() => setDetalle(c)}
               className={`card card-hover anim-aparecer retraso-${(i % 6) + 1} group overflow-hidden text-left`}>
               <div className="relative h-60 overflow-hidden">
-                <img src={c.imagen_url} alt={c.nombre} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                {c.imagen_url ? (
+                  <img src={c.imagen_url} alt={c.nombre} loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                ) : (
+                  <span className="flex h-full items-center justify-center bg-[#1B2024] text-amber-400">
+                    <Scissors className="h-12 w-12" aria-hidden="true" />
+                  </span>
+                )}
                 <div className="absolute inset-0 flex items-center justify-center bg-[#0B0F14]/0 opacity-0 transition group-hover:bg-[#0B0F14]/60 group-hover:opacity-100">
                   <span className="flex items-center gap-1.5 rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-[#1A1400]">
                     <Eye className="h-4 w-4" /> Ver detalle
@@ -388,11 +294,17 @@ export const Catalogo: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
           <div className="anim-zoom card w-full max-w-lg overflow-hidden">
             <div className="relative h-64">
-              <img src={detalle.imagen_url} alt={detalle.nombre} className="h-full w-full object-cover" />
+              {detalle.imagen_url ? (
+                <img src={detalle.imagen_url} alt={detalle.nombre} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full items-center justify-center bg-[#1B2024] text-amber-400">
+                  <Scissors className="h-14 w-14" aria-hidden="true" />
+                </div>
+              )}
               <button onClick={() => setDetalle(null)} className="absolute right-4 top-4 rounded-full border border-white/10 bg-[#0B0F14]/85 p-2 text-[#EAF0F6] backdrop-blur"><X className="h-4 w-4" /></button>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#141A21] to-transparent p-4">
                 <span className="rounded-full bg-amber-400 px-2.5 py-1 text-[10px] font-black text-[#1A1400]">{detalle.categoria}</span>
-                <h3 className="font-heading mt-1 text-2xl font-black text-[#EAF0F6]">{detalle.nombre}</h3>
+                <h3 className="font-heading mt-1 text-2xl font-black text-white">{detalle.nombre}</h3>
               </div>
             </div>
             <div className="space-y-4 p-6">
@@ -415,9 +327,15 @@ export const Catalogo: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase text-[#6B7A8C]">Desde</span>
                   <p className="font-heading text-2xl font-black text-[#EAF0F6]">{formatoCOP(detalle.precio_sugerido)}</p>
                 </div>
-                <button onClick={() => { setDetalle(null); abrirReserva({ servicioId: 1 }); }} className="btn-primario flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black">
-                  Quiero este corte <ArrowRight className="h-4 w-4" />
-                </button>
+                {detalle.id_servicio ? (
+                  <button onClick={() => { setDetalle(null); abrirReserva({ servicioId: detalle.id_servicio ?? undefined }); }} className="btn-primario flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black">
+                    Quiero este corte <ArrowRight className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <span className="rounded-2xl border border-white/10 bg-[#0F151C] px-4 py-3 text-xs font-bold text-[#93A1B1]">
+                    Aún no disponible para agendar
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -482,10 +400,10 @@ export const Fidelizacion: React.FC = () => {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {niveles.map((n) => (
-                  <div key={n.n} className={`rounded-2xl border p-3 text-left ${nivel === n.n ? 'border-amber-400/50 bg-amber-400/8' : 'border-white/8 bg-[#141A21]/70'}`}>
-                    <p className="flex items-center justify-between text-xs font-black text-[#EAF0F6]">{n.n}<span className="text-[10px] font-bold text-amber-300">{n.p}</span></p>
+                  <div key={n.n} className={`rounded-2xl border p-3 text-left ${nivel === n.n ? 'club-nivel-activo border-neutral-900 bg-amber-400/8' : 'border-white/8 bg-[#141A21]/70'}`}>
+                    <p className={`flex items-center justify-between text-xs font-black ${nivel === n.n ? 'text-[#06232A]' : 'text-[#EAF0F6]'}`}>{n.n}<span className={`text-[10px] font-bold ${nivel === n.n ? 'text-[#164E63]' : 'text-amber-300'}`}>{n.p}</span></p>
                     <ul className="mt-1 space-y-0.5">
-                      {n.b.map((x) => <li key={x} className="flex items-start gap-1 text-[10px] text-[#93A1B1]"><Check className="mt-0.5 h-2.5 w-2.5 text-emerald-300" />{x}</li>)}
+                      {n.b.map((x) => <li key={x} className={`flex items-start gap-1 text-[10px] ${nivel === n.n ? 'text-[#164E63]' : 'text-[#93A1B1]'}`}><Check className="mt-0.5 h-2.5 w-2.5 text-emerald-800" />{x}</li>)}
                     </ul>
                   </div>
                 ))}
@@ -565,9 +483,10 @@ export const Resenas: React.FC = () => {
                 <blockquote className="mt-3 text-sm italic leading-relaxed text-[#C6D0DC]">“{t.texto}”</blockquote>
               </div>
               <figcaption className="mt-5 flex items-center gap-3 border-t border-white/8 pt-4">
-        {t.avatar_url
-         ? <img src={t.avatar_url} alt={t.nombre} className="h-10 w-10 rounded-full object-cover" />
-          : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-amber-500 text-sm font-black text-[#1A1400]">{(t.nombre.trim()[0] ?? '?').toUpperCase()}</span>}                <div className="min-w-0">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1B2024] text-amber-400">
+                  <UserRound className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
                   <p className="truncate text-xs font-black text-[#EAF0F6]">{t.nombre}</p>
                   <p className="truncate text-[11px] text-[#6B7A8C]">{t.rol}</p>
                   <p className="truncate text-[11px] font-semibold text-amber-700">{t.corte}</p>

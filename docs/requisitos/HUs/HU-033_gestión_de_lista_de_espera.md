@@ -16,18 +16,13 @@
 | **Título** | Gestión de lista de espera |
 | **Módulo** | Citas |
 | **Prioridad** | Baja |
-| **Estado** | Pendiente |
-| **RF Asociados** | RF-016 |
+| **Estado** | Implementada en código |
+| **RF Asociados** | RF-007 |
 
-> [!CAUTION]
-> **Estado real (verificado contra el código, agosto 2026): no implementada.**
-> No existe tabla de lista de espera en la migración
-> `dd2ee59368e5_esquema_inicial.py` (las 20 tablas del esquema no incluyen
-> ninguna), ni router, ni servicio. En el frontend solo hay menciones en datos
-> de maqueta.
-> Falta: migración con la tabla `lista_espera`, router y servicio con alta,
-> baja y consulta, y el disparador que avise al cliente cuando se libere un
-> cupo (se apoyaría en el módulo de notificaciones ya existente).
+La funcionalidad tiene persistencia en `lista_espera`, endpoints en
+`/api/lista-espera`, vistas de cliente/administrador y procesamiento periódico
+de ofertas compatibles. Los invitados solicitan un código y confirman su
+solicitud tras verificar el correo.
 
 ---
 

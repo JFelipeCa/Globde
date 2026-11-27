@@ -4,13 +4,24 @@ import {
   MapPin, QrCode, Timer, UserRound, Ban,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { ROL_BARBERO, ROL_CLIENTE } from '../../types';
 import { formatoCOP, fechaLarga, rangoHorario, duracionLegible } from '../../utils/helpers';
+import { CodigoQRReserva } from './CodigoQRReserva';
 
 export const TicketModal: React.FC = () => {
-  const { citaTicket, esConfirmacionNueva, cerrarTicket, cancelarCita, usuario } = useApp();
+  const { citaTicket, esConfirmacionNueva, cerrarTicket, cancelarCita, usuario, catalogoCortes } = useApp();
   const [modoPase, setModoPase] = React.useState(false);
+  const [vistaDigital, setVistaDigital] = React.useState<'pase' | 'corte'>('pase');
 
-  React.useEffect(() => { setModoPase(false); }, [citaTicket]);
+  React.useEffect(() => { setModoPase(false); setVistaDigital('pase'); }, [citaTicket]);
+  React.useEffect(() => {
+    if (!citaTicket) return;
+    const cerrarConEscape = (evento: KeyboardEvent) => {
+      if (evento.key === 'Escape') cerrarTicket();
+    };
+    window.addEventListener('keydown', cerrarConEscape);
+    return () => window.removeEventListener('keydown', cerrarConEscape);
+  }, [citaTicket, cerrarTicket]);
 
   if (!citaTicket) return null;
   const c = citaTicket;
@@ -24,6 +35,15 @@ export const TicketModal: React.FC = () => {
     const fin = dia + 'T' + c.hora_fin.replace(':', '') + '00';
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${t}&dates=${ini}/${fin}&details=${d}&location=${loc}`;
   };
+
+  const corteRelacionado = catalogoCortes.find((corte) => corte.id_servicio === c.id_servicio)
+    ?? catalogoCortes.find((corte) => {
+    const nombreServicio = c.servicio_nombre.trim().toLowerCase();
+    const nombreCorte = corte.nombre.trim().toLowerCase();
+    return nombreServicio === nombreCorte || nombreServicio.includes(nombreCorte) || nombreCorte.includes(nombreServicio);
+  });
+  const mostrarDetallesCorte = usuario?.id_rol === ROL_BARBERO || usuario?.id_rol === ROL_CLIENTE;
+  const imagenCorte = corteRelacionado?.imagen_url || catalogoCortes[0]?.imagen_url || '';
 
   const compartir = () => {
     const txt = encodeURIComponent(
@@ -54,8 +74,8 @@ export const TicketModal: React.FC = () => {
               ¡Tu cita quedó <span className="text-oro">confirmada!</span>
             </h2>
             <p className="mx-auto mt-3 max-w-lg text-base text-[#93A1B1] sm:text-lg">
-              Te esperamos, <strong className="text-[#EAF0F6]">{c.cliente_nombre.split(' ')[0]}</strong>. Enviamos el
-              comprobante a tu correo y te recordaremos por WhatsApp una hora antes.
+              Te esperamos, <strong className="text-[#EAF0F6]">{c.cliente_nombre.split(' ')[0]}</strong>.
+              Guarda tu pase digital para presentar el código al llegar.
             </p>
 
             {/* Datos grandes */}
@@ -89,7 +109,7 @@ export const TicketModal: React.FC = () => {
 
             {usuario && (
               <p className="mt-3 text-sm font-semibold text-amber-700">
-                🎉 Sumaste puntos Globde · Saldo actual: {usuario.puntos} pts
+                Los puntos de esta cita se acreditan cuando el servicio quede completado. Tu saldo actual es {usuario.puntos} pts.
               </p>
             )}
 
@@ -113,11 +133,22 @@ export const TicketModal: React.FC = () => {
 
   /* ---------- Vista 2: PASE DIGITAL ---------- */
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm">
-      <div className="anim-zoom card w-full max-w-md overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+      onMouseDown={(evento) => {
+        if (evento.target === evento.currentTarget) cerrarTicket();
+      }}
+    >
+      <div className={`anim-zoom card max-h-[calc(100dvh-2rem)] w-full overflow-y-auto ${mostrarDetallesCorte && vistaDigital === 'corte' ? 'max-w-lg' : 'max-w-md'}`}>
         <div className="relative bg-gradient-to-r from-neutral-900 to-neutral-800 px-6 py-5 text-white">
-          <button onClick={cerrarTicket} className="absolute right-4 top-4 rounded-full bg-white/10 p-1.5 transition hover:bg-white/20">
-            <X className="h-4 w-4" />
+          <button
+            type="button"
+            onClick={cerrarTicket}
+            aria-label="Cerrar pase digital"
+            title="Cerrar pase digital"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:border-cyan-300/60 hover:bg-cyan-300/15"
+          >
+            <X className="h-5 w-5" strokeWidth={2.5} />
           </button>
           <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300/90">Pase digital</span>
           <h3 className="font-heading text-2xl font-black">Globde Barber Studio</h3>
@@ -134,7 +165,90 @@ export const TicketModal: React.FC = () => {
           <span className="mx-1 flex-1 border-b-2 border-dashed border-white/10" />
         </div>
 
-        <div className="space-y-4 p-6">
+        <div className="pase-digital-contenido space-y-4 p-6">
+          {mostrarDetallesCorte && (
+            <div className="grid grid-cols-2 rounded-xl bg-[#0F151C] p-1" role="tablist" aria-label="Vistas de la reserva">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={vistaDigital === 'pase'}
+                onClick={() => setVistaDigital('pase')}
+                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${vistaDigital === 'pase' ? 'bg-cyan-300 text-[#06232A]' : 'text-[#93A1B1] hover:text-white'}`}
+              >
+                Pase digital
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={vistaDigital === 'corte'}
+                onClick={() => setVistaDigital('corte')}
+                className={`rounded-lg px-3 py-2 text-xs font-bold transition ${vistaDigital === 'corte' ? 'bg-cyan-300 text-[#06232A]' : 'text-[#93A1B1] hover:text-white'}`}
+              >
+                Detalles del corte
+              </button>
+            </div>
+          )}
+
+          {mostrarDetallesCorte && vistaDigital === 'corte' ? (
+            <section role="tabpanel" aria-label="Detalles del corte" className="overflow-hidden rounded-2xl border border-white/10 bg-[#0F151C]">
+              <div className="h-40 overflow-hidden bg-[#141A21] sm:h-48">
+                <img
+                  src={imagenCorte}
+                  alt={corteRelacionado?.nombre ?? c.servicio_nombre}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="space-y-3 p-4 sm:p-5">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Detalle del servicio</p>
+                  <h2 className="mt-1 font-heading text-xl font-black leading-tight text-[#EAF0F6] sm:text-2xl">
+                    {corteRelacionado?.nombre ?? c.servicio_nombre}
+                  </h2>
+                  <p className="mt-1 text-sm font-semibold text-[#93A1B1]">
+                    {corteRelacionado?.categoria ?? 'Servicio de barbería'}
+                  </p>
+                </div>
+
+                <p className="text-sm leading-relaxed text-[#C6D0DC]">
+                  {corteRelacionado?.descripcion ?? `Servicio reservado: ${c.servicio_nombre}.`}
+                </p>
+
+                {Boolean(corteRelacionado?.tags.length) && (
+                  <div className="flex flex-wrap gap-2">
+                    {corteRelacionado?.tags.map((tag) => (
+                      <span key={tag} className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-[11px] font-semibold text-cyan-100">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-white/8 bg-[#141A21] p-2.5">
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">
+                      <Timer className="h-3.5 w-3.5 text-cyan-300" /> Duración
+                    </span>
+                    <p className="mt-1 text-sm font-black text-[#EAF0F6]">
+                      {duracionLegible(corteRelacionado?.duracion_minutos ?? c.duracion_minutos)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white/8 bg-[#141A21] p-2.5">
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">
+                      <Scissors className="h-3.5 w-3.5 text-cyan-300" /> Precio
+                    </span>
+                    <p className="mt-1 text-sm font-black text-[#EAF0F6]">
+                      {formatoCOP(corteRelacionado?.precio_sugerido ?? c.precio_total)}
+                    </p>
+                  </div>
+                  <div className="col-span-2 rounded-xl border border-white/8 bg-[#141A21] p-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#6B7A8C]">Barbero asignado</span>
+                    <p className="mt-1 text-sm font-black text-[#EAF0F6]">{c.barbero_nombre}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : (
+          <>
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl bg-[#0F151C] p-3">
               <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-[#6B7A8C]"><UserRound className="h-3 w-3" /> Cliente</span>
@@ -155,25 +269,29 @@ export const TicketModal: React.FC = () => {
               <p className="text-xs text-[#93A1B1]">Esta cita ya fue atendida. Los puntos correspondientes fueron acreditados.</p>
             </div>
           ) : (
-            <>
-              <div className="rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4 text-center">
-                <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Tu franja reservada</span>
-                <p className="font-heading mt-1 text-2xl font-black text-[#06232A]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
-                <p className="text-xs font-semibold text-[#24515A]">{fechaLarga(c.fecha)} · {duracionLegible(c.duracion_minutos)}</p>
-              </div>
-
-              <div className="flex items-center gap-4 rounded-2xl border border-white/8 p-3">
-                <div className="rounded-xl bg-[#EAF0F6] p-2">
-                  <QrCode className="h-14 w-14 text-[#0B0F14]" />
-                </div>
-                <div className="text-xs text-[#93A1B1]">
-                  <p className="font-bold text-[#EAF0F6]">Muestra este código al llegar</p>
-                  <p className="mt-0.5">Con él validamos tu turno y acreditamos tus puntos automáticamente.</p>
-                  <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700"><MapPin className="h-3 w-3" /> Calle 85 #14-20, Bogotá</p>
-                </div>
-              </div>
-            </>
+            <div className="rounded-2xl border-2 border-dashed border-amber-400/40 bg-amber-400/8 p-4 text-center">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-amber-700">Tu franja reservada</span>
+              <p className="font-heading mt-1 text-2xl font-black text-[#06232A]">{rangoHorario(c.hora_inicio, c.hora_fin)}</p>
+              <p className="text-xs font-semibold text-[#24515A]">{fechaLarga(c.fecha)} · {duracionLegible(c.duracion_minutos)}</p>
+            </div>
           )}
+
+          <div className="flex items-center gap-4 rounded-2xl border border-white/8 p-3">
+            <div className="shrink-0 rounded-xl bg-[#EAF0F6] p-2">
+              <CodigoQRReserva codigo={c.codigo_reserva} tamano={88} />
+            </div>
+            <div className="text-xs text-[#93A1B1]">
+              <p className="font-bold text-[#EAF0F6]">
+                {c.estado === 'completada' ? 'Código QR de tu reserva' : 'Muestra este código al llegar'}
+              </p>
+              <p className="mt-0.5">
+                {c.estado === 'completada'
+                  ? 'El servicio ya fue atendido; conserva este pase como comprobante.'
+                  : 'Con él validamos tu turno y acreditamos tus puntos automáticamente.'}
+              </p>
+              <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700"><MapPin className="h-3 w-3" /> Calle 85 #14-20, Bogotá</p>
+            </div>
+          </div>
 
           {c.extras.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -207,6 +325,8 @@ export const TicketModal: React.FC = () => {
             >
               <Ban className="h-3.5 w-3.5" /> Cancelar esta reserva
             </button>
+          )}
+          </>
           )}
         </div>
       </div>

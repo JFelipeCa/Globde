@@ -74,10 +74,12 @@ class CitaOut(ModeloBase):
     precio_total: float = 0
     descuento_aplicado: float = 0
     puntos_canjeados: int = 0
+    extras: list[str] = Field(default_factory=list)
     observaciones: str | None = None
     motivo_cancelacion: str | None = None
     creado_en: str | None = None
     cancelado_en: str | None = None
+    completada_en: str | None = None
 
     id_cliente: int
     cliente_nombre: str | None = None
@@ -91,6 +93,7 @@ class CitaOut(ModeloBase):
     servicio_nombre: str | None = None
     servicio_categoria: str | None = None
     servicio_duracion_minutos: int | None = None
+    duracion_minutos: int | None = None
 
     id_factura: int | None = None
     numero_factura: str | None = None
@@ -114,6 +117,7 @@ class CitaCreate(ModeloBase):
     )
     observaciones: str | None = None
     puntos_a_canjear: int = Field(default=0, ge=0)
+    extras: list[str] = Field(default_factory=list, max_length=4)
     estado: EstadoCita | None = None
 
     @model_validator(mode="after")
@@ -244,6 +248,7 @@ class SaldoPuntosOut(ModeloBase):
     puntos_canjeados: int = 0
     proximo_nivel: str | None = None
     puntos_para_proximo_nivel: int | None = None
+    progreso_nivel: int = Field(ge=0, le=100)
 
 
 class AjustePuntosIn(ModeloBase):

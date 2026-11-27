@@ -8,7 +8,12 @@ from fastapi import APIRouter, File, Query, UploadFile, status
 from app.core.dependencies import DatosPeticion, SoloAdmin, UsuarioAuth
 from app.core.exceptions import Prohibido
 from app.schemas.comunes import MensajeRespuesta, RespuestaPaginada
-from app.schemas.personas import PerfilUpdate, UsuarioInternoCreate, UsuarioOut
+from app.schemas.personas import (
+    BarberoFavoritoUpdate,
+    PerfilUpdate,
+    UsuarioInternoCreate,
+    UsuarioOut,
+)
 from app.services import usuarios_service
 from app.services.auditoria_service import Accion, registrar_auditoria
 from app.utils.paginacion import offset_de, paginar
@@ -54,6 +59,31 @@ def actualizar_mi_perfil(datos: PerfilUpdate, usuario: UsuarioAuth, contexto: Da
     registrar_auditoria(
         Accion.USUARIO_ACTUALIZADO, "usuarios", usuario.id_usuario, usuario.id_usuario,
         contexto.get("ip"), contexto.get("user_agent"),
+    )
+    return actualizado
+
+
+@router.put(
+    "/me/barbero-favorito",
+    response_model=UsuarioOut,
+    summary="Actualizar mi barbero favorito",
+)
+def actualizar_barbero_favorito(
+    datos: BarberoFavoritoUpdate,
+    usuario: UsuarioAuth,
+    contexto: DatosPeticion,
+):
+    actualizado = usuarios_service.actualizar_barbero_favorito(
+        usuario.id_usuario, datos.id_barbero
+    )
+    registrar_auditoria(
+        Accion.USUARIO_ACTUALIZADO,
+        "clientes",
+        actualizado["id_cliente"],
+        usuario.id_usuario,
+        contexto.get("ip"),
+        contexto.get("user_agent"),
+        {"campo": "id_barbero_favorito", "id_barbero": datos.id_barbero},
     )
     return actualizado
 
